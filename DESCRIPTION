@@ -1,0 +1,25 @@
+Package: patientSimCore
+Type: Package
+Title: Event-driven patient simulation scaffold (core)
+Version: 0.1.0
+Authors@R: c(
+    person("First", "Last", email = "first.last@example.com", role = c("aut", "cre"))
+  )
+Description: A scaffold for event-driven simulation projects in R. Provides a schema-based
+    R6 Patient for mutable state with sparse history and an Engine for orchestrating
+    simulations using pluggable ModelBundles loaded by ModelProviders (package, file,
+    MLflow-friendly stubs). Supports non-uniform event times, event types, terminal events,
+    and no-update events.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.2
+Imports:
+    R6,
+    stats
+Suggests:
+    knitr,
+    rmarkdown,
+    parallel
+VignetteBuilder:
+    knitr
