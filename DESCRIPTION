@@ -10,18 +10,12 @@ Description: A scaffold for event-driven simulation projects in R. Provides a sc
     simulations using pluggable ModelBundles loaded by ModelProviders (package, file,
     MLflow-friendly stubs). Supports non-uniform event times, event types, terminal events,
     and no-update events.
-License: MIT + file LICENSE
+License: file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.2
 Imports:
-    R6,
-    stats
+    R6
 Suggests:
-    knitr,
-    rmarkdown,
-    parallel
     testthat
-VignetteBuilder:
-    knitr
 Config/testthat/edition: 3
