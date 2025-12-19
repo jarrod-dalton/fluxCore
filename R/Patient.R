@@ -34,6 +34,23 @@
 #' - `update(time, event_type, changes = NULL)` : Record event + sparse updates (**auto `j`**).
 #' - `state_at(j, vars = NULL)` : Reconstruct state at event `j` (subsettable).
 #'
+#' @field schema Named list. Variable definitions (`default`, `coerce`, `validate`).
+#' @field current Named list. Current values for all variables in `schema`.
+#' @field hist Named list. Sparse history per variable.
+#' @field last_j Integer. Last event index recorded.
+#' @field last_time Numeric. Last event time recorded.
+#' @field events Data frame. Event log with columns `j`, `time`, `event_type`.
+#'
+#' @param init Named list. Initial values for patient variables.
+#' @param schema Named list. Variable definitions; see [default_patient_schema()].
+#' @param time0 Numeric. Initial time.
+#' @param event_type0 Character. Initial event label (default `"init"`).
+#' @param vars Character vector of variable names to return; `NULL` returns all.
+#' @param time Numeric. Event time for an update.
+#' @param event_type Character. Event label for an update.
+#' @param changes Named list of sparse updates; `NULL` means record event with no state changes.
+#' @param j Integer. Event index used by `state_at()`.
+#'
 #' @examples
 #' library(patientSimCore)
 #' set.seed(42)

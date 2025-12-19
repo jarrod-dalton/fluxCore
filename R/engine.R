@@ -21,6 +21,14 @@
 #' - `stop(patient, event_type, ctx)` -> logical scalar
 #' - optional `observe(patient, event_type, ctx)` -> list/row; accumulated by Engine
 #'
+#' @field provider A ModelProvider (e.g., [PackageProvider], [FileProvider]).
+#' @field model_spec Named list describing which model/bundle to load.
+#' @field bundle The loaded ModelBundle (named list of functions).
+#'
+#' @param provider Provider object with a `$load(model_spec, ...)` method.
+#' @param model_spec Named list describing which model/bundle to load.
+#' @param ... Additional arguments passed to the provider when loading the model bundle.
+#'
 #' @examples
 #' library(patientSimCore)
 #' set.seed(1)
