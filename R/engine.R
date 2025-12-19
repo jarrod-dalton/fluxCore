@@ -107,7 +107,10 @@ Engine <- R6::R6Class(
           obs_list[[length(obs_list) + 1L]] <<- obs
         }
 
-        list(event_type = event_type, time = time_next)
+        # Decide whether the simulation should stop *immediately* after this event.
+        stop_now <- isTRUE(self$bundle$stop(patient, event_type = event_type, ctx = ctx))
+
+        list(event_type = event_type, time = time_next, stop_now = stop_now)
       }
 
       last_event_type <- NA_character_
@@ -117,7 +120,7 @@ Engine <- R6::R6Class(
         res <- step_once()
         last_event_type <- res$event_type
 
-        if (isTRUE(self$bundle$stop(patient, event_type = last_event_type, ctx = ctx))) break
+        if (isTRUE(res$stop_now)) break
       }
 
       observations <- NULL

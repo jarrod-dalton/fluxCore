@@ -94,3 +94,38 @@ test_that("run_cohort produces index with patient_id, draw_id, sim_id and correc
   expect_true(all(c("patient_id","draw_id","sim_id","run_id") %in% names(batch$index)))
   expect_equal(length(batch$runs), nrow(batch$index))
 })
+
+test_that("Engine stops immediately when bundle stop() returns TRUE (no events after terminal)", {
+  # Create a tiny bundle that stops when it emits event_type == "STOP"
+  bundle <- list(
+    propose_event = function(patient, ctx = NULL) {
+      t0 <- patient$last_time
+      if (patient$j == 0L) {
+        return(list(time_next = t0 + 1, event_type = "GO"))
+      }
+      list(time_next = t0 + 1, event_type = "STOP")
+    },
+    transition = function(patient, event_type, time_next, ctx = NULL) {
+      NULL
+    },
+    stop = function(patient, event_type, ctx = NULL) {
+      identical(event_type, "STOP")
+    },
+    observe = NULL,
+    sample_params = function(D) rep(list(NULL), as.integer(D))
+  )
+
+  prov <- PackageProvider$new(registry = list(x = function() bundle))
+  eng <- Engine$new(provider = prov, model_spec = list(name = "x"))
+
+  p <- Patient$new(init = list(age = 50, miles_to_work = 10),
+                   schema = default_patient_schema(),
+                   time0 = 0)
+
+  out <- eng$run(p, max_events = 10, return_observations = FALSE)
+
+  # Expect exactly init + GO + STOP (3 events)
+  expect_equal(nrow(out$events), 3)
+  expect_identical(tail(out$events$event_type, 1), "STOP")
+})
+
