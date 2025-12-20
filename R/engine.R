@@ -21,20 +21,6 @@
 #' - `stop(patient, event_type, ctx)` -> logical scalar
 #' - optional `observe(patient, event_type, ctx)` -> list/row; accumulated by Engine
 #'
-#' @field provider A ModelProvider (e.g., [PackageProvider], [FileProvider]).
-#' @field model_spec Named list describing which model/bundle to load.
-#' @field bundle The loaded ModelBundle (named list of functions).
-#'
-#' @param provider Provider object with a `$load(model_spec, ...)` method.
-#' @param model_spec Named list describing which model/bundle to load.
-#' @param ... Additional arguments passed to the provider when loading the model bundle.
-#'
-#' @param patient A [Patient] R6 object.
-#' @param max_events Integer. Maximum number of additional events to simulate.
-#' @param max_time Optional numeric. Stop if patient time exceeds this value.
-#' @param return_observations Logical. If TRUE, accumulate `bundle$observe()` outputs.
-#' @param ctx Optional list passed through to bundle functions.
-#'
 #' @examples
 #' library(patientSimCore)
 #' set.seed(1)
@@ -71,17 +57,17 @@ Engine <- R6::R6Class(
       invisible(self)
     },
 
-    ## Run a simulation for one patient
+    #' Run a simulation for one patient
     #'
-    ## @param patient A `Patient` R6 object.
-    ## @param max_events Maximum number of additional events to simulate.
-    ## @param max_time Optional numeric; stop if patient time exceeds this value.
-    ## @param return_observations Logical; if TRUE, accumulate `bundle$observe()` outputs.
-    ## @param ctx Optional list passed through to bundle functions (e.g., draw_id, sim_id, params).
-    ## @return A list with elements:
-    ## - `patient`: the modified patient object
-    ## - `events`: the patient's event log
-    ## - `observations`: data.frame of observations (if requested and available)
+    #' @param patient A `Patient` R6 object.
+    #' @param max_events Maximum number of additional events to simulate.
+    #' @param max_time Optional numeric; stop if patient time exceeds this value.
+    #' @param return_observations Logical; if TRUE, accumulate `bundle$observe()` outputs.
+    #' @param ctx Optional list passed through to bundle functions (e.g., draw_id, sim_id, params).
+    #' @return A list with elements:
+    #' - `patient`: the modified patient object
+    #' - `events`: the patient's event log
+    #' - `observations`: data.frame of observations (if requested and available)
     run = function(patient,
                    max_events = 1000,
                    max_time = NULL,

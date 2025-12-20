@@ -26,6 +26,7 @@
 #' - `last_j` : Integer. Last event index recorded.
 #' - `last_time` : Numeric. Last event time recorded.
 #' - `events` : Data frame. Event log with columns `j`, `time`, `event_type`.
+#' - `derived_vars` : Named list of functions. Derived feature definitions used by `snapshot*()`.
 #'
 #' @section Methods:
 #' - `initialize(init, schema = default_patient_schema(), time0 = 0, event_type0 = "init")`
@@ -33,23 +34,6 @@
 #' - `as_list(vars = NULL)` : Current state as list (subsettable).
 #' - `update(time, event_type, changes = NULL)` : Record event + sparse updates (**auto `j`**).
 #' - `state_at(j, vars = NULL)` : Reconstruct state at event `j` (subsettable).
-#'
-#' @field schema Named list. Variable definitions (`default`, `coerce`, `validate`).
-#' @field current Named list. Current values for all variables in `schema`.
-#' @field hist Named list. Sparse history per variable.
-#' @field last_j Integer. Last event index recorded.
-#' @field last_time Numeric. Last event time recorded.
-#' @field events Data frame. Event log with columns `j`, `time`, `event_type`.
-#'
-#' @param init Named list. Initial values for patient variables.
-#' @param schema Named list. Variable definitions; see [default_patient_schema()].
-#' @param time0 Numeric. Initial time.
-#' @param event_type0 Character. Initial event label (default `"init"`).
-#' @param vars Character vector of variable names to return; `NULL` returns all.
-#' @param time Numeric. Event time for an update.
-#' @param event_type Character. Event label for an update.
-#' @param changes Named list of sparse updates; `NULL` means record event with no state changes.
-#' @param j Integer. Event index used by `state_at()`.
 #'
 #' @examples
 #' library(patientSimCore)
@@ -65,6 +49,21 @@
 #' p$state_at(2, vars = c("age", "miles_to_work"))
 #'
 #' @export
+
+.eval_derived_vars <- function(derived_vars, patient, j, t) {
+  if (is.null(derived_vars) || length(derived_vars) == 0L) return(list())
+  out <- list()
+  nms <- names(derived_vars)
+  if (is.null(nms) || any(nms == "")) stop("All derived_vars must be a named list.")
+  for (nm in nms) {
+    f <- derived_vars[[nm]]
+    if (!is.function(f)) stop(sprintf("derived_vars[['%s']] must be a function", nm))
+    val <- f(patient, j = j, t = t)
+    if (!is.null(val)) out[[nm]] <- val
+  }
+  out
+}
+
 Patient <- R6::R6Class(
   classname = "Patient",
   public = list(
@@ -74,9 +73,11 @@ Patient <- R6::R6Class(
     last_j = NULL,
     last_time = NULL,
     events = NULL,
+    derived_vars = NULL,
 
     initialize = function(init,
                           schema = default_patient_schema(),
+                          derived_vars = NULL,
                           time0 = 0,
                           event_type0 = "init") {
 
@@ -143,19 +144,64 @@ Patient <- R6::R6Class(
       invisible(self)
     },
 
-    state_at_time = function(time, vars = NULL) {
-      if (length(time) != 1 || !is.finite(time)) stop("`time` must be a single finite numeric value")
-      time <- as.numeric(time)
-      t0 <- self$events$time[1]
-      if (time < t0) stop(sprintf("`time` must be >= time0 (%.6g)", t0))
-      # events$time is monotone increasing by construction
-      pos <- findInterval(time, self$events$time)
-      if (pos <= 0) stop(sprintf("No event time <= %.6g found", time))
-      j_star <- self$events$j[pos]
-      self$state_at(j_star, vars = vars)
-    },
+state_at_time = function(time, vars = NULL) {
+  if (length(time) != 1 || !is.finite(time)) stop("`time` must be a single finite numeric value")
+  time <- as.numeric(time)
+  t0 <- self$events$time[1]
+  if (time < t0) stop(sprintf("`time` must be >= time0 (%.6g)", t0))
+  pos <- findInterval(time, self$events$time)
+  if (pos <= 0) stop(sprintf("No event time <= %.6g found", time))
+  j_star <- self$events$j[pos]
+  self$state_at(j_star, vars = vars)
+},
 
-    state_at = function(j, vars = NULL) {
+snapshot = function(vars = NULL) {
+  base <- self$as_list(vars = NULL)
+  d <- .eval_derived_vars(self$derived_vars, self, j = self$last_j, t = self$last_time)
+  # prevent name collisions
+  if (length(intersect(names(base), names(d))) > 0) {
+    stop("Derived variable name collides with base state variable name.")
+  }
+  snap <- c(base, d)
+  if (!is.null(vars)) snap <- snap[vars]
+  snap
+},
+
+snapshot_at = function(j, vars = NULL) {
+  j <- as.integer(j)
+  if (!is.finite(j) || length(j) != 1L) stop("j must be a finite integer scalar.")
+  if (j < 0L) stop("j must be >= 0.")
+  if (j > self$last_j) stop("j cannot exceed patient$last_j.")
+  t <- self$events$time[match(j, self$events$j)]
+  base <- self$state_at(j, vars = NULL)
+  d <- .eval_derived_vars(self$derived_vars, self, j = j, t = t)
+  if (length(intersect(names(base), names(d))) > 0) {
+    stop("Derived variable name collides with base state variable name.")
+  }
+  snap <- c(as.list(base), d)
+  if (!is.null(vars)) snap <- snap[vars]
+  snap
+},
+
+snapshot_at_time = function(time, vars = NULL) {
+  if (length(time) != 1 || !is.finite(time)) stop("`time` must be a single finite numeric value")
+  time <- as.numeric(time)
+  t0 <- self$events$time[1]
+  if (time < t0) stop(sprintf("`time` must be >= time0 (%.6g)", t0))
+  pos <- findInterval(time, self$events$time)
+  if (pos <= 0) stop(sprintf("No event time <= %.6g found", time))
+  j_star <- self$events$j[pos]
+  base <- self$state_at(j_star, vars = NULL)
+  d <- .eval_derived_vars(self$derived_vars, self, j = j_star, t = time)
+  if (length(intersect(names(base), names(d))) > 0) {
+    stop("Derived variable name collides with base state variable name.")
+  }
+  snap <- c(as.list(base), d)
+  if (!is.null(vars)) snap <- snap[vars]
+  snap
+},
+
+state_at = function(j, vars = NULL) {
       j <- as.integer(j)
       if (!is.finite(j) || length(j) != 1L) stop("j must be a finite integer scalar.")
       if (j < 0L) stop("j must be >= 0.")
@@ -189,5 +235,4 @@ Patient <- R6::R6Class(
       stop("`j` is read-only. It is maintained internally; call `$update()` to advance events.")
     }
   )
-
 )

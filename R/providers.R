@@ -1,34 +1,26 @@
-## ModelProvider concept (R6)
-##
-## @name modelprovider-concept
-##
-## A ModelProvider materializes a `ModelBundle` from some source:
-## - package objects,
-## - files on disk,
-## - MLflow (stub).
-##
-## Providers accept a `model_spec` (named list) describing what to load.
-##
-## Providers may also optionally implement:
-## - `sample_param_draws(model_spec, n_param_draws)` -> list of length D
-##
-## which supports global parameter draws reused across patients.
-##
-## @keywords internal
+#' ModelProvider concept (R6)
+#'
+#' A ModelProvider materializes a `ModelBundle` from some source:
+#' - package objects,
+#' - files on disk,
+#' - MLflow (stub).
+#'
+#' Providers accept a `model_spec` (named list) describing what to load.
+#'
+#' Providers may also optionally implement:
+#' - `sample_param_draws(model_spec, n_param_draws)` -> list of length D
+#'
+#' which supports global parameter draws reused across patients.
+#'
+#' @keywords internal
 NULL
+
 #' PackageProvider
 #'
 #' Loads a bundle from in-package functions/objects. Use `model_spec$name` to select
 #' among multiple bundle builders. By default, `"default"` maps to [default_model_bundle()].
 #'
 #' @param registry Named list mapping bundle names to functions returning ModelBundles.
-#'
-#' @field registry Named list mapping bundle names to functions returning ModelBundles.
-#'
-#' @param registry Named list mapping bundle names to functions returning ModelBundles.
-#' @param model_spec Named list describing which model/bundle to load.
-#' @param n_param_draws Integer. Number of global parameter draws to return.
-#' @param ... Additional arguments (reserved for future extension).
 #'
 #' @examples
 #' library(patientSimCore)
@@ -102,13 +94,6 @@ PackageProvider <- R6::R6Class(
 #'
 #' @param base_path Optional base directory.
 #'
-#' @field base_path Base path where model bundles are stored.
-#'
-#' @param base_path Base path where model bundles are stored.
-#' @param model_spec Named list describing which model/bundle to load.
-#' @param n_param_draws Integer. Number of global parameter draws to return.
-#' @param ... Additional arguments (reserved for future extension).
-#'
 #' @examples
 #' \dontrun{
 #' library(patientSimCore)
@@ -166,15 +151,6 @@ FileProvider <- R6::R6Class(
 #'
 #' @param builder_fn Function returning a ModelBundle.
 #' @param sampler_fn Optional function returning a list of length D parameter contexts.
-#'
-#' @field builder_fn Function that builds a ModelBundle given `model_spec`.
-#' @field sampler_fn Optional function that returns parameter draws.
-#'
-#' @param builder_fn Function that builds a ModelBundle given `model_spec`.
-#' @param sampler_fn Optional function to sample global parameter draws.
-#' @param model_spec Named list describing which model/bundle to load.
-#' @param n_param_draws Integer. Number of global parameter draws to return.
-#' @param ... Additional arguments (reserved for future extension).
 #'
 #' @examples
 #' library(patientSimCore)
