@@ -1,5 +1,7 @@
 #' ModelBundle contract (concept)
 #'
+#' @name modelbundle-concept
+#'
 #' A ModelBundle is a named list of callables that define simulation dynamics.
 #' The Engine uses these functions to propose the next event, compute state updates,
 #' and decide when to stop.

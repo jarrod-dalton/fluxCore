@@ -65,17 +65,17 @@ Engine <- R6::R6Class(
       invisible(self)
     },
 
-    #' Run a simulation for one patient
+    ## Run a simulation for one patient
     #'
-    #' @param patient A `Patient` R6 object.
-    #' @param max_events Maximum number of additional events to simulate.
-    #' @param max_time Optional numeric; stop if patient time exceeds this value.
-    #' @param return_observations Logical; if TRUE, accumulate `bundle$observe()` outputs.
-    #' @param ctx Optional list passed through to bundle functions (e.g., draw_id, sim_id, params).
-    #' @return A list with elements:
-    #' - `patient`: the modified patient object
-    #' - `events`: the patient's event log
-    #' - `observations`: data.frame of observations (if requested and available)
+    ## @param patient A `Patient` R6 object.
+    ## @param max_events Maximum number of additional events to simulate.
+    ## @param max_time Optional numeric; stop if patient time exceeds this value.
+    ## @param return_observations Logical; if TRUE, accumulate `bundle$observe()` outputs.
+    ## @param ctx Optional list passed through to bundle functions (e.g., draw_id, sim_id, params).
+    ## @return A list with elements:
+    ## - `patient`: the modified patient object
+    ## - `events`: the patient's event log
+    ## - `observations`: data.frame of observations (if requested and available)
     run = function(patient,
                    max_events = 1000,
                    max_time = NULL,
