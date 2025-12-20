@@ -168,5 +168,14 @@ Patient <- R6::R6Class(
       }
       out
     }
+  ),
+  active = list(
+    j = function(value) {
+      if (missing(value)) {
+        return(self$last_j)
+      }
+      stop("`j` is read-only. It is maintained internally; call `$update()` to advance events.")
+    }
   )
+
 )
