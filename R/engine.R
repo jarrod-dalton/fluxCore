@@ -146,46 +146,74 @@ Engine <- R6::R6Class(
   ev
 }
 
+
 .call_transition <- function(bundle, patient, ev, ctx = NULL) {
   f <- bundle$transition
   if (is.null(f) || !is.function(f)) stop("ModelBundle must provide transition().")
   fml <- names(formals(f))
+
+  # Prefer legacy signature if event_type/time_next are present (even if `event` also exists).
+  if (("event_type" %in% fml) && ("time_next" %in% fml)) {
+    args <- list(patient = patient, event_type = ev$event_type, time_next = ev$time_next)
+    if ("ctx" %in% fml) args$ctx <- ctx
+    if ("event" %in% fml) args$event <- ev
+    return(do.call(f, args))
+  }
+
+  # Event-centric signature
   if ("event" %in% fml) {
     args <- list(patient = patient, event = ev)
     if ("ctx" %in% fml) args$ctx <- ctx
     return(do.call(f, args))
   }
-  args <- list(patient = patient, event_type = ev$event_type, time_next = ev$time_next)
-  if ("ctx" %in% fml) args$ctx <- ctx
-  do.call(f, args)
+
+  stop("transition() must accept (patient, event_type, time_next, ...) or (patient, event, ...).")
 }
+
 
 .call_stop <- function(bundle, patient, ev, ctx = NULL) {
   f <- bundle$stop
   if (is.null(f) || !is.function(f)) stop("ModelBundle must provide stop().")
   fml <- names(formals(f))
+
+  # Prefer legacy signature if event_type is present.
+  if ("event_type" %in% fml) {
+    args <- list(patient = patient, event_type = ev$event_type)
+    if ("ctx" %in% fml) args$ctx <- ctx
+    if ("event" %in% fml) args$event <- ev
+    return(isTRUE(do.call(f, args)))
+  }
+
   if ("event" %in% fml) {
     args <- list(patient = patient, event = ev)
     if ("ctx" %in% fml) args$ctx <- ctx
     return(isTRUE(do.call(f, args)))
   }
-  args <- list(patient = patient, event_type = ev$event_type)
-  if ("ctx" %in% fml) args$ctx <- ctx
-  isTRUE(do.call(f, args))
+
+  stop("stop() must accept (patient, event_type, ...) or (patient, event, ...).")
 }
+
 
 .call_observe <- function(bundle, patient, ev, ctx = NULL) {
   f <- bundle$observe
   if (is.null(f) || !is.function(f)) return(NULL)
   fml <- names(formals(f))
+
+  # Prefer legacy signature if event_type is present.
+  if ("event_type" %in% fml) {
+    args <- list(patient = patient, event_type = ev$event_type)
+    if ("ctx" %in% fml) args$ctx <- ctx
+    if ("event" %in% fml) args$event <- ev
+    return(do.call(f, args))
+  }
+
   if ("event" %in% fml) {
     args <- list(patient = patient, event = ev)
     if ("ctx" %in% fml) args$ctx <- ctx
     return(do.call(f, args))
   }
-  args <- list(patient = patient, event_type = ev$event_type)
-  if ("ctx" %in% fml) args$ctx <- ctx
-  do.call(f, args)
+
+  stop("observe() must accept (patient, event_type, ...) or (patient, event, ...).")
 }
 
 .call_refresh_rules <- function(bundle, patient, ev, changes, ctx = NULL) {
