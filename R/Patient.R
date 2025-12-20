@@ -26,7 +26,6 @@
 #' - `last_j` : Integer. Last event index recorded.
 #' - `last_time` : Numeric. Last event time recorded.
 #' - `events` : Data frame. Event log with columns `j`, `time`, `event_type`.
-#' - `derived_vars` : Named list of functions. Derived feature definitions used by `snapshot*()`.
 #'
 #' @section Methods:
 #' - `initialize(init, schema = default_patient_schema(), time0 = 0, event_type0 = "init")`
@@ -52,9 +51,9 @@
 
 .eval_derived_vars <- function(derived_vars, patient, j, t) {
   if (is.null(derived_vars) || length(derived_vars) == 0L) return(list())
-  out <- list()
   nms <- names(derived_vars)
   if (is.null(nms) || any(nms == "")) stop("All derived_vars must be a named list.")
+  out <- list()
   for (nm in nms) {
     f <- derived_vars[[nm]]
     if (!is.function(f)) stop(sprintf("derived_vars[['%s']] must be a function", nm))
@@ -160,10 +159,7 @@ state_at_time = function(time, vars = NULL) {
 snapshot = function(vars = NULL) {
   base <- self$as_list(vars = NULL)
   d <- .eval_derived_vars(self$derived_vars, self, j = self$last_j, t = self$last_time)
-  # prevent name collisions
-  if (length(intersect(names(base), names(d))) > 0) {
-    stop("Derived variable name collides with base state variable name.")
-  }
+  if (length(intersect(names(base), names(d))) > 0) stop("Derived variable name collides with base state variable name.")
   snap <- c(base, d)
   if (!is.null(vars)) snap <- snap[vars]
   snap
@@ -171,15 +167,13 @@ snapshot = function(vars = NULL) {
 
 snapshot_at = function(j, vars = NULL) {
   j <- as.integer(j)
-  if (!is.finite(j) || length(j) != 1L) stop("j must be a finite integer scalar.")
+  if (length(j) != 1 || !is.finite(j)) stop("j must be a finite integer scalar.")
   if (j < 0L) stop("j must be >= 0.")
   if (j > self$last_j) stop("j cannot exceed patient$last_j.")
   t <- self$events$time[match(j, self$events$j)]
   base <- self$state_at(j, vars = NULL)
   d <- .eval_derived_vars(self$derived_vars, self, j = j, t = t)
-  if (length(intersect(names(base), names(d))) > 0) {
-    stop("Derived variable name collides with base state variable name.")
-  }
+  if (length(intersect(names(base), names(d))) > 0) stop("Derived variable name collides with base state variable name.")
   snap <- c(as.list(base), d)
   if (!is.null(vars)) snap <- snap[vars]
   snap
@@ -195,9 +189,7 @@ snapshot_at_time = function(time, vars = NULL) {
   j_star <- self$events$j[pos]
   base <- self$state_at(j_star, vars = NULL)
   d <- .eval_derived_vars(self$derived_vars, self, j = j_star, t = time)
-  if (length(intersect(names(base), names(d))) > 0) {
-    stop("Derived variable name collides with base state variable name.")
-  }
+  if (length(intersect(names(base), names(d))) > 0) stop("Derived variable name collides with base state variable name.")
   snap <- c(as.list(base), d)
   if (!is.null(vars)) snap <- snap[vars]
   snap
@@ -231,9 +223,7 @@ state_at = function(j, vars = NULL) {
   ),
   active = list(
     j = function(value) {
-      if (missing(value)) {
-        return(self$last_j)
-      }
+      if (missing(value)) return(self$last_j)
       stop("`j` is read-only. It is maintained internally; call `$update()` to advance events.")
     }
   )

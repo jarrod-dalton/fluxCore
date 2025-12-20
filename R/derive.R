@@ -48,7 +48,6 @@ var <- function(name) {
     return(keep)
   }
 
-  # default: all history up to j (and to t boundary)
   if (include_current) {
     keep <- (jj <= j) & (tt <= t)
   } else {
@@ -66,10 +65,8 @@ var <- function(name) {
 
 #' Define a derived feature
 #'
-#' `derive()` returns a function compatible with the patient-level simulation framework.
-#' The returned function computes a history-derived feature as of an evaluation point `(j, t)`.
-#'
-#' This is intended to populate `Patient$derived_vars` and be used by `Patient$snapshot*()`.
+#' `derive()` returns a function computing a history-derived feature as of `(j, t)`.
+#' Intended to populate `Patient$derived_vars` and be used by `Patient$snapshot*()`.
 #'
 #' @param name Name of the derived feature.
 #' @param target A target created by [event()] or [var()].
@@ -92,15 +89,13 @@ derive <- function(name,
                    na_value = NA,
                    clock = "time") {
   fn <- match.arg(fn)
-
   if (length(name) != 1) stop("name must be length 1")
-  name <- as.character(name)
-
   if (!is.list(target) || is.null(target$kind)) stop("target must be created by event() or var()")
 
   function(patient, j = patient$j, t = patient$last_time) {
     j <- as.integer(j); t <- as.numeric(t)
-    keep <- .get_window_idx(patient, t = t, j = j, lookback_t = lookback_t, lookback_j = lookback_j,
+    keep <- .get_window_idx(patient, t = t, j = j,
+                            lookback_t = lookback_t, lookback_j = lookback_j,
                             include_current = include_current, clock = clock)
 
     if (identical(target$kind, "event")) {
@@ -110,10 +105,7 @@ derive <- function(name,
       if (n == 0L) return(.empty_value(fn, force, na_value))
       if (identical(fn, "count")) return(n)
       if (identical(fn, "any")) return(TRUE)
-      if (identical(fn, "all")) {
-        # all events in window are of this type
-        return(sum(keep) == n)
-      }
+      if (identical(fn, "all")) return(sum(keep) == n)
       stop("For event() targets, only fn in {count, any, all} is supported.")
     }
 
@@ -122,35 +114,23 @@ derive <- function(name,
       h <- patient$hist[[vname]]
       if (is.null(h)) return(.empty_value(fn, force, na_value))
       jj <- h$j; vv <- h$v
-      # map j to event times for windowing
-      # only consider history points <= j
       in_j <- jj <= j
       if (!any(in_j)) return(.empty_value(fn, force, na_value))
       jj2 <- jj[in_j]
       vv2 <- vv[in_j]
-      # time filter if lookback_t present: use clock column time at jj2
+
       if (!is.null(lookback_t)) {
         ev_time <- patient$events[[clock]][match(jj2, patient$events$j)]
         start <- t - as.numeric(lookback_t)
-        if (include_current) {
-          in_t <- (ev_time > start) & (ev_time <= t)
-        } else {
-          in_t <- (ev_time > start) & (ev_time < t)
-        }
+        in_t <- if (include_current) (ev_time > start) & (ev_time <= t) else (ev_time > start) & (ev_time < t)
         vv2 <- vv2[in_t]
       } else if (!is.null(lookback_j)) {
         j_end <- if (include_current) j else (j - 1L)
         j_start <- j_end - as.integer(lookback_j)
-        in_w <- (jj2 > j_start) & (jj2 <= j_end)
-        vv2 <- vv2[in_w]
+        vv2 <- vv2[(jj2 > j_start) & (jj2 <= j_end)]
       } else {
-        # default: up to j, and t boundary
         ev_time <- patient$events[[clock]][match(jj2, patient$events$j)]
-        if (include_current) {
-          vv2 <- vv2[ev_time <= t]
-        } else {
-          vv2 <- vv2[ev_time < t]
-        }
+        vv2 <- if (include_current) vv2[ev_time <= t] else vv2[ev_time < t]
       }
 
       if (length(vv2) == 0) return(.empty_value(fn, force, na_value))
@@ -173,15 +153,14 @@ derive <- function(name,
 
 #' Define a lagged feature from variable history
 #'
-#' `lag_of()` returns a function that extracts the k-th most recent value
-#' of a variable from its sparse history, optionally within a lookback window.
+#' Extract the k-th most recent value of a variable from sparse history as of `(j, t)`.
 #'
 #' @param name Name of the derived feature.
 #' @param target A target created by [var()].
 #' @param k Positive integer lag order (1 = most recent prior value by default).
 #' @param lookback_t Optional numeric lookback window on the time axis. Takes precedence over `lookback_j`.
 #' @param lookback_j Optional integer lookback window in event-index units.
-#' @param include_current Logical; include boundary event at `t`/`j` (default FALSE for lag semantics).
+#' @param include_current Logical; include boundary event at `t`/`j` (default FALSE).
 #' @param force Logical; if TRUE return `na_value` when insufficient history exists (default FALSE).
 #' @param na_value Value to return when `force=TRUE` and insufficient history exists (default `NA`).
 #' @param clock Which column in `patient$events` defines the time axis for `lookback_t` (default `"time"`).
@@ -197,7 +176,6 @@ lag_of <- function(name,
                    na_value = NA,
                    clock = "time") {
   if (length(name) != 1) stop("name must be length 1")
-  name <- as.character(name)
   if (!is.list(target) || !identical(target$kind, "var")) stop("target must be var(<name>)")
   k <- as.integer(k)
   if (!is.finite(k) || k < 1L) stop("k must be a positive integer")
@@ -214,28 +192,18 @@ lag_of <- function(name,
     vv2 <- vv[in_j]
     if (length(vv2) == 0) return(if (force) na_value else NULL)
 
-    # apply lookback filtering
     if (!is.null(lookback_t)) {
       ev_time <- patient$events[[clock]][match(jj2, patient$events$j)]
       start <- t - as.numeric(lookback_t)
-      if (include_current) {
-        in_t <- (ev_time > start) & (ev_time <= t)
-      } else {
-        in_t <- (ev_time > start) & (ev_time < t)
-      }
+      in_t <- if (include_current) (ev_time > start) & (ev_time <= t) else (ev_time > start) & (ev_time < t)
       vv2 <- vv2[in_t]
     } else if (!is.null(lookback_j)) {
       j_end <- if (include_current) j else (j - 1L)
       j_start <- j_end - as.integer(lookback_j)
-      in_w <- (jj2 > j_start) & (jj2 <= j_end)
-      vv2 <- vv2[in_w]
+      vv2 <- vv2[(jj2 > j_start) & (jj2 <= j_end)]
     } else {
       ev_time <- patient$events[[clock]][match(jj2, patient$events$j)]
-      if (include_current) {
-        vv2 <- vv2[ev_time <= t]
-      } else {
-        vv2 <- vv2[ev_time < t]
-      }
+      vv2 <- if (include_current) vv2[ev_time <= t] else vv2[ev_time < t]
     }
 
     if (length(vv2) < k) return(if (force) na_value else NULL)

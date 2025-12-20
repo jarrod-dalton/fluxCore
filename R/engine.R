@@ -21,14 +21,6 @@
 #' - `stop(patient, event_type, ctx)` -> logical scalar
 #' - optional `observe(patient, event_type, ctx)` -> list/row; accumulated by Engine
 #'
-#' @section Fields:
-#' - `provider`: A ModelProvider (e.g., [PackageProvider]) that can load a model bundle.
-#' - `model_spec`: Named list describing which bundle to load.
-#' - `bundle`: The loaded ModelBundle (list of functions).
-#'
-#' @section Methods:
-#' - `initialize(provider = PackageProvider$new(), model_spec = list(name = "default"), ...)`
-#' - `run(patient, max_events = 1000, max_time = NULL, return_observations = TRUE, ctx = NULL)`
 #' @examples
 #' library(patientSimCore)
 #' set.seed(1)
@@ -41,6 +33,94 @@
 #' tail(out$events, 3)
 #'
 #' @export
+
+.call_propose_events <- function(bundle, patient, ctx = NULL, process_ids = NULL, current_proposals = NULL) {
+  if (!is.null(bundle$propose_events) && is.function(bundle$propose_events)) {
+    fml <- names(formals(bundle$propose_events))
+    args <- list(patient = patient)
+    if ("ctx" %in% fml) args$ctx <- ctx
+    if ("process_ids" %in% fml) args$process_ids <- process_ids
+    if ("current_proposals" %in% fml) args$current_proposals <- current_proposals
+    out <- do.call(bundle$propose_events, args)
+    if (is.null(out)) return(list())
+    if (!is.list(out)) stop("bundle$propose_events must return a list of events keyed by process_id.")
+    return(out)
+  }
+
+  if (!is.null(bundle$propose_event) && is.function(bundle$propose_event)) {
+    ev <- bundle$propose_event(patient, ctx = ctx)
+    if (is.null(ev)) return(list())
+    if (!is.list(ev)) stop("bundle$propose_event must return a list(time_next, event_type, ...)")
+    ev$process_id <- "default"
+    return(list(default = ev))
+  }
+
+  stop("ModelBundle must provide propose_events() or propose_event().")
+}
+
+.pick_next_event <- function(proposals) {
+  if (length(proposals) == 0L) stop("No proposals available.")
+  times <- vapply(proposals, function(x) x$time_next, numeric(1))
+  i <- which.min(times)
+  pid <- names(proposals)[i]
+  ev <- proposals[[pid]]
+  ev$process_id <- pid
+  ev
+}
+
+.call_transition <- function(bundle, patient, ev, ctx = NULL) {
+  f <- bundle$transition
+  if (is.null(f) || !is.function(f)) stop("ModelBundle must provide transition().")
+  fml <- names(formals(f))
+  if ("event" %in% fml) {
+    args <- list(patient = patient, event = ev)
+    if ("ctx" %in% fml) args$ctx <- ctx
+    return(do.call(f, args))
+  }
+  args <- list(patient = patient, event_type = ev$event_type, time_next = ev$time_next)
+  if ("ctx" %in% fml) args$ctx <- ctx
+  return(do.call(f, args))
+}
+
+.call_stop <- function(bundle, patient, ev, ctx = NULL) {
+  f <- bundle$stop
+  if (is.null(f) || !is.function(f)) stop("ModelBundle must provide stop().")
+  fml <- names(formals(f))
+  if ("event" %in% fml) {
+    args <- list(patient = patient, event = ev)
+    if ("ctx" %in% fml) args$ctx <- ctx
+    return(isTRUE(do.call(f, args)))
+  }
+  args <- list(patient = patient, event_type = ev$event_type)
+  if ("ctx" %in% fml) args$ctx <- ctx
+  return(isTRUE(do.call(f, args)))
+}
+
+.call_observe <- function(bundle, patient, ev, ctx = NULL) {
+  f <- bundle$observe
+  if (is.null(f) || !is.function(f)) return(NULL)
+  fml <- names(formals(f))
+  if ("event" %in% fml) {
+    args <- list(patient = patient, event = ev)
+    if ("ctx" %in% fml) args$ctx <- ctx
+    return(do.call(f, args))
+  }
+  args <- list(patient = patient, event_type = ev$event_type)
+  if ("ctx" %in% fml) args$ctx <- ctx
+  return(do.call(f, args))
+}
+
+.call_refresh_rules <- function(bundle, patient, ev, changes, ctx = NULL) {
+  f <- bundle$refresh_rules
+  if (is.null(f) || !is.function(f)) return("ALL")
+  fml <- names(formals(f))
+  args <- list(patient = patient, last_event = ev, changes = changes)
+  if ("ctx" %in% fml) args$ctx <- ctx
+  out <- do.call(f, args)
+  if (is.null(out)) return(character(0))
+  out
+}
+
 Engine <- R6::R6Class(
   classname = "Engine",
   public = list(
@@ -66,7 +146,8 @@ Engine <- R6::R6Class(
     },
 
     # Run a simulation for one patient
-    #     # @param patient A `Patient` R6 object.
+    # 
+    # @param patient A `Patient` R6 object.
     # @param max_events Maximum number of additional events to simulate.
     # @param max_time Optional numeric; stop if patient time exceeds this value.
     # @param return_observations Logical; if TRUE, accumulate `bundle$observe()` outputs.
@@ -76,18 +157,77 @@ Engine <- R6::R6Class(
     # - `events`: the patient's event log
     # - `observations`: data.frame of observations (if requested and available)
     run = function(patient,
-                   max_events = 1000,
-                   max_time = NULL,
-                   return_observations = TRUE,
-                   ctx = NULL) {
+               max_events = 1000,
+               max_time = NULL,
+               return_observations = TRUE,
+               ctx = NULL) {
 
-      max_events <- as.integer(max_events)
-      if (!is.finite(max_events) || max_events < 0L) stop("max_events must be a non-negative integer.")
-      if (!is.null(max_time)) {
-        max_time <- as.numeric(max_time)
-        if (length(max_time) != 1L || !is.finite(max_time)) stop("max_time must be a finite numeric scalar.")
+  if (is.null(ctx)) ctx <- list()
+  obs_accum <- NULL
+
+  # initial proposals for all processes
+  proposals <- .call_propose_events(self$bundle, patient, ctx = ctx)
+
+  step_once <- function() {
+    ev <- .pick_next_event(proposals)
+
+    # apply transition patch (may be NULL)
+    changes <- .call_transition(self$bundle, patient, ev, ctx = ctx)
+
+    patient$update(time = ev$time_next, event_type = ev$event_type, changes = changes)
+
+    if (return_observations) {
+      o <- .call_observe(self$bundle, patient, ev, ctx = ctx)
+      if (!is.null(o)) {
+        obs_accum <<- if (is.null(obs_accum)) o else rbind(obs_accum, o)
       }
+    }
 
+    # stopping condition
+    if (.call_stop(self$bundle, patient, ev, ctx = ctx)) {
+      return(FALSE)
+    }
+
+    # time-based stopping condition
+    if (!is.null(max_time) && patient$last_time >= max_time) {
+      return(FALSE)
+    }
+
+    # refresh processes based on rules
+    refresh_ids <- .call_refresh_rules(self$bundle, patient, ev, changes, ctx = ctx)
+    if (identical(refresh_ids, "ALL")) {
+      proposals <<- .call_propose_events(self$bundle, patient, ctx = ctx)
+    } else if (length(refresh_ids) > 0) {
+      # on-demand refresh: replace only those ids (bundle may or may not honor process_ids)
+      new_props <- .call_propose_events(self$bundle, patient, ctx = ctx, process_ids = refresh_ids, current_proposals = proposals)
+      for (pid in refresh_ids) {
+        if (!is.null(new_props[[pid]])) {
+          proposals[[pid]] <<- new_props[[pid]]
+        } else {
+          # if bundle returned nothing for pid, drop that process from cache
+          proposals[[pid]] <<- NULL
+        }
+      }
+    }
+
+    TRUE
+  }
+
+  # iterate
+  n <- 0L
+  while (n < max_events) {
+    n <- n + 1L
+    cont <- step_once()
+    if (!isTRUE(cont)) break
+    if (length(proposals) == 0L) break
+  }
+
+  list(
+    patient = patient,
+    events = patient$events,
+    observations = if (return_observations) obs_accum else NULL
+  )
+},
       observe_fun <- self$bundle$observe
       do_obs <- isTRUE(return_observations) && !is.null(observe_fun)
 
