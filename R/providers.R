@@ -13,7 +13,7 @@
 #' which supports global parameter draws reused across patients.
 #'
 #' @name modelprovider_concept
-@keywords internal
+#' @keywords internal
 NULL
 
 #' PackageProvider

@@ -16,7 +16,7 @@
 #' it easy to swap dynamics while keeping the Patient and Engine generic.
 #'
 #' @name modelbundle_concept
-@keywords internal
+#' @keywords internal
 NULL
 
 #' Default toy ModelBundle
