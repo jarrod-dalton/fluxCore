@@ -88,6 +88,8 @@ Patient <- R6::R6Class(
       event_type0 <- .validate_event_type(event_type0)
 
       self$schema  <- schema
+      if (is.null(derived_vars)) derived_vars <- list()
+      self$derived_vars <- derived_vars
       self$current <- .init_state_from_schema(schema, init)
       self$hist    <- .init_hist_from_state(self$current)
 

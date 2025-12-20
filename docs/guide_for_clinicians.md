@@ -1,4 +1,4 @@
-# Clincian's Guide for Patient-Level Simulation Studies using Object-Oriented Design
+# A Conceptual Guide for Clinician–Modeler Collaboration in Patient-Level Simulation Studies
 
 ## Overview and scope
 
@@ -6,9 +6,7 @@ This document provides a conceptual framework for clinicians collaborating with 
 
 The focus is on event-driven simulation models that represent individual patients over time. These models are increasingly used in health services research, clinical epidemiology, and decision science to study complex processes such as care pathways, policy interventions, and long-term outcomes under uncertainty.
 
-The purpose of this guide is not to teach programming or specific software tools. Instead, it aims to clarify the *conceptual responsibilities* of clinicians in simulation model development, to describe the core abstractions used in these models, and to establish a shared language that facilitates effective interdisciplinary collaboration.
-
----
+The purpose of this guide is not to teach programming or specific software tools. Instead, it aims to clarify the conceptual responsibilities of clinicians in simulation model development, to describe the core abstractions used in these models, and to establish a shared language that facilitates effective interdisciplinary collaboration.
 
 ## Why patient-level simulation models are different
 
@@ -20,12 +18,10 @@ Key distinguishing features include:
 
 - explicit representation of time as an ordered sequence of events
 - modeling of individual trajectories rather than aggregate averages
-- separation between *what happens* (events) and *what changes* (state)
+- separation between what happens (events) and what changes (state)
 - explicit stopping conditions that define the scope of the simulated process
 
 Because of these features, simulation models require more up-front conceptual specification than many statistical analyses. This is where clinical leadership is essential.
-
----
 
 ## The patient as the fundamental unit
 
@@ -33,7 +29,7 @@ At the core of these models is the individual patient. Each simulated patient is
 
 ### Patient state
 
-The *state* of a patient refers to the collection of attributes that describe the patient at a particular point in the simulation. These attributes may include demographic characteristics, clinical variables, treatment status, risk indicators, or summary measures derived from prior history.
+The state of a patient refers to the collection of attributes that describe the patient at a particular point in the simulation. These attributes may include demographic characteristics, clinical variables, treatment status, risk indicators, or summary measures derived from prior history.
 
 Important properties of patient state in this framework include:
 
@@ -43,13 +39,11 @@ Important properties of patient state in this framework include:
 
 Clinicians play a central role in determining which aspects of patient state are represented. This involves decisions about clinical relevance, level of abstraction, and how much detail is necessary for the research question at hand.
 
----
-
 ## Events as the drivers of change
 
 ### Definition of an event
 
-An *event* is a discrete occurrence at a specific time. Events represent the moments when something happens to or for the patient.
+An event is a discrete occurrence at a specific time. Events represent the moments when something happens to or for the patient.
 
 Examples include outpatient visits, hospital admissions, medication changes, adverse events, diagnostic tests, or death.
 
@@ -65,8 +59,6 @@ A key design principle is the separation between events and state updates. An ev
 
 This distinction allows the model to represent clinically meaningful situations such as visits with no treatment change, or observation-only events used for measurement and logging.
 
----
-
 ## Representation of time
 
 Time in these models is represented as a numeric variable that increases monotonically as events occur. Time advances only when an event is recorded.
@@ -79,8 +71,6 @@ This reflects several realities of clinical care:
 
 A critical invariant of the model is that event times must be non-decreasing. Violations of this assumption undermine causal interpretation and should be treated as modeling errors rather than tolerated behavior.
 
----
-
 ## The simulation process
 
 At a high level, a simulation consists of repeatedly applying a small number of steps to a patient until a stopping condition is met.
@@ -92,8 +82,6 @@ At a high level, a simulation consists of repeatedly applying a small number of 
 5. If stopping conditions are not met, repeat.
 
 Although implemented computationally, each step corresponds to conceptual decisions about clinical processes.
-
----
 
 ## Event generation and transition logic
 
@@ -113,8 +101,6 @@ State transition logic specifies how patient attributes change when an event occ
 
 Only variables that truly change should be updated at a given event. This sparse-update principle helps preserve interpretability and reduces unintended interactions.
 
----
-
 ## Policies and interventions
 
 Policies are represented as modifications to event generation or state transition rules.
@@ -127,8 +113,6 @@ Examples include:
 
 Policies influence outcomes indirectly by shaping the sequence and nature of events experienced by patients. This structure mirrors real-world clinical systems and supports causal reasoning.
 
----
-
 ## Adverse events and downstream consequences
 
 Clinical interventions often produce downstream consequences that unfold over multiple steps.
@@ -136,8 +120,6 @@ Clinical interventions often produce downstream consequences that unfold over mu
 For example, a treatment may increase the risk of an adverse event, which in turn triggers additional encounters, investigations, or hospitalizations. Event-driven simulation models naturally accommodate such cascades by explicitly representing each link as an event.
 
 Clinicians should carefully consider which adverse events are modeled, how they are detected, and what actions they precipitate.
-
----
 
 ## Stopping conditions and scope
 
@@ -147,15 +129,11 @@ Common stopping conditions include death, reaching a fixed time horizon, or entr
 
 Explicit stopping logic clarifies interpretation and prevents inadvertent extrapolation beyond the intended domain.
 
----
-
 ## Outputs and interpretation
 
 Simulation outputs typically include complete event histories and state trajectories. While summary statistics are often reported, examining individual trajectories during development is essential.
 
 Clinicians should evaluate whether simulated patient histories align with clinical experience and expectations, paying particular attention to implausible sequences or timing.
-
----
 
 ## Common pitfalls
 
@@ -168,15 +146,11 @@ Common modeling issues include:
 
 Active clinician involvement throughout development helps identify and correct these issues early.
 
----
-
 ## Collaboration as an iterative process
 
 Simulation model development is inherently iterative. Initial versions are refined through repeated cycles of review, revision, and validation.
 
 Effective collaboration requires shared vocabulary, frequent communication, and willingness to revisit assumptions as understanding evolves.
-
----
 
 ## Methods primer (journal-style conceptual framing)
 
@@ -199,8 +173,6 @@ The simulation terminates when a predefined stopping condition is met. Stopping 
 ### Outputs
 
 The model produces complete patient-level event histories and state trajectories, from which outcomes of interest are derived.
-
----
 
 ## Appendix A: Glossary
 
@@ -230,6 +202,3 @@ A modeling approach in which only variables that change are updated at an event.
 
 **Counterfactual scenario**  
 A hypothetical situation representing an alternative policy or intervention.
-
----
-

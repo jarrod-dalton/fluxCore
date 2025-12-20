@@ -12,6 +12,7 @@
 #'
 #' which supports global parameter draws reused across patients.
 #'
+#' @name modelprovider_concept
 #' @keywords internal
 NULL
 
@@ -21,6 +22,14 @@ NULL
 #' among multiple bundle builders. By default, `"default"` maps to [default_model_bundle()].
 #'
 #' @param registry Named list mapping bundle names to functions returning ModelBundles.
+#'
+#' @section Fields:
+#' - `registry`: Named list mapping bundle names to functions.
+#'
+#' @section Methods:
+#' - `initialize(registry = NULL)`
+#' - `load(model_spec, ...)`
+#' - `sample_param_draws(model_spec, n_param_draws, ...)`
 #'
 #' @examples
 #' library(patientSimCore)
@@ -94,6 +103,14 @@ PackageProvider <- R6::R6Class(
 #'
 #' @param base_path Optional base directory.
 #'
+#' @section Fields:
+#' - `base_path`: Directory where serialized bundles live.
+#'
+#' @section Methods:
+#' - `initialize(base_path)`
+#' - `load(model_spec, ...)`
+#' - `sample_param_draws(model_spec, n_param_draws, ...)`
+#'
 #' @examples
 #' \dontrun{
 #' library(patientSimCore)
@@ -151,6 +168,15 @@ FileProvider <- R6::R6Class(
 #'
 #' @param builder_fn Function returning a ModelBundle.
 #' @param sampler_fn Optional function returning a list of length D parameter contexts.
+#'
+#' @section Fields:
+#' - `builder_fn`: Function that loads a bundle from an MLflow spec.
+#' - `sampler_fn`: Function that samples parameter draws for supported models.
+#'
+#' @section Methods:
+#' - `initialize(builder_fn, sampler_fn)`
+#' - `load(model_spec, ...)`
+#' - `sample_param_draws(model_spec, n_param_draws, ...)`
 #'
 #' @examples
 #' library(patientSimCore)

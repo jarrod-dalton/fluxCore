@@ -15,6 +15,7 @@
 #' A bundle can close over fitted models, parameters, reference data, etc. This makes
 #' it easy to swap dynamics while keeping the Patient and Engine generic.
 #'
+#' @name modelbundle_concept
 #' @keywords internal
 NULL
 
