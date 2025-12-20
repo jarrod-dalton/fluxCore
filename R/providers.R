@@ -1,22 +1,21 @@
-#' ModelProvider concept (R6)
-#'
-#' @name modelprovider-concept
-#'
-#' A ModelProvider materializes a `ModelBundle` from some source:
-#' - package objects,
-#' - files on disk,
-#' - MLflow (stub).
-#'
-#' Providers accept a `model_spec` (named list) describing what to load.
-#'
-#' Providers may also optionally implement:
-#' - `sample_param_draws(model_spec, n_param_draws)` -> list of length D
-#'
-#' which supports global parameter draws reused across patients.
-#'
-#' @keywords internal
+## ModelProvider concept (R6)
+##
+## @name modelprovider-concept
+##
+## A ModelProvider materializes a `ModelBundle` from some source:
+## - package objects,
+## - files on disk,
+## - MLflow (stub).
+##
+## Providers accept a `model_spec` (named list) describing what to load.
+##
+## Providers may also optionally implement:
+## - `sample_param_draws(model_spec, n_param_draws)` -> list of length D
+##
+## which supports global parameter draws reused across patients.
+##
+## @keywords internal
 NULL
-
 #' PackageProvider
 #'
 #' Loads a bundle from in-package functions/objects. Use `model_spec$name` to select

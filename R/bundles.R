@@ -1,25 +1,24 @@
-#' ModelBundle contract (concept)
-#'
-#' @name modelbundle-concept
-#'
-#' A ModelBundle is a named list of callables that define simulation dynamics.
-#' The Engine uses these functions to propose the next event, compute state updates,
-#' and decide when to stop.
-#'
-#' Required functions:
-#' - `propose_event(patient, ctx)` -> list(time_next, event_type, ...)
-#' - `transition(patient, event_type, time_next, ctx)` -> named list `changes` or NULL
-#' - `stop(patient, event_type, ctx)` -> TRUE/FALSE
-#'
-#' Optional functions:
-#' - `observe(patient, event_type, ctx)` -> list/data.frame row of observed outputs for logging
-#'
-#' A bundle can close over fitted models, parameters, reference data, etc. This makes
-#' it easy to swap dynamics while keeping the Patient and Engine generic.
-#'
-#' @keywords internal
+## ModelBundle contract (concept)
+##
+## @name modelbundle-concept
+##
+## A ModelBundle is a named list of callables that define simulation dynamics.
+## The Engine uses these functions to propose the next event, compute state updates,
+## and decide when to stop.
+##
+## Required functions:
+## - `propose_event(patient, ctx)` -> list(time_next, event_type, ...)
+## - `transition(patient, event_type, time_next, ctx)` -> named list `changes` or NULL
+## - `stop(patient, event_type, ctx)` -> TRUE/FALSE
+##
+## Optional functions:
+## - `observe(patient, event_type, ctx)` -> list/data.frame row of observed outputs for logging
+##
+## A bundle can close over fitted models, parameters, reference data, etc. This makes
+## it easy to swap dynamics while keeping the Patient and Engine generic.
+##
+## @keywords internal
 NULL
-
 #' Default toy ModelBundle
 #'
 #' Provides a small, self-contained bundle that demonstrates:

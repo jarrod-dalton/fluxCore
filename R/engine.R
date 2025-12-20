@@ -29,6 +29,12 @@
 #' @param model_spec Named list describing which model/bundle to load.
 #' @param ... Additional arguments passed to the provider when loading the model bundle.
 #'
+#' @param patient A [Patient] R6 object.
+#' @param max_events Integer. Maximum number of additional events to simulate.
+#' @param max_time Optional numeric. Stop if patient time exceeds this value.
+#' @param return_observations Logical. If TRUE, accumulate `bundle$observe()` outputs.
+#' @param ctx Optional list passed through to bundle functions.
+#'
 #' @examples
 #' library(patientSimCore)
 #' set.seed(1)
