@@ -12,8 +12,8 @@ Description: A scaffold for event-driven simulation projects in R. Provides a sc
     and no-update events.
 License: MIT + file LICENSE
 Encoding: UTF-8
-Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.2
+Roxygen: list(markdown = TRUE, r6 = FALSE)
+RoxygenNote: 7.3.3
 Imports:
     R6
 Suggests:
