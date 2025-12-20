@@ -143,6 +143,18 @@ Patient <- R6::R6Class(
       invisible(self)
     },
 
+    state_at_time = function(time, vars = NULL) {
+      if (length(time) != 1 || !is.finite(time)) stop("`time` must be a single finite numeric value")
+      time <- as.numeric(time)
+      t0 <- self$events$time[1]
+      if (time < t0) stop(sprintf("`time` must be >= time0 (%.6g)", t0))
+      # events$time is monotone increasing by construction
+      pos <- findInterval(time, self$events$time)
+      if (pos <= 0) stop(sprintf("No event time <= %.6g found", time))
+      j_star <- self$events$j[pos]
+      self$state_at(j_star, vars = vars)
+    },
+
     state_at = function(j, vars = NULL) {
       j <- as.integer(j)
       if (!is.finite(j) || length(j) != 1L) stop("j must be a finite integer scalar.")
