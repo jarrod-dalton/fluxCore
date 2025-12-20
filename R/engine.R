@@ -1,7 +1,7 @@
 #' Engine
 #'
 #' Orchestrates simulation by repeatedly proposing the next event(s), applying a transition
-#' patch, recording the event on a [Patient], and stopping when `bundle$stop()` returns TRUE
+#' patch, recording the event on a `Patient`, and stopping when `bundle$stop()` returns TRUE
 #' (or a `max_time` / `max_events` limit is reached).
 #'
 #' The Engine supports both:

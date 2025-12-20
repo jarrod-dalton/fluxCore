@@ -25,25 +25,6 @@ NULL
 #' - non-uniform inter-event times
 #' - event types including a terminal `"death"`
 #' - sparse state updates via `changes` patches
-#'
-#' The toy model assumes your schema contains `age` and optionally `miles_to_work`.
-#'
-#' @param terminal_event_type Character scalar. Default `"death"`.
-#' @return A ModelBundle (named list of functions).
-#'
-#' @examples
-#' library(patientSimCore)
-#' set.seed(1)
-#' bundle <- default_model_bundle()
-#' names(bundle)
-#'
-#' @export
-#' Default toy ModelBundle
-#'
-#' Provides a small, self-contained bundle that demonstrates:
-#' - non-uniform inter-event times
-#' - event types including a terminal `"death"`
-#' - sparse state updates via `changes` patches
 #' - multi-process proposal via `propose_events()` (single default process)
 #'
 #' The toy model assumes your schema contains `age` and optionally `miles_to_work`.

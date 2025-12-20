@@ -3,7 +3,7 @@
 #' Convenience constructor wrapping `Patient$new()`.
 #'
 #' @param init Named list of initial state values. Names must be in `schema`.
-#' @param schema State schema (named list). See [default_patient_schema()].
+#' @param schema State schema (named list). See `default_patient_schema()`.
 #' @param time0 Initial event time (numeric scalar, default 0).
 #' @param event_type0 Initial event type (character, default "init").
 #' @return A `Patient` R6 object.
