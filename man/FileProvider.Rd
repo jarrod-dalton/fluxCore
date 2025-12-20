@@ -3,6 +3,9 @@
 \name{FileProvider}
 \alias{FileProvider}
 \title{FileProvider}
+\arguments{
+\item{base_path}{Optional base directory.}
+}
 \description{
 Loads a bundle from an \code{.rds} file. Expects \code{model_spec$path}.
 }
@@ -34,65 +37,4 @@ prov <- FileProvider$new()
 bundle <- prov$load(list(path = "bundle.rds"))
 }
 
-}
-\section{Methods}{
-\subsection{Public methods}{
-\itemize{
-\item \href{#method-FileProvider-new}{\code{FileProvider$new()}}
-\item \href{#method-FileProvider-load}{\code{FileProvider$load()}}
-\item \href{#method-FileProvider-sample_param_draws}{\code{FileProvider$sample_param_draws()}}
-\item \href{#method-FileProvider-clone}{\code{FileProvider$clone()}}
-}
-}
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-FileProvider-new"></a>}}
-\if{latex}{\out{\hypertarget{method-FileProvider-new}{}}}
-\subsection{Method \code{new()}}{
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{FileProvider$new(base_path = NULL)}\if{html}{\out{</div>}}
-}
-
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{base_path}}{Optional base directory.}
-}
-\if{html}{\out{</div>}}
-}
-}
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-FileProvider-load"></a>}}
-\if{latex}{\out{\hypertarget{method-FileProvider-load}{}}}
-\subsection{Method \code{load()}}{
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{FileProvider$load(model_spec, ...)}\if{html}{\out{</div>}}
-}
-
-}
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-FileProvider-sample_param_draws"></a>}}
-\if{latex}{\out{\hypertarget{method-FileProvider-sample_param_draws}{}}}
-\subsection{Method \code{sample_param_draws()}}{
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{FileProvider$sample_param_draws(model_spec, n_param_draws = 1L, ...)}\if{html}{\out{</div>}}
-}
-
-}
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-FileProvider-clone"></a>}}
-\if{latex}{\out{\hypertarget{method-FileProvider-clone}{}}}
-\subsection{Method \code{clone()}}{
-The objects of this class are cloneable with this method.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{FileProvider$clone(deep = FALSE)}\if{html}{\out{</div>}}
-}
-
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{deep}}{Whether to make a deep clone.}
-}
-\if{html}{\out{</div>}}
-}
-}
 }

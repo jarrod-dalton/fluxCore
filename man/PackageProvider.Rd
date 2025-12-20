@@ -3,6 +3,9 @@
 \name{PackageProvider}
 \alias{PackageProvider}
 \title{PackageProvider}
+\arguments{
+\item{registry}{Named list mapping bundle names to functions returning ModelBundles.}
+}
 \description{
 Loads a bundle from in-package functions/objects. Use \code{model_spec$name} to select
 among multiple bundle builders. By default, \code{"default"} maps to \code{\link[=default_model_bundle]{default_model_bundle()}}.
@@ -29,69 +32,4 @@ prov <- PackageProvider$new()
 bundle <- prov$load(list(name = "default"))
 names(bundle)
 
-}
-\section{Methods}{
-\subsection{Public methods}{
-\itemize{
-\item \href{#method-PackageProvider-new}{\code{PackageProvider$new()}}
-\item \href{#method-PackageProvider-load}{\code{PackageProvider$load()}}
-\item \href{#method-PackageProvider-sample_param_draws}{\code{PackageProvider$sample_param_draws()}}
-\item \href{#method-PackageProvider-clone}{\code{PackageProvider$clone()}}
-}
-}
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-PackageProvider-new"></a>}}
-\if{latex}{\out{\hypertarget{method-PackageProvider-new}{}}}
-\subsection{Method \code{new()}}{
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{PackageProvider$new(registry = NULL)}\if{html}{\out{</div>}}
-}
-
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{registry}}{Named list mapping bundle names to functions returning ModelBundles.}
-}
-\if{html}{\out{</div>}}
-}
-}
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-PackageProvider-load"></a>}}
-\if{latex}{\out{\hypertarget{method-PackageProvider-load}{}}}
-\subsection{Method \code{load()}}{
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{PackageProvider$load(model_spec = list(name = "default"), ...)}\if{html}{\out{</div>}}
-}
-
-}
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-PackageProvider-sample_param_draws"></a>}}
-\if{latex}{\out{\hypertarget{method-PackageProvider-sample_param_draws}{}}}
-\subsection{Method \code{sample_param_draws()}}{
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{PackageProvider$sample_param_draws(
-  model_spec = list(name = "default"),
-  n_param_draws = 1L,
-  ...
-)}\if{html}{\out{</div>}}
-}
-
-}
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-PackageProvider-clone"></a>}}
-\if{latex}{\out{\hypertarget{method-PackageProvider-clone}{}}}
-\subsection{Method \code{clone()}}{
-The objects of this class are cloneable with this method.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{PackageProvider$clone(deep = FALSE)}\if{html}{\out{</div>}}
-}
-
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{deep}}{Whether to make a deep clone.}
-}
-\if{html}{\out{</div>}}
-}
-}
 }
