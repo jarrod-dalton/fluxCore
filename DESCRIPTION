@@ -3,7 +3,7 @@ Type: Package
 Title: Event-driven patient simulation scaffold (core)
 Version: 0.1.0
 Authors@R: c(
-    person("First", "Last", email = "first.last@example.com", role = c("aut", "cre"))
+    person("Jarrod", "Dalton", email = "jarrod.dalton@gmail.com", role = c("aut", "cre"))
   )
 Description: A scaffold for event-driven simulation projects in R. Provides a schema-based
     R6 Patient for mutable state with sparse history and an Engine for orchestrating
@@ -12,16 +12,11 @@ Description: A scaffold for event-driven simulation projects in R. Provides a sc
     and no-update events.
 License: Proprietary
 Encoding: UTF-8
-Roxygen: list(markdown = TRUE)
+Roxygen: list(markdown = TRUE, R6=FALSE)
 RoxygenNote: 7.3.3
 Imports:
-    R6,
-    stats
+    R6
 Suggests:
-    knitr,
-    rmarkdown,
     parallel,
     testthat (>= 3.0.0)
-VignetteBuilder:
-    knitr
 Config/testthat/edition: 3
