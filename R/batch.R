@@ -26,6 +26,8 @@
 #' @param max_events Max events per run.
 #' @param max_time Optional max time per run.
 #' @param return_observations Logical; whether to return observations (if bundle provides observe()).
+#' @param time_unit Optional string documenting the unit for the global time axis (e.g., "days", "months", "years").
+#'   If provided, this is passed to each run as `ctx$time_unit`.
 #' @param parallel Logical; if TRUE, parallelize across patients (requires `parallel`).
 #' @param n_workers Integer; workers for parallel; default `parallel::detectCores() - 1`.
 #' @param seed Optional base seed for reproducibility.
@@ -52,6 +54,7 @@ run_cohort <- function(engine,
                        max_events = 1000,
                        max_time = NULL,
                        return_observations = TRUE,
+                       time_unit = NULL,
                        parallel = FALSE,
                        n_workers = NULL,
                        seed = NULL) {
@@ -117,11 +120,16 @@ run_cohort <- function(engine,
       }
 
       ctx <- list(
+        time_unit = time_unit,
         patient_id = patient_id,
         draw_id = draw_id,
         sim_id = sim_id,
         params = param_draws[[draw_id]]
       )
+
+      if (!is.null(time_unit)) {
+        ctx$time_unit <- time_unit
+      }
 
       out <- engine$run(
         patient = p,

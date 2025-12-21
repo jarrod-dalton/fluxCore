@@ -14,6 +14,10 @@ per process, as a named list keyed by \code{process_id}.
 
 When multiple processes are present, the Engine caches each process's next proposal and
 refreshes proposals on-demand using \code{bundle$refresh_rules()} (default: refresh all).
+
+Time is represented as a numeric value on a single global time axis. The Engine does not
+enforce units; for clarity and consistency (rates, cadences, lookbacks), models should set
+\code{ctx$time_unit} (e.g., \code{"days"}, \code{"months"}, \code{"years"}).
 }
 \section{Fields}{
 

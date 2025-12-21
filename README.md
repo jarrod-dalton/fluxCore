@@ -29,7 +29,9 @@ The set of variables that describe the patient *right now* and can influence wha
 Something that occurs at a particular time and may change the patient’s state (clinic visit, adverse event, hospitalization, death, etc.).
 
 **Event time**  
-A numeric time value. Events can be irregularly spaced (e.g., an adverse event happens 0.3 years after treatment starts).
+A numeric time value on a single global time axis shared across processes.
+
+The Engine treats time as *unitless* math, but **your model should declare a unit** (e.g., days, months, years) so rates, cadences, and derived-variable lookbacks are interpretable and consistent.
 
 **Event type**  
 A label for what kind of event occurred (e.g., `"visit"`, `"AE_Y"`, `"hospital_admit"`, `"death"`).
@@ -104,6 +106,7 @@ A bundle may also provide:
 
 ### What is `ctx`?
 `ctx` is an optional “context” list passed into bundle functions. It can include:
+- `time_unit` (a single string, e.g., `"days"`, `"months"`, `"years"`). All event times are interpreted in this unit.
 - `draw_id` and `sim_id` (identifiers when running repeated simulations)
 - `params` (a parameter draw, if you are doing parameter uncertainty)
 - any other run-level inputs you want to pass through cleanly
@@ -131,7 +134,7 @@ eng <- Engine$new(
   model_spec = list(name = "default")
 )
 
-out <- eng$run(p, max_events = 50)
+out <- eng$run(p, max_events = 50, ctx = list(time_unit = "years"))
 
 tail(out$events, 5)
 out$patient$state(c("age", "miles_to_work"))
@@ -162,6 +165,7 @@ batch <- run_cohort(
   n_param_draws = 1,
   n_sims = 1,
   max_events = 100,
+  time_unit = "years",
   parallel = TRUE,
   n_workers = 4,
   seed = 123

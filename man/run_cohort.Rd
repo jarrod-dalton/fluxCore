@@ -13,6 +13,7 @@ run_cohort(
   max_events = 1000,
   max_time = NULL,
   return_observations = TRUE,
+  time_unit = NULL,
   parallel = FALSE,
   n_workers = NULL,
   seed = NULL
@@ -36,6 +37,8 @@ when available; otherwise it uses a single NULL draw.}
 \item{max_time}{Optional max time per run.}
 
 \item{return_observations}{Logical; whether to return observations (if bundle provides observe()).}
+
+\item{time_unit}{Optional string documenting the unit for the global time axis (e.g., "days", "months", "years"). If provided, this is passed to each run as \code{ctx$time_unit}.}
 
 \item{parallel}{Logical; if TRUE, parallelize across patients (requires \code{parallel}).}
 
