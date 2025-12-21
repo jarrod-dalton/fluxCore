@@ -1,237 +1,251 @@
 # patientSimCore
 
-A small set of R tools for building **patient-level simulation models** where things happen at **irregular times** (not every day, not every month), and where each event can change only a few patient variables.
+`patientSimCore` is an R package for building **patient-level, event-driven simulation models**.  
+It provides a clear and explicit structure for simulating longitudinal patient trajectories when outcomes evolve through **events over time**, rather than at fixed time steps.
 
-This package is meant to be a **foundation**. It does not contain a disease model. Instead, it gives you a clear way to:
+This package is intended for **applied researchers and data scientists** working in health, medicine, or related domains who want more control and transparency than is offered by off-the-shelf simulation tools, without having to build a simulation engine from scratch.
 
-- store a patient’s current variables (“state”)
-- record a time-ordered list of events (what happened, when)
-- advance time from one event to the next
-- update only the variables that change at an event (sparse updates)
-- optionally record extra outputs (costs, utilities, measurements)
-- run many patients, optionally in parallel
-- (optional) represent **parameter uncertainty** using global parameter draws shared across patients
-- (optional) add interventions (“policies”) without rewriting your baseline model
-
-If you can describe your model as “a sequence of events over time that change patient variables”, this scaffold is a good fit.
+`patientSimCore` is a **scaffold**, not a finished simulator. It supplies the machinery for running simulations, but leaves substantive modeling decisions firmly in the hands of the user.
 
 ---
 
-## Key terms (plain-language definitions)
+## Installation
 
-**Patient**  
-An object that holds (1) the current values of patient variables and (2) a record of events over time.
+This package is under active development and should be installed from source.
 
-**State**  
-The set of variables that describe the patient *right now* and can influence what happens next (age, biomarker level, treatment status, comorbidity flags, etc.).
+```r
+# from a local clone
+devtools::install()
 
-**Event**  
-Something that occurs at a particular time and may change the patient’s state (clinic visit, adverse event, hospitalization, death, etc.).
+# or from GitHub (if applicable)
+devtools::install_github("YOUR_ORG/patientSimCore")
+```
 
-**Event time**  
-A numeric time value. Events can be irregularly spaced (e.g., an adverse event happens 0.3 years after treatment starts).
-
-**Event type**  
-A label for what kind of event occurred (e.g., `"visit"`, `"AE_Y"`, `"hospital_admit"`, `"death"`).
-
-**State update (patch)**  
-A named list of only the variables that change at an event. Variables not in the patch are unchanged.
-
-Example patch: `list(bmi = 29.1, tx_on = 1L)`
-
-**Observation (optional)**  
-Information you want to record for analysis/reporting that does *not* affect future events (cost, utility, “was this an ED visit?”, etc.). Observations are separate from state updates on purpose.
-
-**Episode (optional)**  
-A short period with its own internal logic (e.g., a hospitalization) that returns a *summary* back to the main patient state, and optionally a detailed record (“artifact”) if you want it.
+Dependencies are intentionally minimal to keep the core lightweight and easy to reason about.
 
 ---
 
-## What happens in a simulation run?
+## Motivation
 
-A single simulation run repeatedly does the following:
+Many clinical and health services processes are best described by **irregular events**, not evenly spaced time steps. Examples include:
 
-1. **Decide the next event and its time**  
-   Based on the current state, the model determines what happens next and when it happens.
+- clinic visits
+- hospital admissions and discharges
+- laboratory testing
+- treatment initiation or discontinuation
+- disease progression events
 
-2. **Compute the state changes caused by that event**  
-   Return a sparse update patch (or `NULL` if nothing changes).
+These processes operate on **different schedules**, but they interact. A hospitalization may alter follow-up frequency; a lab result may trigger treatment; treatment may change the probability of future events.
 
-3. **Record the event and apply the state changes**  
-   The patient’s event log gets a new row; state variables are updated.
-
-4. **Optionally record observations**  
-   If you want to log costs or other outputs, compute and store them here.
-
-5. **Stop or repeat**  
-   Stop if the model says the simulation is finished (often at death), otherwise go back to step 1.
-
-That is the full conceptual loop.
+Traditional discrete-time simulations often force these dynamics onto a fixed grid. `patientSimCore` instead models what actually happens: **events occur when they occur**, and patient state changes only when something happens.
 
 ---
 
-## What you need to provide: a “ModelBundle”
+## Mental model
 
-In `patientSimCore`, a model is represented by a **ModelBundle**: a named list of functions that define your simulation rules.
+A useful way to think about a simulation in `patientSimCore` is:
 
-A bundle must provide:
+> “I have a patient whose state changes over time. Multiple processes can suggest future events. At each step, the earliest event happens, the patient changes state, and the future updates accordingly.”
 
-- `propose_event(patient, ctx)`  
-  Returns the next event’s time and type (at least `time_next` and `event_type`).
+Three ideas underpin the design:
 
-- `transition(patient, event_type, time_next, ctx)`  
-  Returns a sparse patch: a named list of state updates, or `NULL`.
-
-- `stop(patient, event_type, ctx)`  
-  Returns `TRUE` to stop the run, `FALSE` to continue.
-
-A bundle may also provide:
-
-- `observe(patient, event_type, ctx)`  
-  Returns extra outputs you want to record (costs, utilities, measurements, etc.).
-
-- `sample_params(D)`  
-  Returns a list of length `D` containing parameter draw objects. This is used for parameter uncertainty (see below). Components that do not use parameter draws can ignore this.
-
-### What is `ctx`?
-`ctx` is an optional “context” list passed into bundle functions. It can include:
-- `draw_id` and `sim_id` (identifiers when running repeated simulations)
-- `params` (a parameter draw, if you are doing parameter uncertainty)
-- any other run-level inputs you want to pass through cleanly
-
-Bundles that do not need context can ignore it.
+1. **Patients are stateful objects**
+2. **Events drive change**
+3. **Time advances only when events occur**
 
 ---
 
-## Minimal example (single patient)
+## Core components
 
-This uses the small toy bundle that ships with the package so you can see the mechanics.
+### Patients
+
+Each patient is represented as an R6 object with:
+
+- a user-defined state schema
+- a complete event log
+- a sparse history of state changes
+- helper methods to recover state at any event or time
+
+State is **event-sourced**. When an event occurs, only the variables that actually change are recorded. Full state at any point can always be reconstructed from the event history.
+
+This approach keeps simulations transparent and avoids silently mutating hidden state.
+
+---
+
+### Engine
+
+The engine runs the simulation loop. At a high level it:
+
+1. asks one or more processes to propose future events
+2. selects the next event on a shared time axis
+3. applies the corresponding state transition
+4. checks whether the simulation should stop
+
+All processes share a **single global time axis**. Processes are not competing risks in the statistical sense; they are parallel event streams that interact through patient state.
+
+---
+
+### Model bundles
+
+Model behavior is defined using a **ModelBundle**, which is a named list of functions. At minimum, a bundle provides:
+
+- `propose_events(patient, ctx)`  
+  Returns one or more candidate future events.
+
+- `transition(patient, event, ctx)`  
+  Applies state changes implied by the event.
+
+- `stop(patient, event, ctx)`  
+  Determines whether the simulation should terminate.
+
+An optional `observe()` function can be used to record outputs or side effects.
+
+Events themselves are passed intact through the system. The engine does not strip them down to event types or times.
+
+---
+
+## Quick start (toy example)
+
+The following example illustrates the basic flow using a deliberately simple model.
 
 ```r
 library(patientSimCore)
-set.seed(1)
 
-p <- Patient$new(
-  init   = list(age = 55, miles_to_work = 10),
-  schema = default_patient_schema(),
-  time0  = 0
+# Define a simple model bundle
+toy_model <- list(
+
+  propose_events = function(patient, ctx) {
+    list(
+      list(
+        time = patient$time + rexp(1, rate = 0.2),
+        event_type = "visit",
+        process_id = "visits"
+      )
+    )
+  },
+
+  transition = function(patient, event, ctx) {
+    if (event$event_type == "visit") {
+      list(
+        visits = patient$state()$visits + 1
+      )
+    } else {
+      NULL
+    }
+  },
+
+  stop = function(patient, event, ctx) {
+    patient$state()$visits >= 5
+  }
 )
 
-eng <- Engine$new(
-  provider   = PackageProvider$new(),
-  model_spec = list(name = "default")
+# Create a patient
+patient <- Patient$new(
+  schema = default_patient_schema(
+    visits = 0
+  )
 )
 
-out <- eng$run(p, max_events = 50)
+# Run the engine
+engine <- Engine$new(model = toy_model)
+engine$run(patient)
 
-tail(out$events, 5)
-out$patient$state(c("age", "miles_to_work"))
+# Inspect results
+patient$state()
+patient$event_log
 ```
 
----
+This example demonstrates several key ideas:
 
-## Running many patients (batch simulation)
-
-Use `run_cohort()` to run a list of patients. You can also run in parallel across patients.
-
-```r
-library(patientSimCore)
-set.seed(1)
-
-eng <- Engine$new(provider = PackageProvider$new(), model_spec = list(name = "default"))
-
-patients <- lapply(1:10, function(i) {
-  Patient$new(init = list(age = 40 + i, miles_to_work = 8),
-              schema = default_patient_schema(),
-              time0 = 0)
-})
-names(patients) <- paste0("id", seq_along(patients))
-
-batch <- run_cohort(
-  engine = eng,
-  patients = patients,
-  n_param_draws = 1,
-  n_sims = 1,
-  max_events = 100,
-  parallel = TRUE,
-  n_workers = 4,
-  seed = 123
-)
-
-head(batch$index)
-```
-
-`batch$index` describes each run (patient × draw × sim), so your outputs are easy to identify.
+- events are proposed into the future
+- only changed state variables are recorded
+- stopping logic is explicit and model-defined
 
 ---
 
-## Parameter uncertainty (optional): global parameter draws
+## Key features
 
-Sometimes fitted statistical models support drawing parameters from an approximate sampling distribution, for example using a covariance matrix for regression coefficients.
+### Multiple event streams
 
-This package supports the common workflow:
+Models can define multiple processes (e.g., visits, labs, hospitalizations), each proposing its own events. The engine always selects the earliest event across all processes.
 
-- draw `D` parameter sets once (global draws)
-- reuse those draws across all patients
-- run `S` stochastic simulations per patient per draw
-
-You control this via:
-
-- `n_param_draws = D`
-- `n_sims = S`
-
-Where do the parameter draws come from?
-- If your bundle provides `sample_params(D)`, `run_cohort()` will use it.
-- If not, draws default to `NULL` (which is fine for models that do not have parameter draws).
-
-Bundles/components that use parameter draws can look at `ctx$params`. Components that do not (e.g., some machine learning models) can ignore `ctx$params`.
+This makes it natural to represent processes that operate on different clocks but interact through patient state.
 
 ---
 
-## Policies and interventions (optional)
+### Refresh rules
 
-Often you want to compare:
-- baseline model dynamics
-- baseline + intervention/policy
+Processes can specify when they need to regenerate their next proposed event. By default, a process regenerates after any state change, but more selective rules are supported.
 
-The goal is to avoid duplicating baseline code.
-
-Use `compose_bundles(baseline, policy)` where `policy` is another bundle-like object that can add or override behavior.
-
-Most commonly, a policy adds extra state updates during `transition()`.
+This avoids unnecessary recomputation while keeping model logic explicit.
 
 ---
 
-## Episodes (optional): detailed submodels without bloating the main state
+### Derived variables
 
-Some events (e.g., hospitalization) may have rich internal dynamics that you may or may not want to record in detail.
+Derived variables are computed **at snapshot time** and are not part of core patient state. This supports:
 
-A simple approach is:
+- lags
+- rolling summaries
+- lookback-based features
 
-- represent “hospitalization” as an event on the main timeline
-- optionally run a submodel for the hospital stay
-- return a **summary patch** to update main state (e.g., LOS, complications, post-discharge risk)
-- optionally return an **artifact** (a detailed trace) stored outside the patient state
-
-The core package does not force any one approach. The example model package demonstrates a practical pattern.
+without contaminating the simulation state itself.
 
 ---
 
-## Where to look in the code
+### Time-based access
 
-- `R/Patient.R` : patient state, history, and event log
-- `R/schema.R`  : defining patient variables (schema)
-- `R/engine.R`  : running a single patient simulation
-- `R/batch.R`   : running many patients (serial/parallel; draws/sims)
-- `R/compose.R` : layering interventions/policies
-- `R/bundles.R` : an example bundle (toy dynamics)
-- `R/providers.R`: loading bundles from package/files/MLflow (stub)
+The patient object supports:
+
+- state at a specific event index
+- state at a specific time
+- full snapshots including derived variables
+
+State at time `t` is defined as the most recent event time less than or equal to `t`.
 
 ---
 
-## What this package does not assume
+### Batch simulation and uncertainty
 
-- It does not assume a specific disease area.
-- It does not assume daily time steps or fixed visit schedules.
-- It does not require parameter uncertainty (you can ignore draws).
-- It does not require episodes/submodels (you can keep everything at the top level).
+Cohorts of patients can be simulated in batches. Parameter uncertainty can be handled at the model or provider level, with shared draws reused across patients when appropriate.
+
+This supports replication, sensitivity analysis, and uncertainty propagation.
+
+---
+
+## Providers
+
+Model bundles can be loaded via providers, including:
+
+- package-based providers
+- file-based providers
+
+Providers may also supply parameter draws. This separation keeps model definition decoupled from how models and parameters are sourced.
+
+---
+
+## Worked example
+
+A fully worked, end-to-end example is provided in the companion package:
+
+**`patientSimModelExample`**
+
+That package demonstrates:
+
+- realistic model structure
+- multiple interacting event streams
+- parameter handling
+- interpretation of simulation outputs
+
+If you are new to `patientSimCore`, start there.
+
+---
+
+## Design philosophy
+
+- Explicit over implicit
+- Events over time grids
+- Clarity over cleverness
+- Scaffolding rather than black boxes
+
+The goal is to make complex longitudinal simulations easier to reason about, inspect, and extend.
