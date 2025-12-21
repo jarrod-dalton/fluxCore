@@ -17,7 +17,7 @@ Each entry is a list with components:
 \itemize{
 \item \code{default}: default value used when not supplied in \code{init}
 \item \code{coerce}:  function to coerce values (e.g., \code{as.numeric})
-\item \code{validate}: optional function taking a value and returning TRUE/FALSE
+\item \code{validate}: optional function taking a value and returning TRUE/FALSE\n\\item \\code{blocks}: optional character vector of schema block names this variable belongs to (many-to-many).
 }
 
 Extend/modify this schema to include dozens of attributes while keeping the \code{Patient}

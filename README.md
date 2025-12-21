@@ -140,6 +140,34 @@ tail(out$events, 5)
 out$patient$state(c("age", "miles_to_work"))
 ```
 
+
+
+---
+
+## Schema blocks and vectorized updates
+
+For convenience when building multivariate models (e.g., SBP/DBP, CBC/CMP panels),
+schema entries may include an optional `blocks` field (many-to-many). This lets you
+refer to groups of variables by name:
+
+```r
+schema <- default_patient_schema()
+# Example: schema$sbp$blocks <- c("bp")
+#          schema$dbp$blocks <- c("bp")
+
+bp_vars <- block_vars(schema, "bp")   # c("sbp", "dbp")
+```
+
+Model `transition()` functions can generate vector-valued predictions and expand
+them into per-variable updates with helpers:
+
+```r
+transition <- function(patient, event, ctx) {
+  if (event$event_type != "bp_check") return(NULL)
+  draw <- c(120, 78)
+  set_vars(bp_vars, draw)
+}
+```
 ---
 
 ## Running many patients (batch simulation)
