@@ -4,10 +4,8 @@
 #' patch, recording the event on a `Patient`, and stopping when `bundle$stop()` returns TRUE
 #' (or a `max_time` / `max_events` limit is reached).
 #'
-#' The Engine supports both:
-#'
-#' - `bundle$propose_events(patient, ...)` returning multiple process-specific proposals, and
-#' - legacy `bundle$propose_event(patient, ...)` returning a single proposal.
+#' The Engine requires `bundle$propose_events(patient, ...)`, which returns one proposed
+#' future event per process (keyed by `process_id`).
 #'
 #' When multiple processes are present, the Engine caches each process's next proposal and
 #' refreshes proposals on-demand using `bundle$refresh_rules()` (default: refresh all).
@@ -113,34 +111,43 @@ Engine <- R6::R6Class(
 )
 
 .call_propose_events <- function(bundle, patient, ctx = NULL, process_ids = NULL, current_proposals = NULL) {
-  if (!is.null(bundle$propose_events) && is.function(bundle$propose_events)) {
-    fml <- names(formals(bundle$propose_events))
-    args <- list(patient = patient)
-    if ("ctx" %in% fml) args$ctx <- ctx
-    if ("process_ids" %in% fml) args$process_ids <- process_ids
-    if ("current_proposals" %in% fml) args$current_proposals <- current_proposals
-    out <- do.call(bundle$propose_events, args)
-    if (is.null(out)) return(list())
-    if (!is.list(out)) stop("bundle$propose_events must return a list of events keyed by process_id.")
-    return(out)
+  if (is.null(bundle$propose_events) || !is.function(bundle$propose_events)) {
+    stop("ModelBundle must provide propose_events(patient, ctx, ...).")
   }
 
-  if (!is.null(bundle$propose_event) && is.function(bundle$propose_event)) {
-    ev <- bundle$propose_event(patient, ctx = ctx)
-    if (is.null(ev)) return(list())
-    if (!is.list(ev)) stop("bundle$propose_event must return a list(time_next, event_type, ...)")
-    ev$process_id <- "default"
-    return(list(default = ev))
-  }
+  fml <- names(formals(bundle$propose_events))
+  args <- list(patient = patient)
+  if ("ctx" %in% fml) args$ctx <- ctx
+  if ("process_ids" %in% fml) args$process_ids <- process_ids
+  if ("current_proposals" %in% fml) args$current_proposals <- current_proposals
 
-  stop("ModelBundle must provide propose_events() or propose_event().")
+  out <- do.call(bundle$propose_events, args)
+  if (is.null(out)) return(list())
+  if (!is.list(out)) stop("bundle$propose_events must return a list of events keyed by process_id.")
+  out
 }
 
 .pick_next_event <- function(proposals) {
   if (length(proposals) == 0L) stop("No proposals available.")
+
+  .validate_event <- function(x, pid) {
+    if (is.null(x)) return(invisible(FALSE))
+    if (!is.list(x)) stop(sprintf("Event proposal for process_id '%s' must be a list.", pid))
+    if (is.null(x$time_next) || !is.numeric(x$time_next) || length(x$time_next) != 1L || !is.finite(x$time_next)) {
+      stop(sprintf("Event proposal for process_id '%s' must include numeric scalar time_next.", pid))
+    }
+    if (is.null(x$event_type) || !is.character(x$event_type) || length(x$event_type) != 1L) {
+      stop(sprintf("Event proposal for process_id '%s' must include character scalar event_type.", pid))
+    }
+    invisible(TRUE)
+  }
+
+  pids <- names(proposals)
+  for (k in seq_along(proposals)) .validate_event(proposals[[k]], pids[[k]])
+
   times <- vapply(proposals, function(x) x$time_next, numeric(1))
-  i <- which.min(times)
-  pid <- names(proposals)[i]
+  o <- order(times, pids) # deterministic tie-break: time, then process_id
+  pid <- pids[[o[[1]]]]
   ev <- proposals[[pid]]
   ev$process_id <- pid
   ev
@@ -152,22 +159,13 @@ Engine <- R6::R6Class(
   if (is.null(f) || !is.function(f)) stop("ModelBundle must provide transition().")
   fml <- names(formals(f))
 
-  # Prefer legacy signature if event_type/time_next are present (even if `event` also exists).
-  if (("event_type" %in% fml) && ("time_next" %in% fml)) {
-    args <- list(patient = patient, event_type = ev$event_type, time_next = ev$time_next)
-    if ("ctx" %in% fml) args$ctx <- ctx
-    if ("event" %in% fml) args$event <- ev
-    return(do.call(f, args))
+  if (!("event" %in% fml)) {
+    stop("transition() must accept (patient, event, ...).")
   }
 
-  # Event-centric signature
-  if ("event" %in% fml) {
-    args <- list(patient = patient, event = ev)
-    if ("ctx" %in% fml) args$ctx <- ctx
-    return(do.call(f, args))
-  }
-
-  stop("transition() must accept (patient, event_type, time_next, ...) or (patient, event, ...).")
+  args <- list(patient = patient, event = ev)
+  if ("ctx" %in% fml) args$ctx <- ctx
+  do.call(f, args)
 }
 
 
@@ -176,21 +174,13 @@ Engine <- R6::R6Class(
   if (is.null(f) || !is.function(f)) stop("ModelBundle must provide stop().")
   fml <- names(formals(f))
 
-  # Prefer legacy signature if event_type is present.
-  if ("event_type" %in% fml) {
-    args <- list(patient = patient, event_type = ev$event_type)
-    if ("ctx" %in% fml) args$ctx <- ctx
-    if ("event" %in% fml) args$event <- ev
-    return(isTRUE(do.call(f, args)))
+  if (!("event" %in% fml)) {
+    stop("stop() must accept (patient, event, ...).")
   }
 
-  if ("event" %in% fml) {
-    args <- list(patient = patient, event = ev)
-    if ("ctx" %in% fml) args$ctx <- ctx
-    return(isTRUE(do.call(f, args)))
-  }
-
-  stop("stop() must accept (patient, event_type, ...) or (patient, event, ...).")
+  args <- list(patient = patient, event = ev)
+  if ("ctx" %in% fml) args$ctx <- ctx
+  isTRUE(do.call(f, args))
 }
 
 
@@ -199,21 +189,13 @@ Engine <- R6::R6Class(
   if (is.null(f) || !is.function(f)) return(NULL)
   fml <- names(formals(f))
 
-  # Prefer legacy signature if event_type is present.
-  if ("event_type" %in% fml) {
-    args <- list(patient = patient, event_type = ev$event_type)
-    if ("ctx" %in% fml) args$ctx <- ctx
-    if ("event" %in% fml) args$event <- ev
-    return(do.call(f, args))
+  if (!("event" %in% fml)) {
+    stop("observe() must accept (patient, event, ...).")
   }
 
-  if ("event" %in% fml) {
-    args <- list(patient = patient, event = ev)
-    if ("ctx" %in% fml) args$ctx <- ctx
-    return(do.call(f, args))
-  }
-
-  stop("observe() must accept (patient, event_type, ...) or (patient, event, ...).")
+  args <- list(patient = patient, event = ev)
+  if ("ctx" %in% fml) args$ctx <- ctx
+  do.call(f, args)
 }
 
 .call_refresh_rules <- function(bundle, patient, ev, changes, ctx = NULL) {

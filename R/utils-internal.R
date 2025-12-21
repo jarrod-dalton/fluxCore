@@ -97,14 +97,15 @@
 #' @keywords internal
 .validate_model_bundle <- function(bundle) {
   if (!is.list(bundle)) stop("bundle must be a list.")
-  required <- c("propose_event", "transition", "stop")
+  required <- c("propose_events", "transition", "stop")
   missing <- setdiff(required, names(bundle))
   if (length(missing) > 0) stop(sprintf("ModelBundle is missing: %s", paste(missing, collapse = ", ")))
 
-  if (!is.function(bundle$propose_event)) stop("bundle$propose_event must be a function.")
+  if (!is.function(bundle$propose_events)) stop("bundle$propose_events must be a function.")
   if (!is.function(bundle$transition)) stop("bundle$transition must be a function.")
   if (!is.function(bundle$stop)) stop("bundle$stop must be a function.")
 
   if (!is.null(bundle$observe) && !is.function(bundle$observe)) stop("bundle$observe must be a function or NULL.")
+  if (!is.null(bundle$refresh_rules) && !is.function(bundle$refresh_rules)) stop("bundle$refresh_rules must be a function or NULL.")
   invisible(TRUE)
 }

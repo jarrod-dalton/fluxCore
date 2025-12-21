@@ -11,14 +11,15 @@ and decide when to stop.
 \details{
 Required functions:
 \itemize{
-\item \code{propose_event(patient, ctx)} -> list(time_next, event_type, ...)
-\item \code{transition(patient, event_type, time_next, ctx)} -> named list \code{changes} or NULL
-\item \code{stop(patient, event_type, ctx)} -> TRUE/FALSE
+\item \code{propose_events(patient, ctx, ...)} -> named list of event proposals keyed by \code{process_id}
+\item \code{transition(patient, event, ctx)} -> named list \code{changes} or NULL
+\item \code{stop(patient, event, ctx)} -> TRUE/FALSE
 }
 
 Optional functions:
 \itemize{
-\item \code{observe(patient, event_type, ctx)} -> list/data.frame row of observed outputs for logging
+\item \code{observe(patient, event, ctx)} -> list/data.frame row of observed outputs for logging
+\item \code{refresh_rules(patient, last_event, changes, ctx)} -> "ALL" or character vector of \code{process_id}s
 }
 
 A bundle can close over fitted models, parameters, reference data, etc. This makes

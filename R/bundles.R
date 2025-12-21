@@ -5,12 +5,13 @@
 #' and decide when to stop.
 #'
 #' Required functions:
-#' - `propose_event(patient, ctx)` -> list(time_next, event_type, ...)
-#' - `transition(patient, event_type, time_next, ctx)` -> named list `changes` or NULL
-#' - `stop(patient, event_type, ctx)` -> TRUE/FALSE
+#' - `propose_events(patient, ctx, ...)` -> named list of event proposals keyed by `process_id`
+#' - `transition(patient, event, ctx)` -> named list `changes` or NULL
+#' - `stop(patient, event, ctx)` -> TRUE/FALSE
 #'
 #' Optional functions:
-#' - `observe(patient, event_type, ctx)` -> list/data.frame row of observed outputs for logging
+#' - `observe(patient, event, ctx)` -> list/data.frame row of observed outputs for logging
+#' - `refresh_rules(patient, last_event, changes, ctx)` -> "ALL" or character vector of `process_id`s
 #'
 #' A bundle can close over fitted models, parameters, reference data, etc. This makes
 #' it easy to swap dynamics while keeping the Patient and Engine generic.
@@ -57,29 +58,28 @@ default_model_bundle <- function(terminal_event_type = "death") {
     if (!is.null(process_ids) && !(pid %in% process_ids)) return(list())
     ev <- propose_one(patient, ctx = ctx)
     ev$process_id <- pid
-    ev
     list(default = ev)
   }
 
-  transition <- function(patient, event_type, time_next, ctx = NULL, event = NULL) {
-    if (identical(event_type, "VISIT")) {
+  transition <- function(patient, event, ctx = NULL) {
+    if (identical(event$event_type, "VISIT")) {
       s <- patient$as_list(c("age", "miles_to_work"))
       # tiny age increment proportional to time advance
-      list(age = s$age + (time_next - patient$last_time))
+      list(age = s$age + (event$time_next - patient$last_time))
     } else {
       NULL
     }
   }
 
-  stop <- function(patient, event_type, ctx = NULL, event = NULL) {
-    identical(event_type, terminal_event_type)
+  stop <- function(patient, event, ctx = NULL) {
+    identical(event$event_type, terminal_event_type)
   }
 
-  observe <- function(patient, event_type, ctx = NULL, event = NULL) {
+  observe <- function(patient, event, ctx = NULL) {
     s <- patient$as_list(c("age", "miles_to_work"))
     data.frame(
       time = patient$last_time,
-      event_type = event_type,
+      event_type = event$event_type,
       age = s$age,
       miles_to_work = s$miles_to_work
     )
@@ -92,8 +92,6 @@ default_model_bundle <- function(terminal_event_type = "death") {
 
   list(
     propose_events = propose_events,
-    # legacy single-event proposer (optional)
-    propose_event = propose_one,
     transition = transition,
     stop = stop,
     observe = observe,

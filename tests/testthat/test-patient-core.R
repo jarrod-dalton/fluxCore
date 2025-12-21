@@ -98,18 +98,22 @@ test_that("run_cohort produces index with patient_id, draw_id, sim_id and correc
 test_that("Engine stops immediately when bundle stop() returns TRUE (no events after terminal)", {
   # Create a tiny bundle that stops when it emits event_type == "STOP"
   bundle <- list(
-    propose_event = function(patient, ctx = NULL) {
+    propose_events = function(patient, ctx = NULL, process_ids = NULL, current_proposals = NULL) {
+      pid <- "default"
+      if (!is.null(process_ids) && !(pid %in% process_ids)) return(list())
       t0 <- patient$last_time
-      if (patient$j == 0L) {
-        return(list(time_next = t0 + 1, event_type = "GO"))
+      ev <- if (patient$j == 0L) {
+        list(time_next = t0 + 1, event_type = "GO")
+      } else {
+        list(time_next = t0 + 1, event_type = "STOP")
       }
-      list(time_next = t0 + 1, event_type = "STOP")
+      list(default = ev)
     },
-    transition = function(patient, event_type, time_next, ctx = NULL) {
+    transition = function(patient, event, ctx = NULL) {
       NULL
     },
-    stop = function(patient, event_type, ctx = NULL) {
-      identical(event_type, "STOP")
+    stop = function(patient, event, ctx = NULL) {
+      identical(event$event_type, "STOP")
     },
     observe = NULL,
     sample_params = function(D) rep(list(NULL), as.integer(D))

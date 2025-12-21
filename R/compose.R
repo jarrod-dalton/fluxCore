@@ -10,7 +10,7 @@
 #' library(patientSimCore)
 #' base <- default_model_bundle()
 #' policy <- list(
-#'   transition = function(patient, event_type, time_next, ctx) {
+#'   transition = function(patient, event, ctx) {
 #'     # Example: if age >= 65, set a flag (requires schema includes on_medicare)
 #'     if ("on_medicare" %in% names(patient$current) && patient$current$age >= 65) {
 #'       return(list(on_medicare = 1))
@@ -29,13 +29,19 @@ compose_bundles <- function(baseline, policy = NULL, merge = c("policy_wins", "b
   # Policy may provide any subset of bundle functions; missing ones fall back to baseline
   out <- baseline
 
-  # Compose propose_event if policy provides it
-  if (!is.null(policy$propose_event)) {
-    f_base <- baseline$propose_event
-    f_pol <- policy$propose_event
-    out$propose_event <- function(patient, ctx) {
-      # Policy can choose to delegate or override
-      f_pol(patient, ctx, baseline_propose = f_base)
+  # Compose propose_events if policy provides it
+  if (!is.null(policy$propose_events)) {
+    f_base <- baseline$propose_events
+    f_pol <- policy$propose_events
+    out$propose_events <- function(patient, ctx = NULL, process_ids = NULL, current_proposals = NULL) {
+      # Policy can choose to delegate or override. We provide baseline_propose_events.
+      f_pol(
+        patient = patient,
+        ctx = ctx,
+        process_ids = process_ids,
+        current_proposals = current_proposals,
+        baseline_propose_events = f_base
+      )
     }
   }
 
@@ -43,9 +49,9 @@ compose_bundles <- function(baseline, policy = NULL, merge = c("policy_wins", "b
   if (!is.null(policy$transition)) {
     f_base <- baseline$transition
     f_pol <- policy$transition
-    out$transition <- function(patient, event_type, time_next, ctx) {
-      ch0 <- f_base(patient, event_type, time_next, ctx)
-      ch1 <- f_pol(patient, event_type, time_next, ctx, baseline_changes = ch0)
+    out$transition <- function(patient, event, ctx = NULL) {
+      ch0 <- f_base(patient, event, ctx)
+      ch1 <- f_pol(patient, event, ctx, baseline_changes = ch0)
       merge_patches(ch0, ch1, merge = merge)
     }
   }
@@ -54,8 +60,8 @@ compose_bundles <- function(baseline, policy = NULL, merge = c("policy_wins", "b
   if (!is.null(policy$stop)) {
     f_base <- baseline$stop
     f_pol <- policy$stop
-    out$stop <- function(patient, event_type, ctx) {
-      isTRUE(f_base(patient, event_type, ctx)) || isTRUE(f_pol(patient, event_type, ctx))
+    out$stop <- function(patient, event, ctx = NULL) {
+      isTRUE(f_base(patient, event, ctx)) || isTRUE(f_pol(patient, event, ctx))
     }
   }
 
@@ -63,9 +69,9 @@ compose_bundles <- function(baseline, policy = NULL, merge = c("policy_wins", "b
   if (!is.null(policy$observe)) {
     f_base <- baseline$observe
     f_pol <- policy$observe
-    out$observe <- function(patient, event_type, ctx) {
-      o0 <- if (!is.null(f_base)) f_base(patient, event_type, ctx) else NULL
-      o1 <- f_pol(patient, event_type, ctx, baseline_obs = o0)
+    out$observe <- function(patient, event, ctx = NULL) {
+      o0 <- if (!is.null(f_base)) f_base(patient, event, ctx) else NULL
+      o1 <- f_pol(patient, event, ctx, baseline_obs = o0)
       # merge observations as lists; policy wins on conflicts
       if (is.null(o0)) return(o1)
       if (is.null(o1)) return(o0)

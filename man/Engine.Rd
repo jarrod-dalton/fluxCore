@@ -9,11 +9,8 @@ patch, recording the event on a \code{Patient}, and stopping when \code{bundle$s
 (or a \code{max_time} / \code{max_events} limit is reached).
 }
 \details{
-The Engine supports both:
-\itemize{
-\item \code{bundle$propose_events(patient, ...)} returning multiple process-specific proposals, and
-\item legacy \code{bundle$propose_event(patient, ...)} returning a single proposal.
-}
+The Engine requires \code{bundle$propose_events(patient, ...)} returning one proposed future event
+per process, as a named list keyed by \code{process_id}.
 
 When multiple processes are present, the Engine caches each process's next proposal and
 refreshes proposals on-demand using \code{bundle$refresh_rules()} (default: refresh all).
