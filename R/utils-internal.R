@@ -109,3 +109,17 @@
   if (!is.null(bundle$refresh_rules) && !is.function(bundle$refresh_rules)) stop("bundle$refresh_rules must be a function or NULL.")
   invisible(TRUE)
 }
+
+#' @keywords internal
+.psim_internal_env <- new.env(parent = emptyenv())
+
+#' Warn once per R session for a given key
+#'
+#' @keywords internal
+.warn_once <- function(key, msg) {
+  if (!is.character(key) || length(key) != 1L) key <- "__default__"
+  if (isTRUE(.psim_internal_env[[key]])) return(invisible(FALSE))
+  .psim_internal_env[[key]] <- TRUE
+  warning(msg, call. = FALSE)
+  invisible(TRUE)
+}
