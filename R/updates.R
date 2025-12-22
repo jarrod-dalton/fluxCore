@@ -1,33 +1,24 @@
-#' Block-oriented state updates for vectorized models
-#'
-#' Many simulation models generate multivariate outputs (e.g., SBP/DBP; CBC panels)
-#' but `transition()` must return per-variable updates. `update_block()` validates
-#' and expands a named payload into a named list of state changes using schema
-#' block metadata.
-#'
-#' @param patient A `Patient` object.
-#' @param block Block name (character scalar) corresponding to `schema$<var>$blocks`.
-#' @param values Named vector or named list of values to update.
-#'   Names must correspond to state variables in the patient's schema.
-#' @param require_all Logical; if TRUE (default) all variables belonging to `block`
-#'   must be supplied in `values`.
-#' @param unknown Policy for variables supplied in `values` that are *not* present
-#'   in the patient's schema. One of:
-#'   - `"error"` (default): error on any unknown variables
-#'   - `"drop_warn_once"`: drop unknown variables and warn once per block per R session
-#'   - `"drop_warn_always"`: drop unknown variables and warn every call
-#'
-#' @return A named list of state updates suitable for returning from `transition()`.
-#'   Values are returned in schema block order.
-#'
-#' @examples
-#' schema <- default_patient_schema()
-#' schema$sbp <- list(default=120, coerce=as.numeric, validate=NULL, blocks=c("bp"))
-#' schema$dbp <- list(default=80, coerce=as.numeric, validate=NULL, blocks=c("bp"))
-#' p <- new_patient(schema = schema)
-#' update_block(p, "bp", c(sbp=125, dbp=87))
-#'
-#' @export
+# ------------------------------------------------------------------------------
+# update_block()
+#
+# Purpose:
+#   Validate and expand a block-based update payload into a named list suitable
+#   for a single atomic patient state update (one event index j, many variables).
+#
+# Usage:
+#   - Intended for use inside ModelBundle$transition(patient, event, ctx)
+#   - 'values' must be named (vector or list); mixed types are supported.
+#
+# Key behaviors:
+#   - Validates that supplied variables exist in the patient schema
+#   - Validates block membership (variables must belong to the requested block)
+#   - require_all=TRUE requires full block coverage; FALSE allows partial updates
+#   - unknown controls how variables not in schema are handled
+#
+# Returns:
+#   A named list of updates, ordered by schema/block variable order.
+# ------------------------------------------------------------------------------
+
 update_block <- function(patient,
                          block,
                          values,
@@ -106,17 +97,21 @@ update_block <- function(patient,
 }
 
 
-#' Combine multiple update lists into one atomic update payload
-#'
-#' Convenience helper for `transition()` implementations that need to apply
-#' multiple update sources (e.g., scalar tweaks + one or more block updates).
-#' This function concatenates named lists and errors if any variable is updated
-#' more than once within the same event.
-#'
-#' @param ... One or more named lists of updates (or NULL).
-#' @return A single named list of updates, or NULL if all inputs are NULL.
-#'
-#' @export
+# ------------------------------------------------------------------------------
+# combine_updates()
+#
+# Purpose:
+#   Combine multiple update payloads (named lists) into a single update payload.
+#   This is useful when one event triggers updates from multiple sub-models.
+#
+# Key behaviors:
+#   - NULL inputs are ignored
+#   - Errors if the same variable is updated more than once in the same event
+#
+# Returns:
+#   A single named list of updates.
+# ------------------------------------------------------------------------------
+
 combine_updates <- function(...) {
   parts <- list(...)
   parts <- parts[!vapply(parts, is.null, logical(1))]

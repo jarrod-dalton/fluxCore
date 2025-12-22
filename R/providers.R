@@ -1,35 +1,5 @@
-#' ModelProvider concept (R6)
-#'
-#' A ModelProvider materializes a `ModelBundle` from some source:
-#' - package objects,
-#' - files on disk,
-#' - MLflow (stub).
-#'
-#' Providers accept a `model_spec` (named list) describing what to load.
-#'
-#' Providers may also optionally implement:
-#' - `sample_param_draws(model_spec, n_param_draws)` -> list of length D
-#'
-#' which supports global parameter draws reused across patients.
-#'
-#' @name modelprovider_concept
-#' @keywords internal
 NULL
 
-#' PackageProvider
-#'
-#' Loads a bundle from in-package functions/objects. Use `model_spec$name` to select
-#' among multiple bundle builders. By default, `"default"` maps to [default_model_bundle()].
-#'
-#' @param registry Named list mapping bundle names to functions returning ModelBundles.
-#'
-#' @examples
-#' library(patientSimCore)
-#' prov <- PackageProvider$new()
-#' bundle <- prov$load(list(name = "default"))
-#' names(bundle)
-#'
-#' @export
 PackageProvider <- R6::R6Class(
   classname = "PackageProvider",
   public = list(
@@ -86,24 +56,6 @@ PackageProvider <- R6::R6Class(
   )
 )
 
-#' FileProvider
-#'
-#' Loads a bundle from an `.rds` file. Expects `model_spec$path`.
-#'
-#' Note: serializing functions can be brittle across environments. Often better:
-#' store parameters/reference data on disk and rebuild the bundle at load time.
-#'
-#' @param base_path Optional base directory.
-#'
-#' @examples
-#' \dontrun{
-#' library(patientSimCore)
-#' saveRDS(default_model_bundle(), "bundle.rds")
-#' prov <- FileProvider$new()
-#' bundle <- prov$load(list(path = "bundle.rds"))
-#' }
-#'
-#' @export
 FileProvider <- R6::R6Class(
   classname = "FileProvider",
   public = list(
@@ -139,28 +91,6 @@ FileProvider <- R6::R6Class(
   )
 )
 
-#' MLflowProvider (stub)
-#'
-#' Scaffold for MLflow-based workflows. `model_spec` should include at least
-#' `model_uri` and optionally references to artifacts needed to build a bundle.
-#'
-#' This provider delegates to `builder_fn(model_uri, artifacts, model_spec, ...)`.
-#'
-#' You can also supply an optional `sampler_fn(model_uri, artifacts, model_spec, D, ...)`
-#' to generate global parameter draws for draw-aware components (e.g., regression models
-#' with `cov(beta)`).
-#'
-#' @param builder_fn Function returning a ModelBundle.
-#' @param sampler_fn Optional function returning a list of length D parameter contexts.
-#'
-#' @examples
-#' library(patientSimCore)
-#' prov <- MLflowProvider$new(
-#'   builder_fn = function(model_uri, artifacts = NULL, model_spec = NULL) default_model_bundle()
-#' )
-#' bundle <- prov$load(list(model_uri = "models:/my_model@champion"))
-#'
-#' @export
 MLflowProvider <- R6::R6Class(
   classname = "MLflowProvider",
   public = list(

@@ -1,21 +1,3 @@
-#' Engine
-#'
-#' Orchestrates simulation by repeatedly proposing the next event(s), applying a transition
-#' patch, recording the event on a `Patient`, and stopping when `bundle$stop()` returns TRUE
-#' (or a `max_time` / `max_events` limit is reached).
-#'
-#' The Engine requires `bundle$propose_events(patient, ...)`, which returns one proposed
-#' future event per process (keyed by `process_id`).
-#'
-#' When multiple processes are present, the Engine caches each process's next proposal and
-#' refreshes proposals on-demand using `bundle$refresh_rules()` (default: refresh all).
-#'
-#' @section Fields:
-#' - `provider`: a ModelProvider (e.g., [PackageProvider], [FileProvider])
-#' - `model_spec`: named list describing what to load
-#' - `bundle`: the loaded ModelBundle (named list of functions)
-#'
-#' @export
 Engine <- R6::R6Class(
   classname = "Engine",
   public = list(

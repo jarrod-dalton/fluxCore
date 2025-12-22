@@ -1,6 +1,3 @@
-#' Internal utilities (not exported)
-#'
-#' @keywords internal
 .validate_event_time <- function(time, last_time) {
   time <- as.numeric(time)
   if (!is.finite(time) || length(time) != 1L) stop("time must be a finite numeric scalar.")
@@ -10,7 +7,6 @@
   time
 }
 
-#' @keywords internal
 .validate_event_type <- function(event_type) {
   if (length(event_type) != 1L) stop("event_type must be a length-1 character value.")
   event_type <- as.character(event_type)
@@ -18,7 +14,6 @@
   event_type
 }
 
-#' @keywords internal
 .validate_schema <- function(schema) {
   if (!is.list(schema) || is.null(names(schema)) || any(names(schema) == "")) {
     stop("schema must be a named list.")
@@ -33,7 +28,6 @@
   invisible(TRUE)
 }
 
-#' @keywords internal
 .init_state_from_schema <- function(schema, init) {
   init <- if (is.null(init)) list() else init
   if (!is.list(init)) stop("init must be a list or NULL.")
@@ -61,12 +55,10 @@
   state
 }
 
-#' @keywords internal
 .init_hist_from_state <- function(state) {
   lapply(state, function(v) list(j = 0L, v = v))
 }
 
-#' @keywords internal
 .apply_changes <- function(current, hist, schema, j, changes) {
   if (is.null(changes) || length(changes) == 0L) {
     return(list(current = current, hist = hist))
@@ -94,7 +86,6 @@
   list(current = current, hist = hist)
 }
 
-#' @keywords internal
 .validate_model_bundle <- function(bundle) {
   if (!is.list(bundle)) stop("bundle must be a list.")
   required <- c("propose_events", "transition", "stop")
@@ -110,12 +101,8 @@
   invisible(TRUE)
 }
 
-#' @keywords internal
 .psim_internal_env <- new.env(parent = emptyenv())
 
-#' Warn once per R session for a given key
-#'
-#' @keywords internal
 .warn_once <- function(key, msg) {
   if (!is.character(key) || length(key) != 1L) key <- "__default__"
   if (isTRUE(.psim_internal_env[[key]])) return(invisible(FALSE))

@@ -1,26 +1,3 @@
-#' Compose ModelBundles and transition components
-#'
-#' These helpers make it easy to layer policy/intervention logic on top of baseline
-#' natural history dynamics without rewriting the baseline bundle.
-#'
-#' The key idea is to compose functions that return sparse `changes` patches
-#' (named lists). Patch merging is controlled by a simple strategy.
-#'
-#' @examples
-#' library(patientSimCore)
-#' base <- default_model_bundle()
-#' policy <- list(
-#'   transition = function(patient, event, ctx) {
-#'     # Example: if age >= 65, set a flag (requires schema includes on_medicare)
-#'     if ("on_medicare" %in% names(patient$current) && patient$current$age >= 65) {
-#'       return(list(on_medicare = 1))
-#'     }
-#'     NULL
-#'   }
-#' )
-#' composed <- compose_bundles(base, policy)
-#'
-#' @export
 compose_bundles <- function(baseline, policy = NULL, merge = c("policy_wins", "baseline_wins", "error_on_conflict")) {
   merge <- match.arg(merge)
 
@@ -82,13 +59,6 @@ compose_bundles <- function(baseline, policy = NULL, merge = c("policy_wins", "b
   out
 }
 
-#' Merge two sparse change patches
-#'
-#' @param baseline_changes Named list or NULL.
-#' @param policy_changes Named list or NULL.
-#' @param merge Merge strategy.
-#' @return Named list or NULL.
-#' @keywords internal
 merge_patches <- function(baseline_changes, policy_changes,
                           merge = c("policy_wins", "baseline_wins", "error_on_conflict")) {
   merge <- match.arg(merge)
@@ -125,8 +95,6 @@ merge_patches <- function(baseline_changes, policy_changes,
   stop("Unknown merge strategy.")
 }
 
-#' Merge two named lists (policy wins)
-#' @keywords internal
 merge_lists <- function(x, y) {
   if (is.null(x)) return(y)
   if (is.null(y)) return(x)

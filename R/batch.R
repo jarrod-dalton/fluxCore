@@ -1,51 +1,18 @@
-#' Run a cohort of patients (serial or parallel) with optional global parameter draws
-#'
-#' These helpers support batch simulation with:
-#' - global parameter draws reused across patients (parameter uncertainty)
-#' - multiple stochastic sims per patient per draw (stochastic uncertainty)
-#' - parallelization across patients
-#'
-#' The Engine remains patient-oriented; batch utilities orchestrate repetition and labeling.
-#'
-#' ## Global parameter draws
-#'
-#' The recommended pattern is:
-#' 1. Sample `D` global parameter draws once.
-#' 2. For each patient, and for each draw, run `S` stochastic sims.
-#'
-#' Not all component models must be draw-aware. Components that do not support parameter
-#' uncertainty can ignore `ctx$params` (or simply have no entry in `ctx$params`).
-#'
-#' @param engine An `Engine` object (with a materialized `bundle`).
-#' @param patients List of `Patient` objects.
-#' @param n_param_draws Integer; number of global parameter draws (D). Default 1.
-#' @param n_sims Integer; number of stochastic sims per patient per draw (S). Default 1.
-#' @param param_draws Optional; a list of length D with per-draw parameter contexts. If NULL,
-#'   the function will attempt to call `engine$bundle$sample_params(D)` or `engine$provider$sample_param_draws(...)`
-#'   when available; otherwise it uses a single NULL draw.
-#' @param max_events Max events per run.
-#' @param max_time Optional max time per run.
-#' @param return_observations Logical; whether to return observations (if bundle provides observe()).
-#' @param time_unit Optional string documenting the unit for the global time axis (e.g., "days", "months", "years").
-#'   If provided, this is passed to each run as `ctx$time_unit`.
-#' @param parallel Logical; if TRUE, parallelize across patients (requires `parallel`).
-#' @param n_workers Integer; workers for parallel; default `parallel::detectCores() - 1`.
-#' @param seed Optional base seed for reproducibility.
-#' @return A list with:
-#' - `runs`: list of per-run outputs (patient/events/observations) with labels
-#' - `index`: data.frame mapping run_id -> patient_id/draw_id/sim_id
-#'
-#' @examples
-#' library(patientSimCore)
-#' set.seed(1)
-#'
-#' eng <- Engine$new(provider = PackageProvider$new(), model_spec = list(name = "default"))
-#' patients <- lapply(1:3, function(i) Patient$new(init = list(age = 50 + i, miles_to_work = 10), schema = default_patient_schema(), time0 = 0))
-#'
-#' out <- run_cohort(eng, patients, n_param_draws = 2, n_sims = 2, max_events = 50, parallel = FALSE)
-#' nrow(out$index)
-#'
-#' @export
+# ------------------------------------------------------------------------------
+# run_cohort()
+#
+# Purpose:
+#   Run a simulation engine for multiple patients, optionally with repeated
+#   parameter draws and repeated simulations per draw.
+#
+# Time units:
+#   - This function accepts `time_unit` and places it into ctx$time_unit for each
+#     run. Engine itself treats time as numeric; the unit is metadata for clarity.
+#
+# Returns:
+#   A list containing run index metadata and results (patients, events, observations).
+# ------------------------------------------------------------------------------
+
 run_cohort <- function(engine,
                        patients,
                        n_param_draws = 1,
@@ -188,7 +155,6 @@ run_cohort <- function(engine,
 
 # ---- internal helpers ----
 
-#' @keywords internal
 .maybe_sample_param_draws <- function(engine, n_param_draws) {
   # 1) Bundle can provide sample_params(D)
   if (!is.null(engine$bundle$sample_params) && is.function(engine$bundle$sample_params)) {
@@ -212,13 +178,11 @@ run_cohort <- function(engine,
   rep(list(NULL), n_param_draws)
 }
 
-#' @keywords internal
 .clone_patient <- function(p) {
   # R6 deep clone: safe for per-sim runs
   p$clone(deep = TRUE)
 }
 
-#' @keywords internal
 .seed_for <- function(base_seed, patient_id, draw_id, sim_id) {
   # stable integer seed derived from identifiers
   # (simple; if you want stronger guarantees, switch to L'Ecuyer streams)
