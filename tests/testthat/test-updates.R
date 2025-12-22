@@ -2,11 +2,15 @@ test_that("update_block validates block membership and schema", {
   schema <- default_patient_schema()
   schema$sbp <- list(default = 120, coerce = as.numeric, validate = NULL, blocks = c("bp"))
   schema$dbp <- list(default = 80,  coerce = as.numeric, validate = NULL, blocks = c("bp"))
+  schema$age <- list(default = 50,  coerce = as.numeric, validate = NULL, blocks = c("demo"))
   p <- new_patient(schema = schema)
 
   expect_equal(update_block(p, "bp", c(sbp = 125, dbp = 87)), list(sbp = 125, dbp = 87))
   expect_error(update_block(p, "bp", c(sbp = 125)), "missing required")
-  expect_error(update_block(p, "bp", c(sbp = 125, junk = 1)), "not in that block")
+  # var exists in schema but not in bp block
+  expect_error(update_block(p, "bp", c(sbp = 125, age = 55, dbp = 87)), "not in that block")
+  # var does not exist in schema
+  expect_error(update_block(p, "bp", c(sbp = 125, junk = 1, dbp = 87)), "not in schema")
   expect_error(update_block(p, "nope", c(sbp = 125, dbp = 87)), "Unknown")
 })
 

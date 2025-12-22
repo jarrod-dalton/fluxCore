@@ -42,7 +42,7 @@ test_that("Engine run returns events and patient; time is non-decreasing", {
 
   out <- eng$run(
     p,
-    ctx = list(time_unit = "years"),
+    time_unit = "years",
     max_events = 50,
     return_observations = TRUE
   )
@@ -87,7 +87,7 @@ test_that("run_cohort produces index with patient_id, draw_id, sim_id and correc
   batch <- run_cohort(
     engine = eng,
     patients = patients,
-    ctx = list(time_unit = "years"),
+    time_unit = "years",
     n_param_draws = 2,
     n_sims = 3,
     max_events = 10,
@@ -134,7 +134,7 @@ test_that("Engine stops immediately when bundle stop() returns TRUE (no events a
 
   out <- eng$run(
     p,
-    ctx = list(time_unit = "years"),
+    time_unit = "years",
     max_events = 10,
     return_observations = FALSE
   )
