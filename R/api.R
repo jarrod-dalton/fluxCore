@@ -14,7 +14,7 @@
 #' p$state(c("age", "miles_to_work"))
 #'
 #' @export
-new_patient <- function(init,
+new_patient <- function(init = list(),
                         schema = default_patient_schema(),
                         time0 = 0,
                         event_type0 = "init") {

@@ -40,7 +40,12 @@ test_that("Engine run returns events and patient; time is non-decreasing", {
     time0 = 0
   )
 
-  out <- eng$run(p, max_events = 50, return_observations = TRUE)
+  out <- eng$run(
+    p,
+    ctx = list(time_unit = "years"),
+    max_events = 50,
+    return_observations = TRUE
+  )
 
   expect_true(is.list(out))
   expect_true(is.data.frame(out$events))
@@ -82,6 +87,7 @@ test_that("run_cohort produces index with patient_id, draw_id, sim_id and correc
   batch <- run_cohort(
     engine = eng,
     patients = patients,
+    ctx = list(time_unit = "years"),
     n_param_draws = 2,
     n_sims = 3,
     max_events = 10,
@@ -126,7 +132,12 @@ test_that("Engine stops immediately when bundle stop() returns TRUE (no events a
                    schema = default_patient_schema(),
                    time0 = 0)
 
-  out <- eng$run(p, max_events = 10, return_observations = FALSE)
+  out <- eng$run(
+    p,
+    ctx = list(time_unit = "years"),
+    max_events = 10,
+    return_observations = FALSE
+  )
 
   # Expect exactly init + GO + STOP (3 events)
   expect_equal(nrow(out$events), 3)
