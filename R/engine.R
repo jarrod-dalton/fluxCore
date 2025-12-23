@@ -31,17 +31,41 @@ Engine <- R6::R6Class(
                    return_observations = TRUE,
                    ctx = NULL) {
 
-      if (is.null(ctx)) ctx <- list()
+      
+if (is.null(ctx)) ctx <- list()
+if (!is.list(ctx)) stop("ctx must be a list (or NULL).", call. = FALSE)
 
-      # Time is a numeric axis shared across all processes. The Engine does not
-      # enforce units, but models should declare the unit explicitly to avoid
-      # silent mistakes when mixing rates/cadences (e.g., days vs years).
-      if (is.null(ctx$time_unit) || !is.character(ctx$time_unit) || length(ctx$time_unit) != 1L || !nzchar(ctx$time_unit)) {
-        warning(
-          "ctx$time_unit is missing or invalid. Time is treated as unitless; set ctx$time_unit (e.g., 'days', 'months', 'years') for clarity.",
-          call. = FALSE
-        )
-      }
+# Time is a numeric axis shared across all processes. The Engine does not
+# enforce units, but models should declare the unit explicitly to avoid
+# silent mistakes when mixing rates/cadences (e.g., days vs years).
+if (is.null(ctx$time_unit) ||
+    !is.character(ctx$time_unit) ||
+    length(ctx$time_unit) != 1L ||
+    !nzchar(ctx$time_unit)) {
+  warning(
+    "ctx$time_unit is missing or invalid. Time is treated as unitless; set ctx$time_unit (e.g., 'days', 'months', 'years') for clarity.",
+    call. = FALSE
+  )
+}
+
+# Standardize model parameters in ctx$params.
+# - Users may provide ctx$params to override defaults for a run.
+# - Model bundles may provide bundle$params as a default.
+if (is.null(ctx$params)) {
+  if (!is.null(self$bundle$params)) {
+    if (!is.list(self$bundle$params)) stop("bundle$params must be a list if provided.", call. = FALSE)
+    ctx$params <- self$bundle$params
+  } else {
+    ctx$params <- list()
+  }
+} else {
+  if (!is.list(ctx$params)) stop("ctx$params must be a list if provided.", call. = FALSE)
+}
+
+# One-time initialization hook (optional).
+# Models can use this to register derived variables and perform setup.
+.call_init_patient(self$bundle, patient, ctx = ctx)
+
       obs_accum <- NULL
 
       proposals <- .call_propose_events(self$bundle, patient, ctx = ctx)

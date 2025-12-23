@@ -98,8 +98,12 @@
 
   if (!is.null(bundle$observe) && !is.function(bundle$observe)) stop("bundle$observe must be a function or NULL.")
   if (!is.null(bundle$refresh_rules) && !is.function(bundle$refresh_rules)) stop("bundle$refresh_rules must be a function or NULL.")
+  # Optional: bundle$params can provide default parameters for a run.
+  if (!is.null(bundle$params) && !is.list(bundle$params)) stop("bundle$params must be a list or NULL.")
+
   invisible(TRUE)
 }
+
 
 .psim_internal_env <- new.env(parent = emptyenv())
 
