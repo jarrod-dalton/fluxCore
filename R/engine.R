@@ -126,6 +126,17 @@ if (is.null(ctx$params)) {
   )
 )
 
+.call_init_patient <- function(bundle, patient, ctx = NULL) {
+  f <- bundle$init_patient
+  if (is.null(f)) return(invisible(NULL))
+  if (!is.function(f)) stop("init_patient must be a function if provided.", call. = FALSE)
+
+  fml <- names(formals(f))
+  args <- list(patient = patient)
+  if ("ctx" %in% fml) args$ctx <- ctx
+  invisible(do.call(f, args))
+}
+
 .call_propose_events <- function(bundle, patient, ctx = NULL, process_ids = NULL, current_proposals = NULL) {
   if (is.null(bundle$propose_events) || !is.function(bundle$propose_events)) {
     stop("ModelBundle must provide propose_events(patient, ctx, ...).")
