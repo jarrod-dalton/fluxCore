@@ -1,5 +1,4 @@
-# SCHEMA_SPEC.md
-## patientSimCore schema specification
+# `patientSimCore` Schema Specification
 
 This document specifies the structure and meaning of a **patient schema** used by `patientSimCore`. A schema defines the *core state variables* that a `Patient` can hold, along with defaults, coercion, validation, and optional block (panel) membership.
 
