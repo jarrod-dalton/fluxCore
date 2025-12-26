@@ -64,7 +64,7 @@ Patient <- R6::R6Class(
         extras <- setdiff(vars, names(self$current))
         if (length(extras) > 0) stop(sprintf("Unknown vars requested: %s", paste(extras, collapse = ", ")))
       }
-      unlist(self$current[vars], use.names = TRUE)
+      self$current[vars]
     },
 
     as_list = function(vars = NULL) {
@@ -160,7 +160,7 @@ state_at = function(j, vars = NULL) {
         if (length(extras) > 0) stop(sprintf("Unknown vars requested: %s", paste(extras, collapse = ", ")))
       }
 
-      out <- numeric(length(vars))
+      out <- vector("list", length(vars))
       names(out) <- vars
 
       for (k in vars) {
