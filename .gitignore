@@ -1,0 +1,53 @@
+# ---- R session / history ----
+.Rhistory
+.RData
+.Ruserdata
+
+# ---- RStudio ----
+.Rproj.user/
+*.Rproj
+
+# ---- Package build artifacts ----
+*.tar.gz
+*.tgz
+*.zip
+*.rds
+
+# ---- Check / build output ----
+/.Rcheck/
+/check/
+/revdep/
+/revdepcheck/
+
+# ---- Temporary / OS files ----
+.DS_Store
+Thumbs.db
+*.swp
+*.tmp
+*~
+
+# ---- Coverage / profiling ----
+coverage.xml
+*.prof
+*.profvis
+
+# ---- Vignette build products ----
+/vignettes/*.html
+/vignettes/*.pdf
+/vignettes/*.R
+/vignettes/*_cache/
+/vignettes/*_files/
+
+# ---- knitr / quarto ----
+*_cache/
+*_files/
+.quarto/
+.quarto_cache/
+
+# ---- Logs ----
+*.log
+
+# ---- Local env / secrets ----
+.Renviron
+.env
+.env.*
