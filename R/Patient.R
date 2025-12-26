@@ -64,7 +64,7 @@ Patient <- R6::R6Class(
         extras <- setdiff(vars, names(self$current))
         if (length(extras) > 0) stop(sprintf("Unknown vars requested: %s", paste(extras, collapse = ", ")))
       }
-      self$current[vars]
+      .as_ps_state(self$current[vars])
     },
 
     as_list = function(vars = NULL) {
