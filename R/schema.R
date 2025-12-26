@@ -13,25 +13,20 @@
 
 default_patient_schema <- function() {
   list(
-    # Canonical "alive" indicator.
-    # Forecasting utilities (e.g., patientSimForecast) assume a logical `alive`
-    # exists in core state so that conditional summaries can be defined cleanly.
+    # Canonical vital status indicator.
     alive = list(
-      default = TRUE,
-      coerce = as.logical,
+      default  = TRUE,
+      coerce   = as.logical,
       validate = function(x) length(x) == 1L && !is.na(x)
     ),
-    # Indicates whether the patient is still under active follow-up / in-scope.
-    # This is intentionally distinct from `alive`:
-    # - A patient can be alive but no longer observed (e.g., hospital discharge,
-    #   loss to follow-up, end of study window).
-    # - Forecasting/validation tooling can use this for optional conditioning
-    #   without conflating it with death.
+
+    # Indicates whether patient is under active follow-up / in-scope (distinct from alive).
     active_followup = list(
-      default = TRUE,
-      coerce = as.logical,
+      default  = TRUE,
+      coerce   = as.logical,
       validate = function(x) length(x) == 1L && !is.na(x)
     ),
+
     age = list(
       default = 40,
       coerce = as.numeric,

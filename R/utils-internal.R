@@ -22,10 +22,19 @@
     spec <- schema[[k]]
     if (!is.list(spec)) stop(sprintf("schema[['%s']] must be a list.", k))
     if (is.null(spec$default)) stop(sprintf("schema[['%s']] must define $default.", k))
-    if (is.null(spec$coerce) || !is.function(spec$coerce)) stop(sprintf("schema[['%s']] must define $coerce (function).", k))
-    if (!is.null(spec$validate) && !is.function(spec$validate)) stop(sprintf("schema[['%s']] $validate must be a function or NULL.", k))
+    # coerce is optional; default is identity
+    if (is.null(spec$coerce)) {
+      spec$coerce <- function(x) x
+    }
+    if (!is.function(spec$coerce)) {
+      stop(sprintf("schema[['%s']] $coerce must be a function or NULL.", k))
+    }
+    if (!is.null(spec$validate) && !is.function(spec$validate)) {
+      stop(sprintf("schema[['%s']] $validate must be a function or NULL.", k))
+    }
+    schema[[k]] <- spec
   }
-  invisible(TRUE)
+  schema
 }
 
 .init_state_from_schema <- function(schema, init) {

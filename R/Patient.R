@@ -30,7 +30,8 @@ Patient <- R6::R6Class(
                           time0 = 0,
                           event_type0 = "init") {
 
-      .validate_schema(schema)
+      schema <- .validate_schema(schema)
+      self$schema <- schema
 
       time0 <- as.numeric(time0)
       if (length(time0) != 1L || !is.finite(time0)) stop("time0 must be a finite numeric scalar.")
