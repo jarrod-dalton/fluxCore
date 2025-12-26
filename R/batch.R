@@ -22,7 +22,8 @@ run_cohort <- function(engine,
                        max_time = NULL,
                        return_observations = TRUE,
                        time_unit = NULL,
-                       parallel = FALSE,
+                        backend = NULL,
+                        parallel = NULL,
                        n_workers = NULL,
                        seed = NULL) {
 
@@ -112,37 +113,70 @@ run_cohort <- function(engine,
     out_list
   }
 
-  if (isTRUE(parallel)) {
-    if (!requireNamespace("parallel", quietly = TRUE)) {
-      stop("parallel=TRUE requires the 'parallel' package (base R).")
-    }
-    if (is.null(n_workers)) {
-      n_workers <- max(1L, parallel::detectCores() - 1L)
-    }
-    n_workers <- as.integer(n_workers)
-    if (!is.finite(n_workers) || n_workers < 1L) stop("n_workers must be a positive integer.")
-
-    cl <- parallel::makeCluster(n_workers)
-    on.exit(parallel::stopCluster(cl), add = TRUE)
-
-    # Export needed objects/functions
-    parallel::clusterExport(
-      cl,
-      varlist = c("patients", "split_by_patient", "engine", "param_draws", "max_events", "max_time",
-                  "return_observations", "seed", "run_one_patient",
-                  ".clone_patient", ".seed_for", ".maybe_sample_param_draws"),
-      envir = environment()
-    )
-    parallel::clusterEvalQ(cl, { library(patientSimCore) })
-
-    patient_out <- parallel::parLapply(cl, names(split_by_patient), run_one_patient)
-    runs <- do.call(c, patient_out)
+# Resolve backend. `parallel` is a deprecated alias:
+# - parallel=TRUE  -> backend="cluster"
+# - parallel=FALSE -> backend="none"
+if (is.null(backend)) {
+  if (!is.null(parallel)) {
+    backend <- if (isTRUE(parallel)) "cluster" else "none"
   } else {
-    patient_out <- lapply(names(split_by_patient), run_one_patient)
-    runs <- do.call(c, patient_out)
+    backend <- "none"
   }
+}
+backend <- match.arg(backend, c("none", "cluster", "mclapply", "future"))
 
-  # Attach labels to runs and produce index
+if (backend == "none") {
+  patient_out <- lapply(names(split_by_patient), run_one_patient)
+  runs <- do.call(c, patient_out)
+
+} else if (backend == "cluster") {
+  if (!requireNamespace("parallel", quietly = TRUE)) {
+    stop("backend='cluster' requires the 'parallel' package (base R).", call. = FALSE)
+  }
+  if (is.null(n_workers)) {
+    n_workers <- max(1L, parallel::detectCores() - 1L)
+  }
+  n_workers <- as.integer(n_workers)
+  if (!is.finite(n_workers) || n_workers < 1L) stop("n_workers must be a positive integer.", call. = FALSE)
+
+  cl <- parallel::makeCluster(n_workers)
+  on.exit(parallel::stopCluster(cl), add = TRUE)
+
+  parallel::clusterExport(
+    cl,
+    varlist = c("patients", "split_by_patient", "engine", "param_draws", "max_events", "max_time",
+                "return_observations", "seed", "run_one_patient",
+                ".clone_patient", ".seed_for", ".maybe_sample_param_draws"),
+    envir = environment()
+  )
+  parallel::clusterEvalQ(cl, { library(patientSimCore) })
+
+  patient_out <- parallel::parLapply(cl, names(split_by_patient), run_one_patient)
+  runs <- do.call(c, patient_out)
+
+} else if (backend == "mclapply") {
+  if (!requireNamespace("parallel", quietly = TRUE)) {
+    stop("backend='mclapply' requires the 'parallel' package (base R).", call. = FALSE)
+  }
+  if (.Platform$OS.type == "windows") {
+    stop("backend='mclapply' is not supported on Windows. Use backend='cluster' or backend='future'.", call. = FALSE)
+  }
+  if (is.null(n_workers)) {
+    n_workers <- max(1L, parallel::detectCores() - 1L)
+  }
+  n_workers <- as.integer(n_workers)
+  if (!is.finite(n_workers) || n_workers < 1L) stop("n_workers must be a positive integer.", call. = FALSE)
+
+  patient_out <- parallel::mclapply(names(split_by_patient), run_one_patient, mc.cores = n_workers)
+  runs <- do.call(c, patient_out)
+
+} else if (backend == "future") {
+  if (!requireNamespace("future.apply", quietly = TRUE)) {
+    stop("backend='future' requires the 'future.apply' package.", call. = FALSE)
+  }
+  patient_out <- future.apply::future_lapply(names(split_by_patient), run_one_patient)
+  runs <- do.call(c, patient_out)
+}
   # Ensure same order as idx rows (patient-major)
   runs_labeled <- vector("list", nrow(idx))
   for (k in seq_len(nrow(idx))) {

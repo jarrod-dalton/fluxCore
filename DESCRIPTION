@@ -1,7 +1,7 @@
 Package: patientSimCore
 Type: Package
 Title: Event-driven patient simulation scaffold (core)
-Version: 0.10.2
+Version: 0.10.3
 Authors@R: c(
     person("Jarrod", "Dalton", email = "jarrod.dalton@gmail.com", role = c("aut", "cre"))
   )
