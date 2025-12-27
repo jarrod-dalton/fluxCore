@@ -18,6 +18,7 @@ run_cohort <- function(engine,
                        n_param_draws = 1,
                        n_sims = 1,
                        param_draws = NULL,
+                       ctx = NULL,
                        max_events = 1000,
                        max_time = NULL,
                        return_observations = TRUE,
@@ -42,6 +43,22 @@ run_cohort <- function(engine,
       stop("param_draws must be a list of length n_param_draws.")
     }
   }
+
+  # ctx can be:
+  # - NULL
+  # - a single list of context fields (merged into each run ctx)
+  # - a list of per-draw ctx lists of length n_param_draws
+  if (!is.null(ctx)) {
+    if (!is.list(ctx)) stop("ctx must be a list, a list of lists, or NULL.", call. = FALSE)
+    is_list_of_lists <- length(ctx) > 0L && all(vapply(ctx, is.list, logical(1)))
+    if (is_list_of_lists) {
+      if (length(ctx) != n_param_draws) {
+        stop("If ctx is a list of lists, it must have length n_param_draws.", call. = FALSE)
+      }
+    }
+  }
+
+  ctx_user <- ctx
 
   # Patient IDs (stable)
   patient_ids <- names(patients)
@@ -87,7 +104,7 @@ run_cohort <- function(engine,
         set.seed(local_seed)
       }
 
-      ctx <- list(
+      ctx_run <- list(
         time_unit = time_unit,
         patient_id = patient_id,
         draw_id = draw_id,
@@ -95,8 +112,20 @@ run_cohort <- function(engine,
         params = param_draws[[draw_id]]
       )
 
+      # Merge user-provided ctx (if any). Per-draw ctx overrides single ctx.
+      if (!is.null(ctx_user)) {
+        base_ctx <- if (length(ctx_user) > 0L && all(vapply(ctx_user, is.list, logical(1)))) ctx_user[[draw_id]] else ctx_user
+        # Do not allow user ctx to overwrite identifiers; params are allowed.
+        ctx_run <- utils::modifyList(ctx_run, base_ctx, keep.null = TRUE)
+        ctx_run$patient_id <- patient_id
+        ctx_run$draw_id <- draw_id
+        ctx_run$sim_id <- sim_id
+        # If base_ctx provides params, honor it; otherwise keep param_draws.
+        if (!is.null(base_ctx$params)) ctx_run$params <- base_ctx$params
+      }
+
       if (!is.null(time_unit)) {
-        ctx$time_unit <- time_unit
+        ctx_run$time_unit <- time_unit
       }
 
       out <- engine$run(
@@ -104,7 +133,7 @@ run_cohort <- function(engine,
         max_events = max_events,
         max_time = max_time,
         return_observations = return_observations,
-        ctx = ctx
+        ctx = ctx_run
       )
 
       out_list[[r]] <- out
@@ -145,7 +174,7 @@ if (backend == "none") {
   parallel::clusterExport(
     cl,
     varlist = c("patients", "split_by_patient", "engine", "param_draws", "max_events", "max_time",
-                "return_observations", "seed", "run_one_patient",
+                "return_observations", "seed", "run_one_patient", "ctx_user", "time_unit",
                 ".clone_patient", ".seed_for", ".maybe_sample_param_draws"),
     envir = environment()
   )
