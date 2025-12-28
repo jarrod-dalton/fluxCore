@@ -90,7 +90,7 @@ test_that("run_cohort produces index with patient_id, draw_id, sim_id and correc
     n_param_draws = 2,
     n_sims = 3,
     max_events = 10,
-    parallel = FALSE,
+    backend = "none",
     seed = 1
   )
 

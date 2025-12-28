@@ -15,7 +15,6 @@ run_cohort(
   return_observations = TRUE,
   time_unit = NULL,
   backend = NULL,
-  parallel = NULL,
   n_workers = NULL,
   seed = NULL
 )
@@ -41,9 +40,7 @@ when available; otherwise it uses a single NULL draw.}
 
 \item{time_unit}{Optional string documenting the unit for the global time axis. Engine treats time as numeric; if provided, this is passed to each run as \code{ctx$time_unit}.}
 
-\item{backend}{Backend used to parallelize across patients. One of \code{"none"}, \code{"cluster"}, \code{"mclapply"}, or \code{"future"}. Default is \code{"none"} unless \code{parallel} is provided. \code{"cluster"} uses a PSOCK cluster (cross-platform). \code{"mclapply"} uses forking (macOS/Linux only). \code{"future"} uses \code{future.apply::future_lapply()} and respects the user's \code{future} plan.}
-
-\item{parallel}{Deprecated alias for \code{backend}. If provided, \code{parallel=TRUE} maps to \code{backend="cluster"} and \code{parallel=FALSE} maps to \code{backend="none"}. Prefer \code{backend}.}
+\item{backend}{Backend used to parallelize across patients. One of \code{"none"}, \code{"cluster"}, \code{"mclapply"}, or \code{"future"}. Default is \code{"none"}. \code{"cluster"} uses a PSOCK cluster (cross-platform). \code{"mclapply"} uses forking (macOS/Linux only). \code{"future"} uses \code{future.apply::future_lapply()} and respects the user's \code{future} plan.}
 
 \item{n_workers}{Integer; workers for parallel; default \code{parallel::detectCores() - 1}.}
 
@@ -85,7 +82,7 @@ set.seed(1)
 eng <- Engine$new(provider = PackageProvider$new(), model_spec = list(name = "default"))
 patients <- lapply(1:3, function(i) Patient$new(init = list(age = 50 + i, miles_to_work = 10), schema = default_patient_schema(), time0 = 0))
 
-out <- run_cohort(eng, patients, n_param_draws = 2, n_sims = 2, max_events = 50, parallel = FALSE)
+out <- run_cohort(eng, patients, n_param_draws = 2, n_sims = 2, max_events = 50, backend = "none")
 nrow(out$index)
 
 }

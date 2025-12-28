@@ -24,7 +24,6 @@ run_cohort <- function(engine,
                        return_observations = TRUE,
                        time_unit = NULL,
                         backend = NULL,
-                        parallel = NULL,
                        n_workers = NULL,
                        seed = NULL) {
 
@@ -142,16 +141,9 @@ run_cohort <- function(engine,
     out_list
   }
 
-# Resolve backend. `parallel` is a deprecated alias:
-# - parallel=TRUE  -> backend="cluster"
-# - parallel=FALSE -> backend="none"
-if (is.null(backend)) {
-  if (!is.null(parallel)) {
-    backend <- if (isTRUE(parallel)) "cluster" else "none"
-  } else {
-    backend <- "none"
-  }
-}
+## Resolve backend.
+## NOTE: Core no longer supports the legacy `parallel=` alias. Use `backend=`.
+if (is.null(backend)) backend <- "none"
 backend <- match.arg(backend, c("none", "cluster", "mclapply", "future"))
 
 if (backend == "none") {

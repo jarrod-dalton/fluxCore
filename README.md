@@ -194,7 +194,7 @@ batch <- run_cohort(
   n_sims = 1,
   max_events = 100,
   time_unit = "years",
-  parallel = TRUE,
+  backend = "cluster",
   n_workers = 4,
   seed = 123
 )
