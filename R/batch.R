@@ -23,7 +23,7 @@ run_cohort <- function(engine,
                        max_time = NULL,
                        return_observations = TRUE,
                        time_unit = NULL,
-                        backend = NULL,
+                       backend = NULL,
                        n_workers = NULL,
                        seed = NULL) {
 
@@ -141,8 +141,7 @@ run_cohort <- function(engine,
     out_list
   }
 
-## Resolve backend.
-## NOTE: Core no longer supports the legacy `parallel=` alias. Use `backend=`.
+# Resolve backend.
 if (is.null(backend)) backend <- "none"
 backend <- match.arg(backend, c("none", "cluster", "mclapply", "future"))
 
