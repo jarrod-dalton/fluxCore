@@ -43,6 +43,38 @@ default_patient_schema <- function() {
 
 
 # ------------------------------------------------------------------------------
+# model_active_schema_var()
+#
+# Purpose:
+#   Helper to define an opt-in schema entry that can track which model scopes are
+#   currently active along the canonical patient time axis.
+#
+# Details:
+#   The value is a named logical vector, e.g. c(ascvd=TRUE, hospital=FALSE).
+#   This is distinct from `alive` and from any model-specific follow-up flags.
+#
+# Usage:
+#   schema <- c(default_patient_schema(), list(model_active = model_active_schema_var(c("ascvd","hospital"))))
+# ------------------------------------------------------------------------------
+
+model_active_schema_var <- function(scopes = "model") {
+  scopes <- as.character(scopes)
+  if (length(scopes) < 1L || any(is.na(scopes)) || any(scopes == "")) {
+    stop("scopes must be a non-empty character vector")
+  }
+  default_val <- stats::setNames(rep(TRUE, length(scopes)), scopes)
+  list(
+    default = default_val,
+    coerce = function(x) x,
+    validate = function(x) {
+      is.logical(x) && !is.null(names(x)) && length(x) >= 1L &&
+        all(names(x) != "") && all(!is.na(x))
+    }
+  )
+}
+
+
+# ------------------------------------------------------------------------------
 # schema_blocks()
 #
 # Purpose:
