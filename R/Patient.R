@@ -171,7 +171,7 @@ snapshot_at_time = function(time, vars = NULL) {
         out$model_active <- out$core__model_active
       }
       out
-    },
+    }
   ),
   active = list(
     j = function(value) {
