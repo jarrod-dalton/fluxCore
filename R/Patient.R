@@ -61,8 +61,10 @@ Patient <- R6::R6Class(
         vars <- names(self$current)
       } else {
         vars <- as.character(vars)
-        # Convenience alias: allow 'model_active' to refer to 'core__model_active' if present.
-        if ("model_active" %in% vars && !("model_active" %in% names(self$current)) && ("core__model_active" %in% names(self$current))) {
+        # Convenience alias: allow "model_active" as shorthand for "core__model_active"
+        if ("model_active" %in% vars &&
+            !("model_active" %in% names(self$current)) &&
+            ("core__model_active" %in% names(self$current))) {
           vars[vars == "model_active"] <- "core__model_active"
         }
         extras <- setdiff(vars, names(self$current))
@@ -154,31 +156,22 @@ snapshot_at_time = function(time, vars = NULL) {
   snap
 },
 
-state_at = function(j, vars = NULL) {
-      j <- as.integer(j)
-      if (!is.finite(j) || length(j) != 1L) stop("j must be a finite integer scalar.")
-      if (j < 0L) stop("j must be >= 0.")
-      if (j > self$last_j) stop("j cannot exceed patient$last_j.")
-
-      if (is.null(vars)) {
-        vars <- names(self$schema)
-      } else {
-        vars <- as.character(vars)
-        extras <- setdiff(vars, names(self$schema))
-        if (length(extras) > 0) stop(sprintf("Unknown vars requested: %s", paste(extras, collapse = ", ")))
-      }
-
-      out <- vector("list", length(vars))
-      names(out) <- vars
-
+    state_at = function(t, vars = names(self$schema), j = NULL) {
+      if (is.null(j)) j <- state_index_at_time(self$events, t)
+      if (j < 0L) stop("t is before time0")
+      if (j == 0L) return(as.list(self$init[vars]))
+      out <- as.list(setNames(rep(list(NULL), length(vars)), vars))
       for (k in vars) {
         jj <- self$hist[[k]]$j
         vv <- self$hist[[k]]$v
         idx <- findInterval(j, jj)
-        out[[k]] <- vv[[idx]]
+        out[[k]] <- if (idx < 1L) NULL else vv[[idx]]
+      }
+      if (!("model_active" %in% names(out)) && ("core__model_active" %in% names(out))) {
+        out$model_active <- out$core__model_active
       }
       out
-    }
+    },
   ),
   active = list(
     j = function(value) {
