@@ -61,6 +61,10 @@ Patient <- R6::R6Class(
         vars <- names(self$current)
       } else {
         vars <- as.character(vars)
+        # Convenience alias: allow 'model_active' to refer to 'core__model_active' if present.
+        if ("model_active" %in% vars && !("model_active" %in% names(self$current)) && ("core__model_active" %in% names(self$current))) {
+          vars[vars == "model_active"] <- "core__model_active"
+        }
         extras <- setdiff(vars, names(self$current))
         if (length(extras) > 0) stop(sprintf("Unknown vars requested: %s", paste(extras, collapse = ", ")))
       }
@@ -70,6 +74,10 @@ Patient <- R6::R6Class(
     as_list = function(vars = NULL) {
       if (is.null(vars)) return(self$current)
       vars <- as.character(vars)
+      # Convenience alias: allow 'model_active' to refer to 'core__model_active' if present.
+      if ("model_active" %in% vars && !("model_active" %in% names(self$current)) && ("core__model_active" %in% names(self$current))) {
+        vars[vars == "model_active"] <- "core__model_active"
+      }
       extras <- setdiff(vars, names(self$current))
       if (length(extras) > 0) stop(sprintf("Unknown vars requested: %s", paste(extras, collapse = ", ")))
       self$current[vars]
