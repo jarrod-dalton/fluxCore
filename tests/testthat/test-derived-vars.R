@@ -1,7 +1,7 @@
 test_that("snapshot includes derived vars and respects lookback semantics", {
   schema <- default_patient_schema()
   p <- Patient$new(
-    init = list(age = 50, miles_to_work = 10),
+    init = list(age = 50),
     schema = schema,
     derived_vars = list(
       hosp_12 = derive("hosp_12", target = event("HOSP"), lookback_t = 12, fn = "count", include_current = TRUE, force = TRUE)
@@ -21,7 +21,7 @@ test_that("snapshot includes derived vars and respects lookback semantics", {
   expect_equal(s_at2[["hosp_12"]], 1L)
 
   p2 <- Patient$new(
-    init = list(age = 50, miles_to_work = 10),
+    init = list(age = 50),
     schema = schema,
     derived_vars = list(
       hosp_12 = derive("hosp_12", target = event("HOSP"), lookback_t = 12, fn = "count", include_current = FALSE, force = TRUE)
@@ -39,7 +39,7 @@ test_that("lag_of extracts k-th prior value from sparse variable history", {
   }
 
   p <- Patient$new(
-    init = list(age = 50, miles_to_work = 10, sbp = 120),
+    init = list(age = 50, sbp = 120),
     schema = schema,
     derived_vars = list(
       sbp_lag1 = lag_of("sbp_lag1", target = var("sbp"), k = 1, include_current = FALSE, force = FALSE),
@@ -55,7 +55,7 @@ test_that("lag_of extracts k-th prior value from sparse variable history", {
   expect_equal(p$snapshot()[["sbp_lag2"]], 120)
 
   p0 <- Patient$new(
-    init = list(age = 50, miles_to_work = 10, sbp = 120),
+    init = list(age = 50, sbp = 120),
     schema = schema,
     derived_vars = list(
       sbp_lag1 = lag_of("sbp_lag1", var("sbp"), k = 1, include_current = FALSE, force = FALSE)

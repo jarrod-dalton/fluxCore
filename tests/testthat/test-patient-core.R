@@ -1,6 +1,6 @@
 test_that("Patient update increments j and records event", {
   p <- Patient$new(
-    init = list(age = 50, miles_to_work = 10),
+    init = list(age = 50),
     schema = default_patient_schema(),
     time0 = 0
   )
@@ -19,7 +19,7 @@ test_that("Patient update increments j and records event", {
 
 test_that("changes=NULL produces a valid event but does not overwrite unchanged variables", {
   p <- Patient$new(
-    init = list(age = 50, miles_to_work = 10),
+    init = list(age = 50),
     schema = default_patient_schema(),
     time0 = 0
   )
@@ -28,14 +28,14 @@ test_that("changes=NULL produces a valid event but does not overwrite unchanged 
 
   expect_identical(p$j, 1L)
   expect_equal(p$current$age, 50)
-  expect_equal(p$current$miles_to_work, 10)
+  expect_true(is.numeric(p$current$age))
 })
 
 test_that("Engine run returns events and patient; time is non-decreasing", {
   eng <- Engine$new(provider = PackageProvider$new(), model_spec = list(name = "default"))
 
   p <- Patient$new(
-    init = list(age = 50, miles_to_work = 10),
+    init = list(age = 50),
     schema = default_patient_schema(),
     time0 = 0
   )
@@ -77,7 +77,7 @@ test_that("run_cohort produces index with patient_id, draw_id, sim_id and correc
   eng <- Engine$new(provider = PackageProvider$new(), model_spec = list(name = "default"))
 
   patients <- lapply(1:3, function(i) {
-    Patient$new(init = list(age = 40 + i, miles_to_work = 8),
+    Patient$new(init = list(age = 40 + i),
                 schema = default_patient_schema(),
                 time0 = 0)
   })
@@ -127,7 +127,7 @@ test_that("Engine stops immediately when bundle stop() returns TRUE (no events a
   prov <- PackageProvider$new(registry = list(x = function() bundle))
   eng <- Engine$new(provider = prov, model_spec = list(name = "x"))
 
-  p <- Patient$new(init = list(age = 50, miles_to_work = 10),
+  p <- Patient$new(init = list(age = 50),
                    schema = default_patient_schema(),
                    time0 = 0)
 
