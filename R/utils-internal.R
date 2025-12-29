@@ -140,7 +140,10 @@
 
     current[[k]] <- val
     hist[[k]]$j <- c(hist[[k]]$j, j)
-    hist[[k]]$v <- c(hist[[k]]$v, val)
+    # Append as a *single* value. Without `list(val)`, atomic vectors get
+    # spliced into multiple entries, desynchronizing `hist$j` and `hist$v` and
+    # breaking snapshot/state-at-time behavior for vector-valued vars.
+    hist[[k]]$v <- c(hist[[k]]$v, list(val))
   }
 
   list(current = current, hist = hist)
