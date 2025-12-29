@@ -23,7 +23,9 @@ default_model_bundle <- function(terminal_event_type = "death") {
 
   transition <- function(patient, event, ctx = NULL) {
     if (identical(event$event_type, "VISIT")) {
-      s <- patient$as_list(c("age", "miles_to_work"))
+      # Keep the default bundle disease-agnostic: only touch vars that are
+      # guaranteed to exist in the default schema (age).
+      s <- patient$as_list(c("age"))
       # tiny age increment proportional to time advance
       list(age = s$age + (event$time_next - patient$last_time))
     } else {
@@ -36,12 +38,11 @@ default_model_bundle <- function(terminal_event_type = "death") {
   }
 
   observe <- function(patient, event, ctx = NULL) {
-    s <- patient$as_list(c("age", "miles_to_work"))
+    s <- patient$as_list(c("age"))
     data.frame(
       time = patient$last_time,
       event_type = event$event_type,
-      age = s$age,
-      miles_to_work = s$miles_to_work
+      age = s$age
     )
   }
 
