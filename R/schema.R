@@ -51,12 +51,15 @@ default_patient_schema <- function() {
 #   schema <- c(default_patient_schema(), list(model_active = model_active_schema_var(c("ascvd","hospital"))))
 # ------------------------------------------------------------------------------
 
-model_active_schema_var <- function(scopes = "model", default = NULL, desc = NULL) {
+model_active_schema_var <- function(scopes = "model", default = NULL,
+                                    desc = "Which models are active for this patient") {
   scopes <- as.character(scopes)
   if (length(scopes) < 1L || any(is.na(scopes)) || any(scopes == "")) {
     stop("scopes must be a non-empty character vector")
   }
+
   default_val <- stats::setNames(rep(TRUE, length(scopes)), scopes)
+
   if (!is.null(default)) {
     if (!is.logical(default) || is.null(names(default))) {
       stop("default must be a named logical vector")
@@ -64,20 +67,18 @@ model_active_schema_var <- function(scopes = "model", default = NULL, desc = NUL
     if (!all(names(default) %in% scopes)) {
       stop("default names must be a subset of scopes")
     }
-    # Fill missing scopes with TRUE by default.
     filled <- default_val
     filled[names(default)] <- default
     default_val <- filled
   }
-  list(
-    # Optional documentation for educational/example packages.
+
+  schema_var(
+    type = "list",
+    default = as.list(default_val),
+    scope = "core",
+    name = "model_active",
     desc = desc,
-    default = default_val,
-    coerce = function(x) x,
-    validate = function(x) {
-      is.logical(x) && !is.null(names(x)) && length(x) >= 1L &&
-        all(names(x) != "") && all(!is.na(x))
-    }
+    tags = c("core", "model", "switch")
   )
 }
 
