@@ -21,6 +21,12 @@ default_patient_schema <- function() {
     ),
 
     # Indicates whether patient is under active follow-up / in-scope (distinct from alive).
+    #
+    # IMPORTANT (v1.0 semantics): this is *just another state variable*.
+    # - The Engine does not automatically stop when active_followup becomes FALSE.
+    # - If you want follow-up to stop, implement that in your bundle's stop()
+    #   logic (or via your own model-specific hooks) and/or use active_followup
+    #   in Forecast eligibility predicates.
     active_followup = list(
       default  = TRUE,
       coerce   = as.logical,
