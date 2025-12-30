@@ -75,57 +75,6 @@ merge_patches <- function(baseline_changes, policy_changes,
   k1 <- names(policy_changes)
   if (is.null(k0) || is.null(k1)) stop("Patches must be named lists.")
 
-  # ------------------------------------------------------------------------
-  # Namespaced patches (opt-in)
-  #
-  # If both patches are namespaced (each top-level element is itself a named
-  # list), merge within namespaces rather than replacing whole namespaces.
-  # This keeps policy composition working for multi-model bundles.
-  # ------------------------------------------------------------------------
-  is_namespaced <- function(x) {
-    is.list(x) && !is.null(names(x)) && all(vapply(x, is.list, logical(1))) &&
-      all(vapply(x, function(y) !is.null(names(y)) && !any(names(y) == ""), logical(1)))
-  }
-
-  if (is_namespaced(baseline_changes) && is_namespaced(policy_changes)) {
-    ns_all <- union(k0, k1)
-    out <- vector("list", length(ns_all))
-    names(out) <- ns_all
-
-    for (ns in ns_all) {
-      a <- baseline_changes[[ns]]
-      b <- policy_changes[[ns]]
-      if (is.null(a)) {
-        out[[ns]] <- b
-        next
-      }
-      if (is.null(b)) {
-        out[[ns]] <- a
-        next
-      }
-      # Merge within the namespace
-      ka <- names(a)
-      kb <- names(b)
-      if (is.null(ka) || is.null(kb)) stop("Namespaced patch blocks must be named lists.")
-      conflicts <- intersect(ka, kb)
-      if (length(conflicts) > 0 && merge == "error_on_conflict") {
-        stop(sprintf("Conflicting patch keys in namespace '%s': %s", ns, paste(conflicts, collapse = ", ")))
-      }
-      if (merge == "policy_wins") {
-        tmp <- a
-        tmp[kb] <- b
-        out[[ns]] <- tmp
-      } else if (merge == "baseline_wins") {
-        tmp <- b
-        tmp[ka] <- a
-        out[[ns]] <- tmp
-      } else {
-        stop("Unknown merge strategy.")
-      }
-    }
-    return(out)
-  }
-
   conflicts <- intersect(k0, k1)
   if (length(conflicts) > 0 && merge == "error_on_conflict") {
     stop(sprintf("Conflicting patch keys: %s", paste(conflicts, collapse = ", ")))

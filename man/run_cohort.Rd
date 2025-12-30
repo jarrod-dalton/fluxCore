@@ -42,7 +42,6 @@ when available; otherwise it uses a single NULL draw.}
 
 \item{backend}{Backend used to parallelize across patients. One of \code{"none"}, \code{"cluster"}, \code{"mclapply"}, or \code{"future"}. Default is \code{"none"}. \code{"cluster"} uses a PSOCK cluster (cross-platform). \code{"mclapply"} uses forking (macOS/Linux only). \code{"future"} uses \code{future.apply::future_lapply()} and respects the user's \code{future} plan.}
 
-
 \item{n_workers}{Integer; workers for parallel; default \code{parallel::detectCores() - 1}.}
 
 \item{seed}{Optional base seed for reproducibility.}

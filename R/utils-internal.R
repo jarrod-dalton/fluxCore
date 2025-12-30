@@ -73,57 +73,6 @@
     return(list(current = current, hist = hist))
   }
   if (!is.list(changes)) stop("changes must be a named list or NULL.")
-
-  # --------------------------------------------------------------------------
-  # Namespaced patches (opt-in)
-  #
-  # A transition() may return either:
-  #   - a flat named list of variable updates (legacy / single-model default)
-  #   - a namespaced patch: list(core = list(...), ascvd = list(...), ...)
-  #
-  # Namespaced patches are flattened into schema variable names using the
-  # convention: "<namespace>__<var>".
-  #
-  # Special-case:
-  #   - namespace "core" updates attempt to map directly to unprefixed schema
-  #     variables first (e.g., alive), falling back to "core__<var>".
-  #
-  # This keeps the single-model experience unchanged while enabling advanced
-  # multi-model composition in downstream packages.
-  # --------------------------------------------------------------------------
-  .is_namespaced_patch <- function(x) {
-    if (!is.list(x) || is.null(names(x)) || any(names(x) == "")) return(FALSE)
-    # Heuristic: treat as namespaced if *all* values are lists and each is named
-    all(vapply(x, is.list, logical(1))) && all(vapply(x, function(y) {
-      !is.null(names(y)) && !any(names(y) == "")
-    }, logical(1)))
-  }
-
-  .flatten_namespaced_patch <- function(x, schema_names) {
-    out <- list()
-    for (ns in names(x)) {
-      block <- x[[ns]]
-      for (k in names(block)) {
-        val <- block[[k]]
-        if (identical(ns, "core")) {
-          # Prefer direct mapping to canonical schema vars.
-          if (k %in% schema_names) {
-            out[[k]] <- val
-          } else {
-            out[[paste0("core__", k)]] <- val
-          }
-        } else {
-          out[[paste0(ns, "__", k)]] <- val
-        }
-      }
-    }
-    out
-  }
-
-  if (.is_namespaced_patch(changes)) {
-    changes <- .flatten_namespaced_patch(changes, names(schema))
-  }
-
   nms <- names(changes)
   if (is.null(nms) || any(nms == "")) stop("changes must be a *named* list or NULL.")
 
@@ -140,10 +89,7 @@
 
     current[[k]] <- val
     hist[[k]]$j <- c(hist[[k]]$j, j)
-    # Append as a *single* value. Without `list(val)`, atomic vectors get
-    # spliced into multiple entries, desynchronizing `hist$j` and `hist$v` and
-    # breaking snapshot/state-at-time behavior for vector-valued vars.
-    hist[[k]]$v <- c(hist[[k]]$v, list(val))
+    hist[[k]]$v <- c(hist[[k]]$v, val)
   }
 
   list(current = current, hist = hist)

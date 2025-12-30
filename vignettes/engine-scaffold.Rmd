@@ -58,7 +58,7 @@ batch <- run_cohort(
   n_param_draws = 3,
   n_sims = 2,
   max_events = 50,
-  parallel = FALSE,
+  backend = "none",
   seed = 123
 )
 

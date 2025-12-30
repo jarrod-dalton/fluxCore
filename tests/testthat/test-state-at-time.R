@@ -1,6 +1,6 @@
 test_that("state_at_time returns state at latest event time <= t and errors for t < time0", {
   schema <- default_patient_schema()
-  p <- Patient$new(init = list(age = 50), schema = schema, time0 = 0)
+  p <- Patient$new(init = list(age = 50, miles_to_work = 10), schema = schema, time0 = 0)
 
   p$update(time = 1, event_type = "VISIT", changes = list(age = 51))
   p$update(time = 3, event_type = "VISIT", changes = list(age = 53))
