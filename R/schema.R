@@ -51,7 +51,7 @@ default_patient_schema <- function() {
 #   schema <- c(default_patient_schema(), list(model_active = model_active_schema_var(c("ascvd","hospital"))))
 # ------------------------------------------------------------------------------
 
-model_active_schema_var <- function(scopes = "model", default = NULL) {
+model_active_schema_var <- function(scopes = "model", default = NULL, desc = NULL) {
   scopes <- as.character(scopes)
   if (length(scopes) < 1L || any(is.na(scopes)) || any(scopes == "")) {
     stop("scopes must be a non-empty character vector")
@@ -70,6 +70,8 @@ model_active_schema_var <- function(scopes = "model", default = NULL) {
     default_val <- filled
   }
   list(
+    # Optional documentation for educational/example packages.
+    desc = desc,
     default = default_val,
     coerce = function(x) x,
     validate = function(x) {

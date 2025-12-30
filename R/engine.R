@@ -38,18 +38,15 @@ if (!is.list(ctx)) stop("ctx must be a list (or NULL).", call. = FALSE)
 # Time is a numeric axis shared across all processes. The Engine does not
 # enforce units, but models should declare the unit explicitly to avoid
 # silent mistakes when mixing rates/cadences (e.g., days vs years).
-if (isTRUE(getOption("patientSimCore.warn_time_unit", FALSE))) {
-  if (is.null(ctx$time_unit) ||
-      !is.character(ctx$time_unit) ||
-      length(ctx$time_unit) != 1L ||
-      !nzchar(ctx$time_unit)) {
-    warning(
-      "ctx$time_unit is missing or invalid. Time is treated as unitless; set ctx$time_unit (e.g., 'days', 'months', 'years') for clarity.",
-      call. = FALSE
-    )
-  }
+if (is.null(ctx$time_unit) ||
+    !is.character(ctx$time_unit) ||
+    length(ctx$time_unit) != 1L ||
+    !nzchar(ctx$time_unit)) {
+  warning(
+    "ctx$time_unit is missing or invalid. Time is treated as unitless; set ctx$time_unit (e.g., 'days', 'months', 'years') for clarity.",
+    call. = FALSE
+  )
 }
-
 
 # Standardize model parameters in ctx$params.
 # - Users may provide ctx$params to override defaults for a run.
