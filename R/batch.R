@@ -65,17 +65,34 @@ run_cohort <- function(engine,
     patient_ids <- paste0("p", seq_along(patients))
   }
 
-  # Build run index (run_id -> patient/draw/sim)
-  idx <- expand.grid(
-    patient_id = patient_ids,
-    draw_id = seq_len(n_param_draws),
-    sim_id = seq_len(n_sims),
-    stringsAsFactors = FALSE
-  )
+  # Build run index (run_id -> patient/draw/sim).
+  #
+  # IMPORTANT INVARIANT:
+  #   The ordering of `idx` rows MUST match the ordering of the returned `runs`
+  #   list (runs[[i]] corresponds to idx[i,]). Downstream packages (Forecast,
+  #   Validation, orchestration) rely on this invariant for correct grouping.
+  #
+  # We therefore construct idx in patient-major order (patient -> draw -> sim),
+  # which matches the natural execution/parallelization strategy used below.
+  idx_list <- lapply(patient_ids, function(pid) {
+    grid <- expand.grid(
+      draw_id = seq_len(n_param_draws),
+      sim_id  = seq_len(n_sims),
+      stringsAsFactors = FALSE
+    )
+    data.frame(
+      patient_id = rep(pid, nrow(grid)),
+      draw_id = grid$draw_id,
+      sim_id = grid$sim_id,
+      stringsAsFactors = FALSE
+    )
+  })
+  idx <- do.call(rbind, idx_list)
   idx$run_id <- paste0("run_", seq_len(nrow(idx)))
 
-  # Group runs by patient for parallelization
-  split_by_patient <- split(idx, idx$patient_id)
+  # Group runs by patient for parallelization (preserve patient_ids order)
+  split_by_patient <- setNames(lapply(patient_ids, function(pid) idx[idx$patient_id == pid, , drop = FALSE]),
+                               patient_ids)
 
   # base seed
   if (!is.null(seed)) {
@@ -198,14 +215,14 @@ if (backend == "none") {
   patient_out <- future.apply::future_lapply(names(split_by_patient), run_one_patient)
   runs <- do.call(c, patient_out)
 }
-  # Ensure same order as idx rows (patient-major)
-  runs_labeled <- vector("list", nrow(idx))
-  for (k in seq_len(nrow(idx))) {
-    runs_labeled[[k]] <- runs[[k]]
-  }
-  names(runs_labeled) <- idx$run_id
 
-  list(runs = runs_labeled, index = idx, param_draws = param_draws)
+  # Label runs with run_id (ordering already matches idx by construction).
+  if (length(runs) != nrow(idx)) {
+    stop("Internal error: number of runs does not match run index rows.", call. = FALSE)
+  }
+  names(runs) <- idx$run_id
+
+  list(runs = runs, index = idx, param_draws = param_draws)
 }
 
 # ---- internal helpers ----

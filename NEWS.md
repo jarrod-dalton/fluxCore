@@ -1,3 +1,6 @@
+# patientSimCore 1.0.4
+- Fix: `run_cohort()` now guarantees that `runs[[i]]` corresponds to `index[i, ]` (run_index alignment invariant). This removes the need for downstream reordering hacks and is critical for correct patient-level grouping.
+
 # patientSimCore 1.0.3
 - Add optional schema metadata fields `type` and `levels` (used by downstream summary code).
 - Default schema now tags core variables with types (binary/continuous).
