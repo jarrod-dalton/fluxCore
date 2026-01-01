@@ -15,6 +15,7 @@ default_patient_schema <- function() {
   list(
     # Canonical vital status indicator.
     alive = list(
+      type     = "binary",
       default  = TRUE,
       coerce   = as.logical,
       validate = function(x) length(x) == 1L && !is.na(x)
@@ -28,17 +29,20 @@ default_patient_schema <- function() {
     #   logic (or via your own model-specific hooks) and/or use active_followup
     #   in Forecast eligibility predicates.
     active_followup = list(
+      type     = "binary",
       default  = TRUE,
       coerce   = as.logical,
       validate = function(x) length(x) == 1L && !is.na(x)
     ),
 
     age = list(
+      type = "continuous",
       default = 40,
       coerce = as.numeric,
       validate = function(x) length(x) == 1L && is.finite(x) && x >= 0
     ),
     miles_to_work = list(
+      type = "continuous",
       default = 10,
       coerce = as.numeric,
       validate = function(x) length(x) == 1L && is.finite(x) && x >= 0

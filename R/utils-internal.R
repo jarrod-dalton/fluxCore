@@ -32,6 +32,21 @@
     if (!is.null(spec$validate) && !is.function(spec$validate)) {
       stop(sprintf("schema[['%s']] $validate must be a function or NULL.", k))
     }
+
+    # Optional: declared variable type metadata (used by downstream summary code).
+    if (!is.null(spec$type)) {
+      t <- tolower(as.character(spec$type)[1])
+      ok <- c("binary","categorical","continuous","count")
+      if (!(t %in% ok)) {
+        stop(sprintf("schema[['%s']] $type must be one of: %s", k, paste(ok, collapse = ", ")))
+      }
+      spec$type <- t
+      if (identical(t, "categorical") && !is.null(spec$levels)) {
+        if (!is.character(spec$levels) || any(spec$levels == "")) {
+          stop(sprintf("schema[['%s']] $levels must be a non-empty character vector.", k))
+        }
+      }
+    }
     schema[[k]] <- spec
   }
   schema

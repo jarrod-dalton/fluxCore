@@ -22,6 +22,8 @@ Each \code{var_descriptor} is a list with fields:
 \item \code{validate} (optional): predicate \code{function(x) TRUE/FALSE} applied after coercion.
 \item \code{required} (optional): if \code{TRUE}, the variable must be supplied in \code{init} when creating a patient.
 \item \code{blocks} (optional): character vector of schema block names used by \code{update_block()} (many-to-many).
+\item \code{type} (optional): variable type hint for downstream summaries. One of \code{binary}, \code{categorical}, \code{continuous}, \code{count}.
+\item \code{levels} (optional): for \code{type='categorical'}, the allowed level labels.
 }
 
 See \code{inst/SCHEMA_SPEC.md} for the full schema specification and additional examples.

@@ -1,3 +1,7 @@
+# patientSimCore 1.0.3
+- Add optional schema metadata fields `type` and `levels` (used by downstream summary code).
+- Default schema now tags core variables with types (binary/continuous).
+
 # patientSimCore 1.0.1
 
 
