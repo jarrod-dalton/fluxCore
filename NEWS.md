@@ -1,3 +1,11 @@
+## patientSimCore 1.0.14
+
+- Update unit tests to explicitly declare non-core variables (age, miles_to_work, sbp, dbp) in schema.
+
+## patientSimCore 1.0.13
+
+- Fix unit test schema for sbp to include type metadata.
+
 ## patientSimCore 1.0.12
 
 - Fix .validate_schema() to return the normalized schema (was incorrectly returning TRUE).

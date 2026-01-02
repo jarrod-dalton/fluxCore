@@ -1,7 +1,10 @@
 test_that("Patient update increments j and records event", {
+  schema <- default_patient_schema()
+  schema$age <- list(type = "continuous", default = 40, coerce = as.numeric)
+  schema$miles_to_work <- list(type = "continuous", default = 10, coerce = as.numeric)
   p <- Patient$new(
     init = list(age = 50, miles_to_work = 10),
-    schema = default_patient_schema(),
+    schema = schema,
     time0 = 0
   )
 
@@ -18,9 +21,12 @@ test_that("Patient update increments j and records event", {
 })
 
 test_that("changes=NULL produces a valid event but does not overwrite unchanged variables", {
+  schema <- default_patient_schema()
+  schema$age <- list(type = "continuous", default = 40, coerce = as.numeric)
+  schema$miles_to_work <- list(type = "continuous", default = 10, coerce = as.numeric)
   p <- Patient$new(
     init = list(age = 50, miles_to_work = 10),
-    schema = default_patient_schema(),
+    schema = schema,
     time0 = 0
   )
 
@@ -32,11 +38,14 @@ test_that("changes=NULL produces a valid event but does not overwrite unchanged 
 })
 
 test_that("Engine run returns events and patient; time is non-decreasing", {
+  schema <- default_patient_schema()
+  schema$age <- list(type = "continuous", default = 40, coerce = as.numeric)
+  schema$miles_to_work <- list(type = "continuous", default = 10, coerce = as.numeric)
   eng <- Engine$new(provider = PackageProvider$new(), model_spec = list(name = "default"))
 
   p <- Patient$new(
     init = list(age = 50, miles_to_work = 10),
-    schema = default_patient_schema(),
+    schema = schema,
     time0 = 0
   )
 
@@ -57,6 +66,9 @@ test_that("Engine run returns events and patient; time is non-decreasing", {
 })
 
 test_that("merge_patches respects policy_wins and baseline_wins", {
+  schema <- default_patient_schema()
+  schema$age <- list(type = "continuous", default = 40, coerce = as.numeric)
+  schema$miles_to_work <- list(type = "continuous", default = 10, coerce = as.numeric)
   a <- list(x = 1, y = 2)
   b <- list(y = 99, z = 3)
 
@@ -74,11 +86,14 @@ test_that("merge_patches respects policy_wins and baseline_wins", {
 })
 
 test_that("run_cohort produces index with patient_id, draw_id, sim_id and correct number of runs", {
+  schema <- default_patient_schema()
+  schema$age <- list(type = "continuous", default = 40, coerce = as.numeric)
+  schema$miles_to_work <- list(type = "continuous", default = 10, coerce = as.numeric)
   eng <- Engine$new(provider = PackageProvider$new(), model_spec = list(name = "default"))
 
   patients <- lapply(1:3, function(i) {
     Patient$new(init = list(age = 40 + i, miles_to_work = 8),
-                schema = default_patient_schema(),
+                schema = schema,
                 time0 = 0)
   })
   names(patients) <- paste0("id", 1:3)
@@ -101,6 +116,9 @@ test_that("run_cohort produces index with patient_id, draw_id, sim_id and correc
 })
 
 test_that("Engine stops immediately when bundle stop() returns TRUE (no events after terminal)", {
+  schema <- default_patient_schema()
+  schema$age <- list(type = "continuous", default = 40, coerce = as.numeric)
+  schema$miles_to_work <- list(type = "continuous", default = 10, coerce = as.numeric)
   # Create a tiny bundle that stops when it emits event_type == "STOP"
   bundle <- list(
     propose_events = function(patient, ctx = NULL, process_ids = NULL, current_proposals = NULL) {
@@ -128,7 +146,7 @@ test_that("Engine stops immediately when bundle stop() returns TRUE (no events a
   eng <- Engine$new(provider = prov, model_spec = list(name = "x"))
 
   p <- Patient$new(init = list(age = 50, miles_to_work = 10),
-                   schema = default_patient_schema(),
+                   schema = schema,
                    time0 = 0)
 
   out <- eng$run(

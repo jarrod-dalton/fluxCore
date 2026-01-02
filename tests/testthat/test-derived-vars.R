@@ -38,8 +38,10 @@ p <- Patient$new(
 
 test_that("lag_of extracts k-th prior value from sparse variable history", {
   schema <- default_patient_schema()
+  schema$age <- list(type = "continuous", default = 40, coerce = as.numeric)
+  schema$miles_to_work <- list(type = "continuous", default = 10, coerce = as.numeric)
   if (!"sbp" %in% names(schema)) {
-    schema$sbp <- list(default = NA_real_, coerce = as.numeric, validate = function(x) TRUE)
+    schema$sbp <- list(type = "continuous", default = NA_real_, coerce = as.numeric, validate = function(x) TRUE)
   }
 
   p <- Patient$new(
