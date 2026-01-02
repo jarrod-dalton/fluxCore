@@ -35,8 +35,8 @@ default_patient_schema <- function() {
       default  = TRUE,
       coerce   = as.logical,
       validate = function(x) length(x) == 1L && (is.na(x) || is.logical(x))
-    ),
-    # Add more attributes here.
+    )
+re.
   )
 }
 

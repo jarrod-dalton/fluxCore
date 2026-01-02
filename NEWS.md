@@ -1,3 +1,7 @@
+## patientSimCore 1.0.10
+
+- Fix syntax error (trailing comma) in default_patient_schema().
+
 ## patientSimCore 1.0.9
 
 - Make default_patient_schema minimal (engine-level only).
