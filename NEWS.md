@@ -1,3 +1,7 @@
+## patientSimCore 1.0.12
+
+- Fix .validate_schema() to return the normalized schema (was incorrectly returning TRUE).
+
 ## patientSimCore 1.0.11
 
 - Remove stray token in schema.R causing parse error.

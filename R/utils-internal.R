@@ -65,8 +65,9 @@
     }
 
 
+    schema[[k]] <- spec
   }
-  invisible(TRUE)
+  schema
 }
 
 .init_state_from_schema <- function(schema, init) {
