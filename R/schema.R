@@ -16,7 +16,7 @@ default_patient_schema <- function() {
     # Canonical vital status indicator.
     alive = list(
       type     = "binary",
-      levels   = c(\"0\",\"1\"),
+      levels   = c("0","1"),
       default  = TRUE,
       coerce   = as.logical,
       validate = function(x) length(x) == 1L && !is.na(x)
@@ -31,7 +31,7 @@ default_patient_schema <- function() {
     #   in Forecast eligibility predicates.
     active_followup = list(
       type     = "binary",
-      levels   = c(\"0\",\"1\"),
+      levels   = c("0","1"),
       default  = TRUE,
       coerce   = as.logical,
       validate = function(x) length(x) == 1L && !is.na(x)

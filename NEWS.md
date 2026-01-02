@@ -1,3 +1,8 @@
+## patientSimCore 1.0.6
+
+- Fix syntax error in schema levels quoting.
+- Enforce schema typing (type + levels for binary/categorical/ordinal).
+
 # patientSimCore 1.0.4
 - Fix: `run_cohort()` now guarantees that `runs[[i]]` corresponds to `index[i, ]` (run_index alignment invariant). This removes the need for downstream reordering hacks and is critical for correct patient-level grouping.
 
