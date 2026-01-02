@@ -1,3 +1,7 @@
+## patientSimCore 1.0.7
+
+- Fix missing brace in internal schema validator.
+
 ## patientSimCore 1.0.6
 
 - Fix syntax error in schema levels quoting.

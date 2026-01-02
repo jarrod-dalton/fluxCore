@@ -65,6 +65,10 @@
     }
 
 
+  }
+  invisible(TRUE)
+}
+
 .init_state_from_schema <- function(schema, init) {
   init <- if (is.null(init)) list() else init
   if (!is.list(init)) stop("init must be a list or NULL.")
