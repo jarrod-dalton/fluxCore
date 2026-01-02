@@ -1,3 +1,7 @@
+## patientSimCore 1.1.0
+
+- Version bump (minor release).
+
 ## patientSimCore 1.0.14
 
 - Update unit tests to explicitly declare non-core variables (age, miles_to_work, sbp, dbp) in schema.
