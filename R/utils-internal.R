@@ -33,24 +33,37 @@
       stop(sprintf("schema[['%s']] $validate must be a function or NULL.", k))
     }
 
-    # Optional: declared variable type metadata (used by downstream summary code).
-    if (!is.null(spec$type)) {
-      t <- tolower(as.character(spec$type)[1])
-      ok <- c("binary","categorical","continuous","count")
-      if (!(t %in% ok)) {
-        stop(sprintf("schema[['%s']] $type must be one of: %s", k, paste(ok, collapse = ", ")))
+    # Declared variable type metadata (used by downstream summary/validation code).
+    if (is.null(spec$type)) {
+      stop(sprintf("schema[['%s']] must define $type.", k))
+    }
+    t <- tolower(as.character(spec$type)[1])
+    ok <- c("binary","categorical","ordinal","continuous","count")
+    if (!(t %in% ok)) {
+      stop(sprintf("schema[['%s']] $type must be one of: %s", k, paste(ok, collapse = ", ")))
+    }
+    spec$type <- t
+
+    # Support / level metadata
+    if (t %in% c("binary","categorical","ordinal")) {
+      if (is.null(spec$levels)) {
+        stop(sprintf("schema[['%s']] must define $levels (character, length>=2) for type='%s'.", k, t))
       }
-      spec$type <- t
-      if (identical(t, "categorical") && !is.null(spec$levels)) {
-        if (!is.character(spec$levels) || any(spec$levels == "")) {
-          stop(sprintf("schema[['%s']] $levels must be a non-empty character vector.", k))
+      if (!is.character(spec$levels) || any(is.na(spec$levels)) || any(spec$levels == "") || length(spec$levels) < 2L) {
+        stop(sprintf("schema[['%s']] $levels must be a non-empty character vector (length>=2).", k))
+      }
+      if (length(unique(spec$levels)) != length(spec$levels)) {
+        stop(sprintf("schema[['%s']] $levels must not contain duplicates.", k))
+      }
+    } else {
+      # count/continuous: levels may be provided (e.g., for display bins), but are optional
+      if (!is.null(spec$levels)) {
+        if (!is.character(spec$levels) || any(is.na(spec$levels)) || any(spec$levels == "")) {
+          stop(sprintf("schema[['%s']] $levels must be a character vector with no empty values.", k))
         }
       }
     }
-    schema[[k]] <- spec
-  }
-  schema
-}
+
 
 .init_state_from_schema <- function(schema, init) {
   init <- if (is.null(init)) list() else init
