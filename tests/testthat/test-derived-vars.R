@@ -1,6 +1,10 @@
 test_that("snapshot includes derived vars and respects lookback semantics", {
   schema <- default_patient_schema()
-  p <- Patient$new(
+  
+  schema$age <- list(type = "continuous", default = 40, coerce = as.numeric)
+  schema$miles_to_work <- list(type = "continuous", default = 10, coerce = as.numeric)
+  schema$sbp <- list(type = "continuous", default = 120, coerce = as.numeric)
+p <- Patient$new(
     init = list(age = 50, miles_to_work = 10),
     schema = schema,
     derived_vars = list(

@@ -1,8 +1,8 @@
 test_that("update_block validates block membership and schema", {
   schema <- default_patient_schema()
-  schema$sbp <- list(default = 120, coerce = as.numeric, validate = NULL, blocks = c("bp"))
-  schema$dbp <- list(default = 80,  coerce = as.numeric, validate = NULL, blocks = c("bp"))
-  schema$age <- list(default = 50,  coerce = as.numeric, validate = NULL, blocks = c("demo"))
+  schema$sbp <- list(type="continuous", default = 120, coerce = as.numeric, validate = NULL, blocks = c("bp"))
+  schema$dbp <- list(type="continuous", default = 80,  coerce = as.numeric, validate = NULL, blocks = c("bp"))
+  schema$age <- list(type="continuous", default = 50,  coerce = as.numeric, validate = NULL, blocks = c("demo"))
   p <- new_patient(schema = schema)
 
   expect_equal(update_block(p, "bp", c(sbp = 125, dbp = 87)), list(sbp = 125, dbp = 87))
@@ -16,8 +16,8 @@ test_that("update_block validates block membership and schema", {
 
 test_that("update_block unknown policy can drop unknown vars", {
   schema <- default_patient_schema()
-  schema$sbp <- list(default = 120, coerce = as.numeric, validate = NULL, blocks = c("bp"))
-  schema$dbp <- list(default = 80,  coerce = as.numeric, validate = NULL, blocks = c("bp"))
+  schema$sbp <- list(type="continuous", default = 120, coerce = as.numeric, validate = NULL, blocks = c("bp"))
+  schema$dbp <- list(type="continuous", default = 80,  coerce = as.numeric, validate = NULL, blocks = c("bp"))
   p <- new_patient(schema = schema)
 
   # drop unknown var, still require all block vars

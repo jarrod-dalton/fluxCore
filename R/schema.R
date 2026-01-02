@@ -19,7 +19,7 @@ default_patient_schema <- function() {
       levels   = c("0","1"),
       default  = TRUE,
       coerce   = as.logical,
-      validate = function(x) length(x) == 1L && !is.na(x)
+      validate = function(x) length(x) == 1L && (is.na(x) || is.logical(x))
     ),
 
     # Indicates whether patient is under active follow-up / in-scope (distinct from alive).
@@ -34,21 +34,8 @@ default_patient_schema <- function() {
       levels   = c("0","1"),
       default  = TRUE,
       coerce   = as.logical,
-      validate = function(x) length(x) == 1L && !is.na(x)
+      validate = function(x) length(x) == 1L && (is.na(x) || is.logical(x))
     ),
-
-    age = list(
-      type = "continuous",
-      default = 40,
-      coerce = as.numeric,
-      validate = function(x) length(x) == 1L && is.finite(x) && x >= 0
-    ),
-    miles_to_work = list(
-      type = "continuous",
-      default = 10,
-      coerce = as.numeric,
-      validate = function(x) length(x) == 1L && is.finite(x) && x >= 0
-    )
     # Add more attributes here.
   )
 }

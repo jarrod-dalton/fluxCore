@@ -1,3 +1,12 @@
+## patientSimCore 1.0.9
+
+- Make default_patient_schema minimal (engine-level only).
+- Update unit tests to explicitly declare non-core variables with type metadata.
+
+## patientSimCore 1.0.8
+
+- Add sbp to default schema and update tests for required schema typing.
+
 ## patientSimCore 1.0.7
 
 - Fix missing brace in internal schema validator.
