@@ -1,3 +1,7 @@
+## patientSimCore 1.0.11
+
+- Remove stray token in schema.R causing parse error.
+
 ## patientSimCore 1.0.10
 
 - Fix syntax error (trailing comma) in default_patient_schema().
