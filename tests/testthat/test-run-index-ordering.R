@@ -1,7 +1,9 @@
 test_that("run_cohort index is ordered patient -> draw -> sim", {
   schema <- default_patient_schema()
-  p1 <- new_patient(init = list(age = 50), schema = schema)
-  p2 <- new_patient(init = list(age = 60), schema = schema)
+  # default_patient_schema() only defines core variables (alive, active_followup).
+  # Use defaults for this ordering test; patient_id is supplied by the cohort runner.
+  p1 <- new_patient(init = list(), schema = schema)
+  p2 <- new_patient(init = list(), schema = schema)
 
   eng <- Engine$new()  # default provider + default bundle
 

@@ -1,3 +1,8 @@
+# patientSimCore 1.1.2
+
+- Fix new run-index ordering test to use default schema variables only.
+- No behavior changes; strengthens contract guarantees for downstream packages.
+
 # patientSimCore 1.1.1
 
 - Add explicit unit test enforcing run index ordering (patient_id → draw_id → sim_id).
