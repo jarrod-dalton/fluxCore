@@ -76,8 +76,8 @@ run_cohort <- function(engine,
   # which matches the natural execution/parallelization strategy used below.
   idx_list <- lapply(patient_ids, function(pid) {
     grid <- expand.grid(
-      draw_id = seq_len(n_param_draws),
       sim_id  = seq_len(n_sims),
+      draw_id = seq_len(n_param_draws),
       stringsAsFactors = FALSE
     )
     data.frame(

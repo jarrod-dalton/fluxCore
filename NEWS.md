@@ -1,6 +1,14 @@
-# patientSimCore 1.1.2
+# patientSimCore 1.1.4
 
-- Fix new run-index ordering test to use default schema variables only.
+## patientSimCore 1.1.5
+
+- Fix: `run_cohort()` run index ordering is now `patient_id -> draw_id -> sim_id` (contractual invariant).
+
+- Fix run-index ordering unit test to use a minimal bundle that always proposes a single no-op event (avoids Engine error when no proposals are available).
+- Set `time_unit` in the ordering test to avoid warnings.
+
+## 1.1.3
+- Add explicit unit test enforcing run_cohort run-index ordering (patient_id → draw_id → sim_id) using a minimal bundle that assumes only core state vars.
 - No behavior changes; strengthens contract guarantees for downstream packages.
 
 # patientSimCore 1.1.1
@@ -70,4 +78,3 @@
 - Stabilized `run_cohort()` context handling: `ctx` may be a single list (recycled) or a per-parameter-draw list-of-ctx (length = n_param_draws).
 - `print.ps_state()` implemented to match the declared S3 method and remove the NAMESPACE warning.
 - Namespace tightened: internal helpers remain unexported; core remains the sole owner of simulation state and execution semantics.
-
