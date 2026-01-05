@@ -1,3 +1,8 @@
+# patientSimCore 1.1.1
+
+- Add explicit unit test enforcing run index ordering (patient_id → draw_id → sim_id).
+- No behavior changes; strengthens contract guarantees for downstream packages.
+
 ## patientSimCore 1.1.0
 
 - Version bump (minor release).
@@ -60,3 +65,4 @@
 - Stabilized `run_cohort()` context handling: `ctx` may be a single list (recycled) or a per-parameter-draw list-of-ctx (length = n_param_draws).
 - `print.ps_state()` implemented to match the declared S3 method and remove the NAMESPACE warning.
 - Namespace tightened: internal helpers remain unexported; core remains the sole owner of simulation state and execution semantics.
+

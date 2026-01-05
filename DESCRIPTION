@@ -1,7 +1,7 @@
 Package: patientSimCore
 Type: Package
 Title: Event-driven patient simulation scaffold (core)
-Version: 1.1.0
+Version: 1.1.1
 Author: Jarrod Dalton [aut, cre]
 Maintainer: Jarrod Dalton <jarrod.dalton@gmail.com>
 Authors@R: person(given = "Jarrod",
