@@ -23,13 +23,12 @@ Patient <- R6::R6Class(
     last_time = NULL,
     events = NULL,
     derived_vars = NULL,
-    id = NULL,
+                          id = NULL,
 
     initialize = function(init,
                           schema = default_patient_schema(),
                           derived_vars = NULL,
                           id = NULL,
-    id = NULL,
                           time0 = 0,
                           event_type0 = "init") {
 

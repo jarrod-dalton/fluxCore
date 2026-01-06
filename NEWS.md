@@ -1,3 +1,7 @@
+# 1.1.7 (2026-01-06)
+
+- Fix: remove duplicated `id` argument in `Patient$initialize()` (package parse/collate error).
+
 # 1.1.6 (2026-01-06)
 
 - Added optional Patient$id field for user-supplied de-identified identifiers.
