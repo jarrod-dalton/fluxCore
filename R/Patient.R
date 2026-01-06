@@ -23,10 +23,13 @@ Patient <- R6::R6Class(
     last_time = NULL,
     events = NULL,
     derived_vars = NULL,
+    id = NULL,
 
     initialize = function(init,
                           schema = default_patient_schema(),
                           derived_vars = NULL,
+                          id = NULL,
+    id = NULL,
                           time0 = 0,
                           event_type0 = "init") {
 
@@ -40,6 +43,12 @@ Patient <- R6::R6Class(
       self$schema  <- schema
       if (is.null(derived_vars)) derived_vars <- list()
       self$derived_vars <- derived_vars
+
+      if (!is.null(id)) {
+        if (length(id) != 1L) stop("id must be NULL or a length-1 scalar.")
+        id <- as.character(id)
+      }
+      self$id <- id
       self$current <- .init_state_from_schema(schema, init)
       self$hist    <- .init_hist_from_state(self$current)
 

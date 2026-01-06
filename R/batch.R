@@ -100,63 +100,21 @@ run_cohort <- function(engine,
     if (!is.finite(seed) || length(seed) != 1L) stop("seed must be an integer scalar.")
   }
 
-  run_one_patient <- function(patient_id) {
-    p0 <- patients[[patient_id]]
-    if (is.null(p0)) stop("Unknown patient_id in patients list: ", patient_id)
-
-    rows <- split_by_patient[[patient_id]]
-    out_list <- vector("list", nrow(rows))
-
-    for (r in seq_len(nrow(rows))) {
-      draw_id <- rows$draw_id[[r]]
-      sim_id  <- rows$sim_id[[r]]
-
-      # Deep clone patient for each run (so sims don't interfere)
-      p <- .clone_patient(p0)
-
-      # Deterministic seeding per (patient, draw, sim) if seed is provided
-      if (!is.null(seed)) {
-        local_seed <- .seed_for(seed, patient_id, draw_id, sim_id)
-        set.seed(local_seed)
-      }
-
-      ctx_run <- list(
-        time_unit = time_unit,
-        patient_id = patient_id,
-        draw_id = draw_id,
-        sim_id = sim_id,
-        params = param_draws[[draw_id]]
-      )
-
-      # Merge user-provided ctx (if any). Per-draw ctx overrides single ctx.
-      if (!is.null(ctx_user)) {
-        base_ctx <- if (length(ctx_user) > 0L && all(vapply(ctx_user, is.list, logical(1)))) ctx_user[[draw_id]] else ctx_user
-        # Do not allow user ctx to overwrite identifiers; params are allowed.
-        ctx_run <- utils::modifyList(ctx_run, base_ctx, keep.null = TRUE)
-        ctx_run$patient_id <- patient_id
-        ctx_run$draw_id <- draw_id
-        ctx_run$sim_id <- sim_id
-        # If base_ctx provides params, honor it; otherwise keep param_draws.
-        if (!is.null(base_ctx$params)) ctx_run$params <- base_ctx$params
-      }
-
-      if (!is.null(time_unit)) {
-        ctx_run$time_unit <- time_unit
-      }
-
-      out <- engine$run(
-        patient = p,
-        max_events = max_events,
-        max_time = max_time,
-        return_observations = return_observations,
-        ctx = ctx_run
-      )
-
-      out_list[[r]] <- out
-    }
-
-    out_list
-  }
+run_one_patient <- function(patient_id) {
+  patientSimCore:::.run_one_patient_worker(
+    patient_id = patient_id,
+    patients = patients,
+    split_by_patient = split_by_patient,
+    engine = engine,
+    param_draws = param_draws,
+    max_events = max_events,
+    max_time = max_time,
+    return_observations = return_observations,
+    seed = seed,
+    ctx_user = ctx_user,
+    time_unit = time_unit
+  )
+}
 
 ## Resolve backend.
 ## NOTE: Core no longer supports the legacy `parallel=` alias. Use `backend=`.
@@ -180,16 +138,24 @@ if (backend == "none") {
   cl <- parallel::makeCluster(n_workers)
   on.exit(parallel::stopCluster(cl), add = TRUE)
 
-  parallel::clusterExport(
-    cl,
-    varlist = c("patients", "split_by_patient", "engine", "param_draws", "max_events", "max_time",
-                "return_observations", "seed", "run_one_patient", "ctx_user", "time_unit",
-                ".clone_patient", ".seed_for", ".maybe_sample_param_draws"),
-    envir = environment()
   )
   parallel::clusterEvalQ(cl, { library(patientSimCore) })
 
-  patient_out <- parallel::parLapply(cl, names(split_by_patient), run_one_patient)
+  patient_out <- parallel::parLapply(
+    cl,
+    names(split_by_patient),
+    patientSimCore:::.run_one_patient_worker,
+    patients = patients,
+    split_by_patient = split_by_patient,
+    engine = engine,
+    param_draws = param_draws,
+    max_events = max_events,
+    max_time = max_time,
+    return_observations = return_observations,
+    seed = seed,
+    ctx_user = ctx_user,
+    time_unit = time_unit
+  )
   runs <- do.call(c, patient_out)
 
 } else if (backend == "mclapply") {
@@ -226,6 +192,71 @@ if (backend == "none") {
 }
 
 # ---- internal helpers ----
+.run_one_patient_worker <- function(patient_id,
+                                   patients,
+                                   split_by_patient,
+                                   engine,
+                                   param_draws,
+                                   max_events,
+                                   max_time,
+                                   return_observations,
+                                   seed,
+                                   ctx_user,
+                                   time_unit) {
+  p0 <- patients[[patient_id]]
+  if (is.null(p0)) stop("Unknown patient_id in patients list: ", patient_id)
+
+  rows <- split_by_patient[[patient_id]]
+  out_list <- vector("list", nrow(rows))
+
+  for (r in seq_len(nrow(rows))) {
+    draw_id <- rows$draw_id[[r]]
+    sim_id  <- rows$sim_id[[r]]
+
+    # Deep clone patient for each run (so sims don't interfere)
+    p <- .clone_patient(p0)
+
+    # Deterministic seeding per (patient, draw, sim) if seed is provided
+    if (!is.null(seed)) {
+      local_seed <- .seed_for(seed, patient_id, draw_id, sim_id)
+      set.seed(local_seed)
+    }
+
+    ctx_run <- list(
+      time_unit = time_unit,
+      patient_id = patient_id,
+      draw_id = draw_id,
+      sim_id = sim_id,
+      params = param_draws[[draw_id]]
+    )
+
+    # Merge user-provided ctx (if any). Per-draw ctx overrides single ctx.
+    if (!is.null(ctx_user)) {
+      base_ctx <- if (length(ctx_user) > 0L && all(vapply(ctx_user, is.list, logical(1)))) ctx_user[[draw_id]] else ctx_user
+      # Do not allow user ctx to overwrite identifiers; params are allowed.
+      ctx_run <- utils::modifyList(ctx_run, base_ctx, keep.null = TRUE)
+      ctx_run$patient_id <- patient_id
+      ctx_run$draw_id <- draw_id
+      ctx_run$sim_id <- sim_id
+      # If base_ctx provides params, honor it; otherwise keep param_draws.
+      if (!is.null(base_ctx$params)) ctx_run$params <- base_ctx$params
+    }
+
+    out <- engine$run(
+      patient = p,
+      max_events = max_events,
+      max_time = max_time,
+      return_observations = return_observations,
+      ctx = ctx_run
+    )
+
+    out_list[[r]] <- out
+  }
+
+  out_list
+}
+
+
 
 .maybe_sample_param_draws <- function(engine, n_param_draws) {
   # 1) Bundle can provide sample_params(D)

@@ -18,6 +18,18 @@ This vignette demonstrates the core architecture:
 - `ModelBundle` supplies the dynamics.
 - `ModelProviders` load bundles from different sources.
 
+
+### Determinism, tie-breaking, and optional patient tags
+
+When multiple processes propose events at the same `time_next`, the engine selects one deterministically by ordering on:
+
+1. earliest `time_next`, then
+2. lexicographic `process_id`.
+
+This means `process_id` is not just a label, it is part of the model's deterministic resolution policy. If your model has a preferred priority when ties occur, encode that priority into the `process_id` (for example, a zero-padded numeric prefix).
+
+For downstream linking in a HIPAA-conscious way, a `Patient` may also carry an optional single-column identifier `id` (default `NULL`). This is intended for *de-identified* tags (for example, a study-specific pseudonym), and packages may propagate it only if you supply it.
+
 ```{r}
 library(patientSimCore)
 set.seed(1)

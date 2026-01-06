@@ -1,3 +1,8 @@
+# 1.1.6 (2026-01-06)
+
+- Added optional Patient$id field for user-supplied de-identified identifiers.
+- Refactored cluster backend to avoid hard-coded clusterExport varlists by running worker logic from the package namespace.
+
 # patientSimCore 1.1.4
 
 ## patientSimCore 1.1.5
