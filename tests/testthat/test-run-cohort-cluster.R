@@ -1,0 +1,38 @@
+test_that("run_cohort backend='cluster' runs and preserves index/run alignment", {
+  skip_on_cran()
+
+  if (!requireNamespace("parallel", quietly = TRUE)) {
+    skip("parallel package not available")
+  }
+
+  schema <- default_patient_schema()
+  schema$age <- list(type = "continuous", default = 40, coerce = as.numeric)
+  schema$miles_to_work <- list(type = "continuous", default = 10, coerce = as.numeric)
+  eng <- Engine$new(provider = PackageProvider$new(), model_spec = list(name = "default"))
+
+  patients <- lapply(1:3, function(i) {
+    Patient$new(init = list(age = 40 + i, miles_to_work = 8),
+                schema = schema,
+                time0 = 0)
+  })
+  names(patients) <- paste0("id", 1:3)
+
+  batch <- run_cohort(
+    engine = eng,
+    patients = patients,
+    time_unit = "years",
+    n_param_draws = 2,
+    n_sims = 2,
+    max_events = 5,
+    backend = "cluster",
+    n_workers = 2,
+    seed = 1
+  )
+
+  expect_true(is.data.frame(batch$index))
+  expect_equal(nrow(batch$index), 3 * 2 * 2)
+  expect_equal(length(batch$runs), nrow(batch$index))
+
+  # critical invariant: ordering of runs matches index rows
+  expect_identical(names(batch$runs), batch$index$run_id)
+})

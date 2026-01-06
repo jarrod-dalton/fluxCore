@@ -1,3 +1,7 @@
+## 1.2.0
+
+- Add unit test covering `run_cohort(backend = 'cluster')` to reduce parallel-backend drift risk.
+
 ## patientSimCore 1.1.8
 
 - Fix parse error in `batch.R` (remove stray parenthesis) affecting installation.
