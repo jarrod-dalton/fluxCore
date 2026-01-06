@@ -1,3 +1,7 @@
+## patientSimCore 1.1.8
+
+- Fix parse error in `batch.R` (remove stray parenthesis) affecting installation.
+
 # 1.1.7 (2026-01-06)
 
 - Fix: remove duplicated `id` argument in `Patient$initialize()` (package parse/collate error).

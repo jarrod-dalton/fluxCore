@@ -138,7 +138,6 @@ if (backend == "none") {
   cl <- parallel::makeCluster(n_workers)
   on.exit(parallel::stopCluster(cl), add = TRUE)
 
-  )
   parallel::clusterEvalQ(cl, { library(patientSimCore) })
 
   patient_out <- parallel::parLapply(
