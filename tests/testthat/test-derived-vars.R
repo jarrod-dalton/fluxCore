@@ -70,3 +70,26 @@ test_that("lag_of extracts k-th prior value from sparse variable history", {
   )
   expect_false("sbp_lag1" %in% names(p0$snapshot()))
 })
+
+test_that("derive(var(), fn='count') counts non-missing values (does not count init defaults)", {
+  schema <- default_patient_schema()
+  schema$age <- list(type = "continuous", default = 40, coerce = as.numeric)
+  schema$miles_to_work <- list(type = "continuous", default = 10, coerce = as.numeric)
+  schema$sbp <- list(type = "continuous", default = NA_real_, coerce = as.numeric)
+
+  p <- Patient$new(
+    init = list(age = 50, miles_to_work = 10),
+    schema = schema,
+    derived_vars = list(
+      n_sbp_12 = derive("n_sbp_12", target = var("sbp"), lookback_t = 12, fn = "count", include_current = FALSE, force = TRUE)
+    ),
+    time0 = 0
+  )
+
+  # One observed SBP in history (time 0), then a current SBP at the anchor (time 5).
+  p$update(time = 0, event_type = "OBS", changes = list(sbp = 120))
+  p$update(time = 5, event_type = "OBS", changes = list(sbp = 130))
+
+  # Excluding current, only the time-0 observation should be counted.
+  expect_equal(p$snapshot_at_time(5)[["n_sbp_12"]], 1L)
+})

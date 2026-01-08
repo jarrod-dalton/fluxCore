@@ -1,3 +1,13 @@
+## 1.2.2
+
+- Fix: unit test for `derive(fn = "count", target = var(...))` now uses `snapshot_at_time()` (was incorrectly calling `snapshot_at()` with a time value).
+- No behavior changes beyond test correction.
+
+## 1.2.1
+
+- Fix: `derive(fn = 'count', target = var(...))` now counts non-missing values in-window (avoids counting schema-default init placeholders such as `NA`).
+- Add unit test locking this behavior.
+
 ## 1.2.0
 
 - Add unit test covering `run_cohort(backend = 'cluster')` to reduce parallel-backend drift risk.

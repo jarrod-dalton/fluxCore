@@ -105,7 +105,10 @@ derive <- function(name,
 
       if (length(vv2) == 0) return(.empty_value(fn, force, na_value))
 
-      if (identical(fn, "count")) return(length(vv2))
+      # For var() targets, interpret "count" as the number of non-missing
+      # values in-window. This avoids counting schema-default placeholders
+      # (often NA) recorded at initialization as if they were observations.
+      if (identical(fn, "count")) return(as.integer(sum(!is.na(vv2))))
       if (identical(fn, "min")) return(min(vv2))
       if (identical(fn, "max")) return(max(vv2))
       if (identical(fn, "mean")) return(mean(vv2))
