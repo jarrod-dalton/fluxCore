@@ -194,7 +194,7 @@ bmp_order_time = list(
 The schema does not:
 - encode derived variables (those are defined separately)
 - encode event types or processes
-- encode time units (use `ctx$time_unit` for that)
+- encode time units (use `ctx$time$unit` for that)
 - provide ordering-based mapping for vectorized models (use named outputs + blocks)
 
 ---

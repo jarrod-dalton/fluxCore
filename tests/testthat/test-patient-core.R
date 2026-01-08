@@ -50,7 +50,7 @@ test_that("Engine run returns events and patient; time is non-decreasing", {
   )
 
   out <- eng$run(
-    p, ctx = list(time_unit = "years"),
+    p, ctx = list(time = list(unit = "years")),
     max_events = 50,
     return_observations = TRUE
   )
@@ -150,7 +150,7 @@ test_that("Engine stops immediately when bundle stop() returns TRUE (no events a
                    time0 = 0)
 
   out <- eng$run(
-    p, ctx = list(time_unit = "years"),
+    p, ctx = list(time = list(unit = "years")),
     max_events = 10,
     return_observations = FALSE
   )

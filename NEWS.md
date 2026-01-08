@@ -1,3 +1,16 @@
+## 1.2.3
+
+## patientSimCore 1.2.4
+
+- Fix: unit tests updated to use `time_unit = ...` argument (avoid accidental partial match to `max_time`).
+- Fix: add strict `max_time` validation to prevent silent mis-specified calls.
+- Fix: `test-time-spec.R` string literals now use fixed matching (no invalid escapes).
+
+
+- Add time-axis utilities for deterministic mapping between calendar time (Date/POSIXct) and numeric model time: `ps_time_spec()`, `ps_time_to_model()`, `ps_time_from_model()`, and `ps_set_time_unit()`.
+- Change: time metadata is now stored under `ctx$time$unit` / `ctx$time$origin` / `ctx$time$zone` (replacing the older `ctx$time_unit` field).
+- Notes: `months` and `years` are fixed approximations (30.4375 and 365.25 days). `origin` is a mapping reference, not model baseline.
+
 ## 1.2.2
 
 - Fix: unit test for `derive(fn = "count", target = var(...))` now uses `snapshot_at_time()` (was incorrectly calling `snapshot_at()` with a time value).

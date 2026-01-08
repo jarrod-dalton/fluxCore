@@ -6,7 +6,7 @@
 #   parameter draws and repeated simulations per draw.
 #
 # Time units:
-#   - This function accepts `time_unit` and places it into ctx$time_unit for each
+#   - This function accepts `time_unit` and places it into ctx$time$unit for each
 #     run. Engine itself treats time as numeric; the unit is metadata for clarity.
 #
 # Returns:
@@ -40,6 +40,15 @@ run_cohort <- function(engine,
   } else {
     if (!is.list(param_draws) || length(param_draws) != n_param_draws) {
       stop("param_draws must be a list of length n_param_draws.")
+    }
+  }
+
+
+  # Validate max_time early. This is intentionally strict to avoid accidental
+  # partial-argument matches (e.g., passing `time = ...` which could match `max_time`).
+  if (!is.null(max_time)) {
+    if (!is.numeric(max_time) || length(max_time) != 1L || is.na(max_time) || !is.finite(max_time)) {
+      stop("max_time must be a single finite numeric value or NULL.", call. = FALSE)
     }
   }
 
@@ -222,7 +231,7 @@ if (backend == "none") {
     }
 
     ctx_run <- list(
-      time_unit = time_unit,
+      time = list(unit = time_unit),
       patient_id = patient_id,
       draw_id = draw_id,
       sim_id = sim_id,
@@ -237,6 +246,8 @@ if (backend == "none") {
       ctx_run$patient_id <- patient_id
       ctx_run$draw_id <- draw_id
       ctx_run$sim_id <- sim_id
+      if (is.null(ctx_run$time) || !is.list(ctx_run$time)) ctx_run$time <- list()
+      if (is.null(ctx_run$time$unit)) ctx_run$time$unit <- time_unit
       # If base_ctx provides params, honor it; otherwise keep param_draws.
       if (!is.null(base_ctx$params)) ctx_run$params <- base_ctx$params
     }

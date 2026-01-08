@@ -38,7 +38,7 @@ when available; otherwise it uses a single NULL draw.}
 
 \item{return_observations}{Logical; whether to return observations (if bundle provides observe()).}
 
-\item{time_unit}{Optional string documenting the unit for the global time axis. Engine treats time as numeric; if provided, this is passed to each run as \code{ctx$time_unit}.}
+\item{time_unit}{Optional string documenting the unit for the global time axis. Engine treats time as numeric; if provided, this is passed to each run as \code{ctx$time$unit}.}
 
 \item{backend}{Backend used to parallelize across patients. One of \code{"none"}, \code{"cluster"}, \code{"mclapply"}, or \code{"future"}. Default is \code{"none"}. \code{"cluster"} uses a PSOCK cluster (cross-platform). \code{"mclapply"} uses forking (macOS/Linux only). \code{"future"} uses \code{future.apply::future_lapply()} and respects the user's \code{future} plan.}
 

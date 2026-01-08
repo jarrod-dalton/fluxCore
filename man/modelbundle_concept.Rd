@@ -27,6 +27,6 @@ it easy to swap dynamics while keeping the Patient and Engine generic.
 
 All proposed event times (\code{time_next}) live on one shared numeric time axis. The
 package does not enforce units; bundles should document the intended unit (typically via
-\code{ctx$time_unit}).
+\code{ctx$time$unit}).
 }
 \keyword{internal}

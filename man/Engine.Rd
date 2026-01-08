@@ -17,7 +17,7 @@ refreshes proposals on-demand using \code{bundle$refresh_rules()} (default: refr
 
 Time is represented as a numeric value on a single global time axis. The Engine does not
 enforce units; for clarity and consistency (rates, cadences, lookbacks), models should set
-\code{ctx$time_unit} (e.g., \code{"days"}, \code{"months"}, \code{"years"}).
+\code{ctx$time$unit} (e.g., \code{"days"}, \code{"months"}, \code{"years"}).
 }
 \section{Fields}{
 
