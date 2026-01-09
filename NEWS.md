@@ -1,3 +1,9 @@
+## patientSimCore 1.2.5
+
+- Change: `ps_time_to_model()` now explicitly rejects time-only inputs (e.g., `difftime`, `hms`). Calendar inputs must be `Date` or `POSIXct` (date+time).
+- Add: schema helper utilities for contract enforcement across the ecosystem: `ps_schema_validate()`, `ps_schema_assert_vars()`, `ps_schema_var_info()`, `ps_schema_assert_types()`, `ps_schema_assert_levels()`.
+- Add: unit tests covering time-only rejection and schema helper behavior.
+
 ## 1.2.3
 
 ## patientSimCore 1.2.4

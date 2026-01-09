@@ -38,3 +38,11 @@ test_that("POSIXct conversion works and round-trips", {
   x2 <- ps_time_from_model(t, spec, class = "POSIXct")
   expect_equal(x2, x)
 })
+
+test_that("Time-only inputs are rejected", {
+  ctx <- ps_set_time_unit(unit = "hours", zone = "UTC")
+  spec <- ps_time_spec(ctx)
+
+  dt <- as.difftime(3600, units = "secs")
+  expect_error(ps_time_to_model(dt, spec), "Time-only", fixed = TRUE)
+})

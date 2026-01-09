@@ -126,6 +126,16 @@ ps_time_to_model <- function(x, time_spec) {
     stop("time_spec must be a 'ps_time_spec' created by ps_time_spec(ctx).", call. = FALSE)
   }
 
+  # Explicitly disallow "time-only" classes (no date component). These are
+  # common in data pipelines but cannot be mapped to model time without a date.
+  # Examples: difftime, hms.
+  if (inherits(x, "difftime") || inherits(x, "hms")) {
+    stop(
+      "Time-only inputs are not supported. Provide Date or POSIXct (date+time), or numeric model time.",
+      call. = FALSE
+    )
+  }
+
   if (is.numeric(x)) {
     if (anyNA(x) || any(!is.finite(x))) stop("Numeric time contains NA/Inf.", call. = FALSE)
     return(as.numeric(x))
