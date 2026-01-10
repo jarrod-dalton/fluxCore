@@ -3,11 +3,11 @@ Type: Package
 Title: Event-driven patient simulation scaffold (core)
 Version: 1.3.0
 Author: Jarrod Dalton [aut, cre]
-Maintainer: Jarrod Dalton <jarrod.dalton@gmail.com>
+Maintainer: Jarrod Dalton <daltonj@ccf.org>
 Authors@R: person(given = "Jarrod",
                   family = "Dalton",
                   role = c("aut", "cre"),
-                  email = "jarrod.dalton@gmail.com")
+                  email = "daltonj@ccf.org")
 Description: A scaffold for event-driven simulation projects in R. Provides a schema-based
     R6 Patient for mutable state with sparse history and an Engine for orchestrating
     simulations using pluggable ModelBundles loaded by ModelProviders (package, file,
