@@ -1,3 +1,8 @@
+## 1.3.0
+
+- Coordinated ecosystem release v1.3.0.
+- Schema validation and schema helper workflows are consolidated to `patientSimCore`.
+
 ## patientSimCore 1.2.5
 
 - Change: `ps_time_to_model()` now explicitly rejects time-only inputs (e.g., `difftime`, `hms`). Calendar inputs must be `Date` or `POSIXct` (date+time).
