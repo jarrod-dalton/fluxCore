@@ -24,6 +24,7 @@ Patient <- R6::R6Class(
     events = NULL,
     derived_vars = NULL,
                           id = NULL,
+    meta = NULL,
 
     initialize = function(init,
                           schema = default_patient_schema(),
@@ -60,6 +61,8 @@ Patient <- R6::R6Class(
         event_type = as.character(event_type0),
         stringsAsFactors = FALSE
       )
+
+      self$meta <- list()
 
       invisible(self)
     },
