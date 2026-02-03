@@ -1,3 +1,7 @@
+## patientSimCore 1.3.1
+
+- Added `Patient$meta` for bundle/runtime bookkeeping (e.g., refresh cadence clocks) without polluting the validated state schema.
+
 ## 1.3.0
 
 - Coordinated ecosystem release v1.3.0.
