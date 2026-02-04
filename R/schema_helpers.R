@@ -4,26 +4,10 @@
 # These helpers provide fast, centralized validation and lookup of schema
 # metadata (variable existence, type, levels, blocks).
 
-#' Validate a patient schema
-#'
-#' Validates the structure and metadata requirements of a patient schema.
-#' The schema is a named list where each entry describes a state variable.
-#'
-#' @param schema A named list schema.
-#'
-#' @return The validated schema (invisibly), with normalized type fields.
-#' @export
 ps_schema_validate <- function(schema) {
   invisible(.validate_schema(schema))
 }
 
-#' Assert that variables exist in a schema
-#'
-#' @param schema A validated schema (or a raw schema that can be validated).
-#' @param vars Character vector of variable names.
-#'
-#' @return Invisibly TRUE.
-#' @export
 ps_schema_assert_vars <- function(schema, vars) {
   schema <- .validate_schema(schema)
   if (is.null(vars) || length(vars) == 0L) return(invisible(TRUE))
@@ -37,16 +21,6 @@ ps_schema_assert_vars <- function(schema, vars) {
   invisible(TRUE)
 }
 
-#' Get schema metadata for variables
-#'
-#' Returns a data.frame with one row per requested variable and columns:
-#' `var`, `type`, `levels`, and `blocks`.
-#'
-#' @param schema A validated schema (or a raw schema that can be validated).
-#' @param vars Character vector of variable names.
-#'
-#' @return A data.frame.
-#' @export
 ps_schema_var_info <- function(schema, vars) {
   schema <- .validate_schema(schema)
   if (!is.character(vars) || length(vars) == 0L) {
@@ -76,14 +50,6 @@ ps_schema_var_info <- function(schema, vars) {
   )
 }
 
-#' Assert that schema variables have allowed types
-#'
-#' @param schema A validated schema (or a raw schema that can be validated).
-#' @param vars Character vector of variable names.
-#' @param allowed_types Character vector of allowed schema types.
-#'
-#' @return Invisibly TRUE.
-#' @export
 ps_schema_assert_types <- function(schema, vars, allowed_types) {
   schema <- .validate_schema(schema)
   ps_schema_assert_vars(schema, vars)
@@ -109,14 +75,6 @@ ps_schema_assert_types <- function(schema, vars, allowed_types) {
   invisible(TRUE)
 }
 
-#' Assert that categorical/ordinal/binary variables use declared levels
-#'
-#' @param schema A validated schema (or a raw schema that can be validated).
-#' @param var A single variable name.
-#' @param levels Character vector of levels to check.
-#'
-#' @return Invisibly TRUE.
-#' @export
 ps_schema_assert_levels <- function(schema, var, levels) {
   schema <- .validate_schema(schema)
   if (!is.character(var) || length(var) != 1L || is.na(var) || var == "") {

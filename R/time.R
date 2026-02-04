@@ -31,15 +31,6 @@
   )
 }
 
-#' Compile and validate time settings from ctx
-#'
-#' @param ctx Context list used throughout the ecosystem. Must contain `ctx$time`,
-#'   a list with fields `unit` (required), `origin` (optional), and `zone` (optional).
-#'
-#' @return An object of class `ps_time_spec` with precomputed conversion constants.
-#'   Pass this to `ps_time_to_model()` / `ps_time_from_model()` for fast conversion.
-#'
-#' @export
 ps_time_spec <- function(ctx) {
   if (is.null(ctx) || !is.list(ctx)) {
     stop("ctx must be a list.", call. = FALSE)
@@ -114,13 +105,6 @@ ps_time_spec <- function(ctx) {
   )
 }
 
-#' Convert calendar time to numeric model time
-#'
-#' @param x A vector of times: numeric, Date, or POSIXct/POSIXt.
-#' @param time_spec A compiled time spec from `ps_time_spec(ctx)`.
-#'
-#' @return Numeric model time in units of `time_spec$unit`.
-#' @export
 ps_time_to_model <- function(x, time_spec) {
   if (is.null(time_spec) || !inherits(time_spec, "ps_time_spec")) {
     stop("time_spec must be a 'ps_time_spec' created by ps_time_spec(ctx).", call. = FALSE)
@@ -157,14 +141,6 @@ ps_time_to_model <- function(x, time_spec) {
   stop("x must be numeric, Date, or POSIXct/POSIXt.", call. = FALSE)
 }
 
-#' Convert numeric model time to calendar time
-#'
-#' @param t Numeric model time.
-#' @param time_spec A compiled time spec from `ps_time_spec(ctx)`.
-#' @param class Output class: 'origin' (match origin class), 'Date', or 'POSIXct'.
-#'
-#' @return A vector of Date or POSIXct values.
-#' @export
 ps_time_from_model <- function(t, time_spec, class = c("origin", "Date", "POSIXct")) {
   if (is.null(time_spec) || !inherits(time_spec, "ps_time_spec")) {
     stop("time_spec must be a 'ps_time_spec' created by ps_time_spec(ctx).", call. = FALSE)
@@ -184,18 +160,6 @@ ps_time_from_model <- function(t, time_spec, class = c("origin", "Date", "POSIXc
   return(as.Date(out_posix, tz = time_spec$zone))
 }
 
-#' Set time unit and optional origin/zone in ctx
-#'
-#' Convenience helper to set `ctx$time$unit` (required) and optionally `ctx$time$origin`
-#' and `ctx$time$zone`.
-#'
-#' @param ctx Context list (or NULL to create a new ctx list).
-#' @param unit Time unit string. Must be one of: seconds, minutes, hours, days, weeks, months, years.
-#' @param origin Optional Date or POSIXct origin. Default is system epoch.
-#' @param zone Optional time zone string (IANA/Olson), default 'UTC'.
-#'
-#' @return Updated ctx list (validated).
-#' @export
 ps_set_time_unit <- function(ctx = NULL, unit, origin = NULL, zone = "UTC") {
   if (is.null(ctx)) ctx <- list()
   if (!is.list(ctx)) stop("ctx must be a list.", call. = FALSE)

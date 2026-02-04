@@ -3,9 +3,14 @@ event <- function(event_type) {
   list(kind = "event", event_type = as.character(event_type))
 }
 
-var <- function(name) {
+.var_target <- function(name) {
+
   if (length(name) != 1) stop("name must be length 1")
   list(kind = "var", name = as.character(name))
+}
+
+declare_variable <- function(name) {
+  .var_target(name)
 }
 
 .get_window_idx <- function(patient, t, j, lookback_t = NULL, lookback_j = NULL, include_current = TRUE, clock = "time") {
@@ -60,7 +65,7 @@ derive <- function(name,
                    clock = "time") {
   fn <- match.arg(fn)
   if (length(name) != 1) stop("name must be length 1")
-  if (!is.list(target) || is.null(target$kind)) stop("target must be created by event() or var()")
+  if (!is.list(target) || is.null(target$kind)) stop("target must be created by event() or declare_variable()")
 
   function(patient, j = patient$j, t = patient$last_time) {
     j <- as.integer(j); t <- as.numeric(t)
@@ -105,7 +110,7 @@ derive <- function(name,
 
       if (length(vv2) == 0) return(.empty_value(fn, force, na_value))
 
-      # For var() targets, interpret "count" as the number of non-missing
+      # For declare_variable() targets, interpret "count" as the number of non-missing
       # values in-window. This avoids counting schema-default placeholders
       # (often NA) recorded at initialization as if they were observations.
       if (identical(fn, "count")) return(as.integer(sum(!is.na(vv2))))
@@ -134,7 +139,7 @@ lag_of <- function(name,
                    na_value = NA,
                    clock = "time") {
   if (length(name) != 1) stop("name must be length 1")
-  if (!is.list(target) || !identical(target$kind, "var")) stop("target must be var(<name>)")
+  if (!is.list(target) || !identical(target$kind, "var")) stop("target must be declare_variable(<name>)")
   k <- as.integer(k)
   if (!is.finite(k) || k < 1L) stop("k must be a positive integer")
 

@@ -1,3 +1,12 @@
+## patientSimCore 1.3.3
+
+- Removed exported `var()` to avoid masking `stats::var()`. Use `declare_variable()` instead.
+- Package documentation and NAMESPACE are maintained manually (no roxygen2).
+
+# patientSimCore 1.3.2
+
+- Rename exported helper `var()` to `declare_variable()` to avoid masking `stats::var()` when attaching `patientSimCore`.
+
 ## patientSimCore 1.3.1
 
 - Added `Patient$meta` for bundle/runtime bookkeeping (e.g., refresh cadence clocks) without polluting the validated state schema.
@@ -28,12 +37,12 @@
 
 ## 1.2.2
 
-- Fix: unit test for `derive(fn = "count", target = var(...))` now uses `snapshot_at_time()` (was incorrectly calling `snapshot_at()` with a time value).
+- Fix: unit test for `derive(fn = "count", target = declare_variable(...))` now uses `snapshot_at_time()` (was incorrectly calling `snapshot_at()` with a time value).
 - No behavior changes beyond test correction.
 
 ## 1.2.1
 
-- Fix: `derive(fn = 'count', target = var(...))` now counts non-missing values in-window (avoids counting schema-default init placeholders such as `NA`).
+- Fix: `derive(fn = 'count', target = declare_variable(...))` now counts non-missing values in-window (avoids counting schema-default init placeholders such as `NA`).
 - Add unit test locking this behavior.
 
 ## 1.2.0
