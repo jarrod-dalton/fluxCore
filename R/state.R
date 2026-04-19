@@ -1,6 +1,6 @@
 NULL
 
-.as_ps_state <- function(x) {
+.as_state <- function(x) {
   if (is.null(x)) return(structure(list(), class = "ps_state"))
   stopifnot(is.list(x))
   structure(x, class = "ps_state")

@@ -147,7 +147,21 @@ if (backend == "none") {
   cl <- parallel::makeCluster(n_workers)
   on.exit(parallel::stopCluster(cl), add = TRUE)
 
-  parallel::clusterEvalQ(cl, { library(patientSimCore) })
+  pkg_path <- tryCatch(getNamespaceInfo("patientSimCore", "path"), error = function(e) "")
+  parallel::clusterCall(
+    cl,
+    function(path) {
+      have_pkgload <- requireNamespace("pkgload", quietly = TRUE)
+      can_load_src <- nzchar(path) && file.exists(file.path(path, "DESCRIPTION"))
+      if (have_pkgload && can_load_src) {
+        pkgload::load_all(path = path, export_all = FALSE, quiet = TRUE)
+      } else {
+        library(patientSimCore)
+      }
+      invisible(TRUE)
+    },
+    pkg_path
+  )
 
   patient_out <- parallel::parLapply(
     cl,

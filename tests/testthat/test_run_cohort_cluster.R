@@ -4,6 +4,11 @@ test_that("run_cohort backend='cluster' runs and preserves index/run alignment",
   if (!requireNamespace("parallel", quietly = TRUE)) {
     skip("parallel package not available")
   }
+  cl_probe <- try(parallel::makeCluster(1), silent = TRUE)
+  if (inherits(cl_probe, "try-error")) {
+    skip("PSOCK cluster sockets unavailable in this environment")
+  }
+  parallel::stopCluster(cl_probe)
 
   schema <- default_patient_schema()
   schema$age <- list(type = "continuous", default = 40, coerce = as.numeric)

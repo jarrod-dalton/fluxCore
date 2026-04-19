@@ -1,3 +1,9 @@
+## patientSimCore 1.4.0
+
+- API naming: removed `ps_` prefixes from exported time/schema helpers. New names are `set_time_unit()`, `time_spec()`, `time_to_model()`, `time_from_model()`, `schema_validate()`, `schema_assert_vars()`, `schema_var_info()`, `schema_assert_types()`, and `schema_assert_levels()`.
+- Documentation: manual `.Rd` pages were renamed/updated to match the new helper names.
+- Packaging hygiene: standardized filenames to underscore style and retained manual documentation workflows (no roxygen generation).
+
 ## patientSimCore 1.3.3
 
 - Removed exported `var()` to avoid masking `stats::var()`. Use `declare_variable()` instead.
@@ -18,8 +24,8 @@
 
 ## patientSimCore 1.2.5
 
-- Change: `ps_time_to_model()` now explicitly rejects time-only inputs (e.g., `difftime`, `hms`). Calendar inputs must be `Date` or `POSIXct` (date+time).
-- Add: schema helper utilities for contract enforcement across the ecosystem: `ps_schema_validate()`, `ps_schema_assert_vars()`, `ps_schema_var_info()`, `ps_schema_assert_types()`, `ps_schema_assert_levels()`.
+- Change: `time_to_model()` now explicitly rejects time-only inputs (e.g., `difftime`, `hms`). Calendar inputs must be `Date` or `POSIXct` (date+time).
+- Add: schema helper utilities for contract enforcement across the ecosystem: `schema_validate()`, `schema_assert_vars()`, `schema_var_info()`, `schema_assert_types()`, `schema_assert_levels()`.
 - Add: unit tests covering time-only rejection and schema helper behavior.
 
 ## 1.2.3
@@ -31,7 +37,7 @@
 - Fix: `test-time-spec.R` string literals now use fixed matching (no invalid escapes).
 
 
-- Add time-axis utilities for deterministic mapping between calendar time (Date/POSIXct) and numeric model time: `ps_time_spec()`, `ps_time_to_model()`, `ps_time_from_model()`, and `ps_set_time_unit()`.
+- Add time-axis utilities for deterministic mapping between calendar time (Date/POSIXct) and numeric model time: `time_spec()`, `time_to_model()`, `time_from_model()`, and `set_time_unit()`.
 - Change: time metadata is now stored under `ctx$time$unit` / `ctx$time$origin` / `ctx$time$zone` (replacing the older `ctx$time_unit` field).
 - Notes: `months` and `years` are fixed approximations (30.4375 and 365.25 days). `origin` is a mapping reference, not model baseline.
 

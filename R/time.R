@@ -12,11 +12,11 @@
 #
 # NOTE: time_origin is NOT baseline. Baseline/start-of-followup is model-defined.
 
-.ps_time_allowed_units <- c(
+.time_allowed_units <- c(
   "seconds", "minutes", "hours", "days", "weeks", "months", "years"
 )
 
-.ps_time_days_per_unit <- function(unit) {
+.time_days_per_unit <- function(unit) {
   unit <- tolower(unit)
   switch(
     unit,
@@ -31,7 +31,7 @@
   )
 }
 
-ps_time_spec <- function(ctx) {
+time_spec <- function(ctx) {
   if (is.null(ctx) || !is.list(ctx)) {
     stop("ctx must be a list.", call. = FALSE)
   }
@@ -44,10 +44,10 @@ ps_time_spec <- function(ctx) {
     stop("ctx$time$unit must be a non-empty single string.", call. = FALSE)
   }
   unit <- tolower(unit)
-  if (!unit %in% .ps_time_allowed_units) {
+  if (!unit %in% .time_allowed_units) {
     stop(
       "Unsupported ctx$time$unit: '", unit, "'. Allowed: ",
-      paste(.ps_time_allowed_units, collapse = ", "),
+      paste(.time_allowed_units, collapse = ", "),
       call. = FALSE
     )
   }
@@ -87,7 +87,7 @@ ps_time_spec <- function(ctx) {
   origin_posix <- as.POSIXct(origin, tz = zone)
   origin_date  <- as.Date(origin_posix, tz = zone)
 
-  days_per_unit <- .ps_time_days_per_unit(unit)
+  days_per_unit <- .time_days_per_unit(unit)
   seconds_per_unit <- days_per_unit * 86400
 
   structure(
@@ -101,13 +101,13 @@ ps_time_spec <- function(ctx) {
       days_per_unit = days_per_unit,
       seconds_per_unit = seconds_per_unit
     ),
-    class = "ps_time_spec"
+    class = "time_spec"
   )
 }
 
-ps_time_to_model <- function(x, time_spec) {
-  if (is.null(time_spec) || !inherits(time_spec, "ps_time_spec")) {
-    stop("time_spec must be a 'ps_time_spec' created by ps_time_spec(ctx).", call. = FALSE)
+time_to_model <- function(x, time_spec) {
+  if (is.null(time_spec) || !inherits(time_spec, "time_spec")) {
+    stop("time_spec must be a 'time_spec' created by time_spec(ctx).", call. = FALSE)
   }
 
   # Explicitly disallow "time-only" classes (no date component). These are
@@ -141,9 +141,9 @@ ps_time_to_model <- function(x, time_spec) {
   stop("x must be numeric, Date, or POSIXct/POSIXt.", call. = FALSE)
 }
 
-ps_time_from_model <- function(t, time_spec, class = c("origin", "Date", "POSIXct")) {
-  if (is.null(time_spec) || !inherits(time_spec, "ps_time_spec")) {
-    stop("time_spec must be a 'ps_time_spec' created by ps_time_spec(ctx).", call. = FALSE)
+time_from_model <- function(t, time_spec, class = c("origin", "Date", "POSIXct")) {
+  if (is.null(time_spec) || !inherits(time_spec, "time_spec")) {
+    stop("time_spec must be a 'time_spec' created by time_spec(ctx).", call. = FALSE)
   }
   class <- match.arg(class)
 
@@ -160,7 +160,7 @@ ps_time_from_model <- function(t, time_spec, class = c("origin", "Date", "POSIXc
   return(as.Date(out_posix, tz = time_spec$zone))
 }
 
-ps_set_time_unit <- function(ctx = NULL, unit, origin = NULL, zone = "UTC") {
+set_time_unit <- function(ctx = NULL, unit, origin = NULL, zone = "UTC") {
   if (is.null(ctx)) ctx <- list()
   if (!is.list(ctx)) stop("ctx must be a list.", call. = FALSE)
   if (is.null(ctx$time) || !is.list(ctx$time)) ctx$time <- list()
@@ -170,6 +170,6 @@ ps_set_time_unit <- function(ctx = NULL, unit, origin = NULL, zone = "UTC") {
   if (!is.null(zone)) ctx$time$zone <- zone
 
   # Validate once; then return.
-  ps_time_spec(ctx)
+  time_spec(ctx)
   ctx
 }

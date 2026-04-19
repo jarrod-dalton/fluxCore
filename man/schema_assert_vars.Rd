@@ -1,9 +1,9 @@
-\name{ps_schema_assert_vars}
-\alias{ps_schema_assert_vars}
+\name{schema_assert_vars}
+\alias{schema_assert_vars}
 \title{Assert that variables exist in a schema}
 \description{Stops with an informative error if any requested variable names are not present in the schema.}
 \usage{
-ps_schema_assert_vars(schema, vars)
+schema_assert_vars(schema, vars)
 }
 \arguments{
 \item{schema}{A validated schema (or a raw schema that can be validated).}

@@ -4,11 +4,11 @@
 # These helpers provide fast, centralized validation and lookup of schema
 # metadata (variable existence, type, levels, blocks).
 
-ps_schema_validate <- function(schema) {
+schema_validate <- function(schema) {
   invisible(.validate_schema(schema))
 }
 
-ps_schema_assert_vars <- function(schema, vars) {
+schema_assert_vars <- function(schema, vars) {
   schema <- .validate_schema(schema)
   if (is.null(vars) || length(vars) == 0L) return(invisible(TRUE))
   if (!is.character(vars) || anyNA(vars) || any(vars == "")) {
@@ -21,12 +21,12 @@ ps_schema_assert_vars <- function(schema, vars) {
   invisible(TRUE)
 }
 
-ps_schema_var_info <- function(schema, vars) {
+schema_var_info <- function(schema, vars) {
   schema <- .validate_schema(schema)
   if (!is.character(vars) || length(vars) == 0L) {
     stop("vars must be a non-empty character vector.", call. = FALSE)
   }
-  ps_schema_assert_vars(schema, vars)
+  schema_assert_vars(schema, vars)
   vars <- as.character(vars)
 
   types <- vapply(vars, function(v) schema[[v]]$type, character(1))
@@ -50,9 +50,9 @@ ps_schema_var_info <- function(schema, vars) {
   )
 }
 
-ps_schema_assert_types <- function(schema, vars, allowed_types) {
+schema_assert_types <- function(schema, vars, allowed_types) {
   schema <- .validate_schema(schema)
-  ps_schema_assert_vars(schema, vars)
+  schema_assert_vars(schema, vars)
   if (!is.character(allowed_types) || length(allowed_types) == 0L) {
     stop("allowed_types must be a non-empty character vector.", call. = FALSE)
   }
@@ -75,12 +75,12 @@ ps_schema_assert_types <- function(schema, vars, allowed_types) {
   invisible(TRUE)
 }
 
-ps_schema_assert_levels <- function(schema, var, levels) {
+schema_assert_levels <- function(schema, var, levels) {
   schema <- .validate_schema(schema)
   if (!is.character(var) || length(var) != 1L || is.na(var) || var == "") {
     stop("var must be a single non-empty string.", call. = FALSE)
   }
-  ps_schema_assert_vars(schema, var)
+  schema_assert_vars(schema, var)
   if (!is.character(levels) || length(levels) == 0L || anyNA(levels) || any(levels == "")) {
     stop("levels must be a non-empty character vector with no empty values.", call. = FALSE)
   }
