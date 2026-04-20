@@ -1,8 +1,8 @@
 \name{schema_validate}
 \alias{schema_validate}
-\title{Validate a patient schema}
+\title{Validate an entity schema}
 \description{
-Validates the structure and required metadata of a patient schema.
+Validates the structure and required metadata of an entity schema.
 The schema is a named list where each entry describes one state variable.
 }
 \usage{

@@ -23,7 +23,7 @@ Provides a small, self-contained bundle that demonstrates:
 The toy model assumes your schema contains \code{age} and optionally \code{miles_to_work}.
 }
 \examples{
-library(patientSimCore)
+library(fluxCore)
 set.seed(1)
 bundle <- default_model_bundle()
 names(bundle)

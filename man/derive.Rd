@@ -31,12 +31,12 @@ derive(
 
 \item{na_value}{Value to return when \code{force=TRUE} and no history exists (default \code{NA}).}
 
-\item{clock}{Which column in \code{patient$events} defines the time axis for \code{lookback_t} (default \code{"time"}).}
+\item{clock}{Which column in \code{entity$events} defines the time axis for \code{lookback_t} (default \code{"time"}).}
 }
 \value{
-A function \verb{(patient, j, t) -> scalar or NULL}.
+A function \verb{(entity, j, t) -> scalar or NULL}.
 }
 \description{
 \code{derive()} returns a function computing a history-derived feature as of \verb{(j, t)}.
-Intended to populate \code{Patient$derived_vars} and be used by \verb{Patient$snapshot*()}.
+Intended to populate \code{Entity$derived_vars} and be used by \verb{Entity$snapshot*()}.
 }

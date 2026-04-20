@@ -1,32 +1,32 @@
-# patientSimCore
+# fluxCore
 
-A small set of R tools for building **patient-level simulation models** where things happen at **irregular times** (not every day, not every month), and where each event can change only a few patient variables.
+A small set of R tools for building **entity-level simulation models** where things happen at **irregular times** (not every day, not every month), and where each event can change only a few state variables.
 
 This package is meant to be a **foundation**. It does not contain a disease model. Instead, it gives you a clear way to:
 
-- store a patient’s current variables (“state”)
+- store an entity’s current variables (“state”)
 - record a time-ordered list of events (what happened, when)
 - advance time from one event to the next
 - update only the variables that change at an event (sparse updates)
 - optionally record extra outputs (costs, utilities, measurements)
-- run many patients, optionally in parallel
-- (optional) represent **parameter uncertainty** using global parameter draws shared across patients
+- run many entities, optionally in parallel
+- (optional) represent **parameter uncertainty** using global parameter draws shared across entities
 - (optional) add interventions (“policies”) without rewriting your baseline model
 
-If you can describe your model as “a sequence of events over time that change patient variables”, this scaffold is a good fit.
+If you can describe your model as “a sequence of events over time that change state variables”, this scaffold is a good fit.
 
 ---
 
 ## Key terms (plain-language definitions)
 
-**Patient**  
-An object that holds (1) the current values of patient variables and (2) a record of events over time.
+**Entity (currently implemented as `Entity`)**  
+An object that holds (1) the current values of state variables and (2) a record of events over time.
 
 **State**  
-The set of variables that describe the patient *right now* and can influence what happens next (age, biomarker level, treatment status, comorbidity flags, etc.).
+The set of variables that describe the entity *right now* and can influence what happens next (age, biomarker level, treatment status, comorbidity flags, etc.).
 
 **Event**  
-Something that occurs at a particular time and may change the patient’s state (clinic visit, adverse event, hospitalization, death, etc.).
+Something that occurs at a particular time and may change the entity state (clinic visit, adverse event, hospitalization, death, etc.).
 
 **Event time**  
 A numeric time value on a single global time axis shared across processes.
@@ -45,7 +45,7 @@ Example patch: `list(bmi = 29.1, tx_on = 1L)`
 Information you want to record for analysis/reporting that does *not* affect future events (cost, utility, “was this an ED visit?”, etc.). Observations are separate from state updates on purpose.
 
 **Episode (optional)**  
-A short period with its own internal logic (e.g., a hospitalization) that returns a *summary* back to the main patient state, and optionally a detailed record (“artifact”) if you want it.
+A short period with its own internal logic (e.g., a hospitalization) that returns a *summary* back to the main entity state, and optionally a detailed record (“artifact”) if you want it.
 
 ---
 
@@ -60,7 +60,7 @@ A single simulation run repeatedly does the following:
    Return a sparse update patch (or `NULL` if nothing changes).
 
 3. **Record the event and apply the state changes**  
-   The patient’s event log gets a new row; state variables are updated.
+   The entity event log gets a new row; state variables are updated.
 
 4. **Optionally record observations**  
    If you want to log costs or other outputs, compute and store them here.
@@ -74,30 +74,30 @@ That is the full conceptual loop.
 
 ## What you need to provide: a “ModelBundle”
 
-In `patientSimCore`, a model is represented by a **ModelBundle**: a named list of functions that define your simulation rules.
+In `fluxCore`, a model is represented by a **ModelBundle**: a named list of functions that define your simulation rules.
 
 A bundle must provide:
 
 
-- `propose_events(patient, ctx, ...)`  
+- `propose_events(entity, ctx, ...)`  
   Returns one *proposed future event* per process, as a named list keyed by `process_id`.
   Each proposed event is a list that includes at least `time_next` and `event_type`.
 
 
-- `transition(patient, event, ctx)`  
+- `transition(entity, event, ctx)`  
   Returns a sparse patch: a named list of state updates, or `NULL`.
 
 
-- `stop(patient, event, ctx)`  
+- `stop(entity, event, ctx)`  
   Returns `TRUE` to stop the run, `FALSE` to continue.
 
 A bundle may also provide:
 
 
-- `observe(patient, event, ctx)`  
+- `observe(entity, event, ctx)`  
   Returns extra outputs you want to record (costs, utilities, measurements, etc.).
 
-- `refresh_rules(patient, last_event, changes, ctx)`
+- `refresh_rules(entity, last_event, changes, ctx)`
   Controls which processes should regenerate their next proposal after an event. Return
   "ALL" to refresh all processes, or a character vector of `process_id`s.
 
@@ -107,7 +107,7 @@ A bundle may also provide:
 ### What is `ctx`?
 `ctx` is an optional “context” list passed into bundle functions. It can include:
 - `time_unit` (a single string, e.g., `"days"`, `"months"`, `"years"`). All event times are interpreted in this unit.
-- `draw_id` and `sim_id` (identifiers when running repeated simulations)
+- `param_draw_id` and `sim_id` (identifiers when running repeated simulations)
 - `params` (a parameter draw, if you are doing parameter uncertainty)
 - any other run-level inputs you want to pass through cleanly
 
@@ -115,17 +115,18 @@ Bundles that do not need context can ignore it.
 
 ---
 
-## Minimal example (single patient)
+## Minimal example (single entity)
 
 This uses the small toy bundle that ships with the package so you can see the mechanics.
 
 ```r
-library(patientSimCore)
+library(fluxCore)
 set.seed(1)
 
-p <- Patient$new(
+p <- Entity$new(
   init   = list(age = 55, miles_to_work = 10),
-  schema = default_patient_schema(),
+  schema = default_entity_schema(),
+  entity_type = "entity",
   time0  = 0
 )
 
@@ -137,7 +138,7 @@ eng <- Engine$new(
 out <- eng$run(p, max_events = 50, ctx = list(time_unit = "years"))
 
 tail(out$events, 5)
-out$patient$state(c("age", "miles_to_work"))
+out$entity$state(c("age", "miles_to_work"))
 ```
 
 
@@ -151,7 +152,7 @@ schema entries may include an optional `blocks` field (many-to-many). This lets 
 refer to groups of variables by name:
 
 ```r
-schema <- default_patient_schema()
+schema <- default_entity_schema()
 # Example: schema$sbp$blocks <- c("bp")
 #          schema$dbp$blocks <- c("bp")
 
@@ -162,7 +163,7 @@ Model `transition()` functions can generate vector-valued predictions and expand
 them into per-variable updates with helpers:
 
 ```r
-transition <- function(patient, event, ctx) {
+transition <- function(entity, event, ctx) {
   if (event$event_type != "bp_check") return(NULL)
   draw <- c(120, 78)
   set_vars(bp_vars, draw)
@@ -170,26 +171,27 @@ transition <- function(patient, event, ctx) {
 ```
 ---
 
-## Running many patients (batch simulation)
+## Running many entities (batch simulation)
 
-Use `run_cohort()` to run a list of patients. You can also run in parallel across patients.
+Use `run_cohort()` to run a list of entities. You can also run in parallel across entities.
 
 ```r
-library(patientSimCore)
+library(fluxCore)
 set.seed(1)
 
 eng <- Engine$new(provider = PackageProvider$new(), model_spec = list(name = "default"))
 
-patients <- lapply(1:10, function(i) {
-  Patient$new(init = list(age = 40 + i, miles_to_work = 8),
-              schema = default_patient_schema(),
+entities <- lapply(1:10, function(i) {
+  Entity$new(init = list(age = 40 + i, miles_to_work = 8),
+              schema = default_entity_schema(),
+              entity_type = "entity",
               time0 = 0)
 })
-names(patients) <- paste0("id", seq_along(patients))
+names(entities) <- paste0("id", seq_along(entities))
 
 batch <- run_cohort(
   engine = eng,
-  patients = patients,
+  entities = entities,
   n_param_draws = 1,
   n_sims = 1,
   max_events = 100,
@@ -202,7 +204,7 @@ batch <- run_cohort(
 head(batch$index)
 ```
 
-`batch$index` describes each run (patient × draw × sim), so your outputs are easy to identify.
+`batch$index` describes each run (entity × draw × sim), so your outputs are easy to identify.
 
 ---
 
@@ -213,8 +215,8 @@ Sometimes fitted statistical models support drawing parameters from an approxima
 This package supports the common workflow:
 
 - draw `D` parameter sets once (global draws)
-- reuse those draws across all patients
-- run `S` stochastic simulations per patient per draw
+- reuse those draws across all entities
+- run `S` stochastic simulations per entity per draw
 
 You control this via:
 
@@ -252,7 +254,7 @@ A simple approach is:
 - represent “hospitalization” as an event on the main timeline
 - optionally run a submodel for the hospital stay
 - return a **summary patch** to update main state (e.g., LOS, complications, post-discharge risk)
-- optionally return an **artifact** (a detailed trace) stored outside the patient state
+- optionally return an **artifact** (a detailed trace) stored outside the entity state
 
 The core package does not force any one approach. The example model package demonstrates a practical pattern.
 
@@ -260,10 +262,10 @@ The core package does not force any one approach. The example model package demo
 
 ## Where to look in the code
 
-- `R/Patient.R` : patient state, history, and event log
-- `R/schema.R`  : defining patient variables (schema)
-- `R/engine.R`  : running a single patient simulation
-- `R/batch.R`   : running many patients (serial/parallel; draws/sims)
+- `R/Entity.R` : entity state, history, and event log
+- `R/schema.R`  : defining entity variables (schema)
+- `R/engine.R`  : running a single entity simulation
+- `R/batch.R`   : running many entities (serial/parallel; draws/sims)
 - `R/compose.R` : layering interventions/policies
 - `R/bundles.R` : an example bundle (toy dynamics)
 - `R/providers.R`: loading bundles from package/files/MLflow (stub)

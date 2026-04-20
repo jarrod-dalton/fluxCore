@@ -18,7 +18,7 @@ to generate global parameter draws for draw-aware components (e.g., regression m
 with \code{cov(beta)}).
 }
 \examples{
-library(patientSimCore)
+library(fluxCore)
 prov <- MLflowProvider$new(
   builder_fn = function(model_uri, artifacts = NULL, model_spec = NULL) default_model_bundle()
 )

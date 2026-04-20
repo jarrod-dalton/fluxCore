@@ -3,11 +3,11 @@
 \title{Engine}
 \description{
 Orchestrates simulation by repeatedly proposing the next event(s), applying a transition
-patch, recording the event on a \code{Patient}, and stopping when \code{bundle$stop()} returns TRUE
+patch, recording the event on a \code{Entity}, and stopping when \code{bundle$stop()} returns TRUE
 (or a \code{max_time} / \code{max_events} limit is reached).
 }
 \details{
-The Engine requires \code{bundle$propose_events(patient, ...)} returning one proposed future event
+The Engine requires \code{bundle$propose_events(entity, ...)} returning one proposed future event
 per process, as a named list keyed by \code{process_id}.
 
 When multiple processes are present, the Engine caches each process's next proposal and

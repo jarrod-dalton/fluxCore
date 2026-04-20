@@ -9,7 +9,7 @@ Loads a bundle from in-package functions/objects. Use \code{model_spec$name} to 
 among multiple bundle builders. By default, \code{"default"} maps to \code{\link[=default_model_bundle]{default_model_bundle()}}.
 }
 \examples{
-library(patientSimCore)
+library(fluxCore)
 prov <- PackageProvider$new()
 bundle <- prov$load(list(name = "default"))
 names(bundle)

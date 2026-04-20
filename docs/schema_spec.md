@@ -1,6 +1,6 @@
-# `patientSimCore` Schema Specification
+# `fluxCore` Schema Specification
 
-This document specifies the structure and meaning of a **patient schema** used by `patientSimCore`. A schema defines the *core state variables* that a `Patient` can hold, along with defaults, coercion, validation, and optional block (panel) membership.
+This document specifies the structure and meaning of a **entity schema** used by `fluxCore`. A schema defines the *core state variables* that a `Entity` can hold, along with defaults, coercion, validation, and optional block (panel) membership.
 
 The schema is a **named list**. Each entry corresponds to one core state variable.
 
@@ -28,7 +28,7 @@ Each `<var_descriptor>` is itself a named list with a small vocabulary of recogn
 
 #### `default`
 **Type:** scalar (length 1)  
-**Meaning:** Default value for the variable at patient initialization when no `init` value is supplied.
+**Meaning:** Default value for the variable at entity initialization when no `init` value is supplied.
 
 Example:
 
@@ -42,13 +42,13 @@ Notes:
 
 ---
 
-### 2.2 Optional fields (recognized by patientSimCore)
+### 2.2 Optional fields (recognized by fluxCore)
 
 #### `coerce`
 **Type:** function  
 **Signature:** `function(x) -> scalar`  
-**Meaning:** Applied to values entering the patient state, including:
-- initialization via `new_patient(init = ...)`
+**Meaning:** Applied to values entering the entity state, including:
+- initialization via `new_entity(init = ...)`
 - all subsequent updates returned by `transition()`
 
 Example:
@@ -69,7 +69,7 @@ Notes:
 #### `validate`
 **Type:** function  
 **Signature:** `function(x) -> TRUE/FALSE` (single logical scalar)  
-**Meaning:** Predicate applied to coerced values. If it returns `FALSE`, patient initialization or the update errors.
+**Meaning:** Predicate applied to coerced values. If it returns `FALSE`, entity initialization or the update errors.
 
 Example:
 
@@ -90,7 +90,7 @@ Notes:
 #### `required`
 **Type:** logical scalar  
 **Default:** `FALSE`  
-**Meaning:** If `TRUE`, the variable must be supplied in `init` at patient creation, otherwise `new_patient()` errors.
+**Meaning:** If `TRUE`, the variable must be supplied in `init` at entity creation, otherwise `new_entity()` errors.
 
 Example:
 
@@ -144,12 +144,12 @@ When a value is inserted into state (init or update), the intended order is:
 
 ## 4. Recognized vs unrecognized fields
 
-`patientSimCore` recognizes the fields described above:  
+`fluxCore` recognizes the fields described above:  
 `default`, `coerce`, `validate`, `required`, `blocks`.
 
-Additional fields may appear in schema entries for model-level metadata (e.g., units, labels), but **patientSimCore will ignore unrecognized fields** unless future versions explicitly adopt them.
+Additional fields may appear in schema entries for model-level metadata (e.g., units, labels), but **fluxCore will ignore unrecognized fields** unless future versions explicitly adopt them.
 
-If you add metadata fields, do not rely on patientSimCore to enforce them.
+If you add metadata fields, do not rely on fluxCore to enforce them.
 
 ---
 
@@ -203,5 +203,5 @@ The schema does not:
 
 - Prefer explicit `coerce` and `validate` for variables that matter clinically.
 - Use `required = TRUE` for variables your model cannot sensibly run without.
-- Use `blocks` to support panel updates with `update_block(patient, block, values)` and `combine_updates(...)`.
+- Use `blocks` to support panel updates with `update_block(entity, block, values)` and `combine_updates(...)`.
 - Keep core state scalar. If you need longitudinal arrays, represent them as events/observations instead.

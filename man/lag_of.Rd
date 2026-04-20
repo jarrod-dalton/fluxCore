@@ -31,10 +31,10 @@ lag_of(
 
 \item{na_value}{Value to return when \code{force=TRUE} and insufficient history exists (default \code{NA}).}
 
-\item{clock}{Which column in \code{patient$events} defines the time axis for \code{lookback_t} (default \code{"time"}).}
+\item{clock}{Which column in \code{entity$events} defines the time axis for \code{lookback_t} (default \code{"time"}).}
 }
 \value{
-A function \verb{(patient, j, t) -> scalar or NULL}.
+A function \verb{(entity, j, t) -> scalar or NULL}.
 }
 \description{
 Extract the k-th most recent value of a variable from sparse history as of \verb{(j, t)}.

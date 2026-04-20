@@ -1,9 +1,9 @@
 test_that("update_block validates block membership and schema", {
-  schema <- default_patient_schema()
+  schema <- default_entity_schema()
   schema$sbp <- list(type="continuous", default = 120, coerce = as.numeric, validate = NULL, blocks = c("bp"))
   schema$dbp <- list(type="continuous", default = 80,  coerce = as.numeric, validate = NULL, blocks = c("bp"))
   schema$age <- list(type="continuous", default = 50,  coerce = as.numeric, validate = NULL, blocks = c("demo"))
-  p <- new_patient(schema = schema)
+  p <- new_entity(schema = schema)
 
   expect_equal(update_block(p, "bp", c(sbp = 125, dbp = 87)), list(sbp = 125, dbp = 87))
   expect_error(update_block(p, "bp", c(sbp = 125)), "missing required")
@@ -15,10 +15,10 @@ test_that("update_block validates block membership and schema", {
 })
 
 test_that("update_block unknown policy can drop unknown vars", {
-  schema <- default_patient_schema()
+  schema <- default_entity_schema()
   schema$sbp <- list(type="continuous", default = 120, coerce = as.numeric, validate = NULL, blocks = c("bp"))
   schema$dbp <- list(type="continuous", default = 80,  coerce = as.numeric, validate = NULL, blocks = c("bp"))
-  p <- new_patient(schema = schema)
+  p <- new_entity(schema = schema)
 
   # drop unknown var, still require all block vars
   expect_warning(

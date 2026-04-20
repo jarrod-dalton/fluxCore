@@ -1,13 +1,14 @@
 \name{run_cohort}
 \alias{run_cohort}
-\title{Run a cohort of patients (serial or parallel) with optional global parameter draws}
+\title{Run a cohort of entities (serial or parallel) with optional global parameter draws}
 \usage{
 run_cohort(
   engine,
-  patients,
+  entities,
   n_param_draws = 1,
   n_sims = 1,
   param_draws = NULL,
+  ctx = NULL,
   max_events = 1000,
   max_time = NULL,
   return_observations = TRUE,
@@ -20,15 +21,18 @@ run_cohort(
 \arguments{
 \item{engine}{An \code{Engine} object (with a materialized \code{bundle}).}
 
-\item{patients}{List of \code{Patient} objects.}
+\item{entities}{List of \code{Entity} objects.}
 
 \item{n_param_draws}{Integer; number of global parameter draws (D). Default 1.}
 
-\item{n_sims}{Integer; number of stochastic sims per patient per draw (S). Default 1.}
+\item{n_sims}{Integer; number of stochastic sims per entity per draw (S). Default 1.}
 
 \item{param_draws}{Optional; a list of length D with per-draw parameter contexts. If NULL,
 the function will attempt to call \code{engine$bundle$sample_params(D)} or \code{engine$provider$sample_param_draws(...)}
 when available; otherwise it uses a single NULL draw.}
+
+\item{ctx}{Optional context. Either a single list merged into each run context, or a
+list of per-draw context lists of length \code{n_param_draws}.}
 
 \item{max_events}{Max events per run.}
 
@@ -38,7 +42,7 @@ when available; otherwise it uses a single NULL draw.}
 
 \item{time_unit}{Optional string documenting the unit for the global time axis. Engine treats time as numeric; if provided, this is passed to each run as \code{ctx$time$unit}.}
 
-\item{backend}{Backend used to parallelize across patients. One of \code{"none"}, \code{"cluster"}, \code{"mclapply"}, or \code{"future"}. Default is \code{"none"}. \code{"cluster"} uses a PSOCK cluster (cross-platform). \code{"mclapply"} uses forking (macOS/Linux only). \code{"future"} uses \code{future.apply::future_lapply()} and respects the user's \code{future} plan.}
+\item{backend}{Backend used to parallelize across entities. One of \code{"none"}, \code{"cluster"}, \code{"mclapply"}, or \code{"future"}. Default is \code{"none"}. \code{"cluster"} uses a PSOCK cluster (cross-platform). \code{"mclapply"} uses forking (macOS/Linux only). \code{"future"} uses \code{future.apply::future_lapply()} and respects the user's \code{future} plan.}
 
 \item{n_workers}{Integer; workers for parallel; default \code{parallel::detectCores() - 1}.}
 
@@ -47,26 +51,26 @@ when available; otherwise it uses a single NULL draw.}
 \value{
 A list with:
 \itemize{
-\item \code{runs}: list of per-run outputs (patient/events/observations) with labels
-\item \code{index}: data.frame mapping run_id -> patient_id/draw_id/sim_id
+\item \code{runs}: list of per-run outputs (entity/events/observations) with labels
+\item \code{index}: data.frame mapping run_id -> entity_id/param_draw_id/sim_id
 }
 }
 \description{
 These helpers support batch simulation with:
 \itemize{
-\item global parameter draws reused across patients (parameter uncertainty)
-\item multiple stochastic sims per patient per draw (stochastic uncertainty)
-\item parallelization across patients
+\item global parameter draws reused across entities (parameter uncertainty)
+\item multiple stochastic sims per entity per draw (stochastic uncertainty)
+\item parallelization across entities
 }
 }
 \details{
-The Engine remains patient-oriented; batch utilities orchestrate repetition and labeling.
+The Engine remains entity-oriented; batch utilities orchestrate repetition and labeling.
 \subsection{Global parameter draws}{
 
 The recommended pattern is:
 \enumerate{
 \item Sample \code{D} global parameter draws once.
-\item For each patient, and for each draw, run \code{S} stochastic sims.
+\item For each entity, and for each draw, run \code{S} stochastic sims.
 }
 
 Not all component models must be draw-aware. Components that do not support parameter
@@ -74,13 +78,33 @@ uncertainty can ignore \code{ctx$params} (or simply have no entry in \code{ctx$p
 }
 }
 \examples{
-library(patientSimCore)
+library(fluxCore)
 set.seed(1)
 
 eng <- Engine$new(provider = PackageProvider$new(), model_spec = list(name = "default"))
-patients <- lapply(1:3, function(i) Patient$new(init = list(age = 50 + i, miles_to_work = 10), schema = default_patient_schema(), time0 = 0))
 
-out <- run_cohort(eng, patients, n_param_draws = 2, n_sims = 2, max_events = 50, backend = "none")
+schema <- default_entity_schema()
+schema$age <- list(type = "continuous", default = 50, coerce = as.numeric)
+schema$miles_to_work <- list(type = "continuous", default = 10, coerce = as.numeric)
+
+entities <- lapply(1:3, function(i) {
+  Entity$new(
+    init = list(alive = TRUE, age = 50 + i, miles_to_work = 10),
+    schema = schema,
+    entity_type = "entity",
+    time0 = 0
+  )
+})
+
+out <- run_cohort(
+  eng,
+  entities,
+  n_param_draws = 2,
+  n_sims = 2,
+  max_events = 50,
+  backend = "none",
+  time_unit = "years"
+)
 nrow(out$index)
 
 }

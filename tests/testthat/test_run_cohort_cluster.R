@@ -10,21 +10,21 @@ test_that("run_cohort backend='cluster' runs and preserves index/run alignment",
   }
   parallel::stopCluster(cl_probe)
 
-  schema <- default_patient_schema()
+  schema <- default_entity_schema()
   schema$age <- list(type = "continuous", default = 40, coerce = as.numeric)
   schema$miles_to_work <- list(type = "continuous", default = 10, coerce = as.numeric)
   eng <- Engine$new(provider = PackageProvider$new(), model_spec = list(name = "default"))
 
-  patients <- lapply(1:3, function(i) {
-    Patient$new(init = list(age = 40 + i, miles_to_work = 8),
+  entities <- lapply(1:3, function(i) {
+    Entity$new(init = list(age = 40 + i, miles_to_work = 8),
                 schema = schema,
                 time0 = 0)
   })
-  names(patients) <- paste0("id", 1:3)
+  names(entities) <- paste0("id", 1:3)
 
   batch <- run_cohort(
     engine = eng,
-    patients = patients,
+    entities = entities,
     time_unit = "years",
     n_param_draws = 2,
     n_sims = 2,

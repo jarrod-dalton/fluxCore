@@ -1,6 +1,6 @@
 # Schema helper utilities -----------------------------------------------------
 #
-# The patientSim ecosystem treats the model schema as a binding contract.
+# The flux ecosystem treats the model schema as a binding contract.
 # These helpers provide fast, centralized validation and lookup of schema
 # metadata (variable existence, type, levels, blocks).
 

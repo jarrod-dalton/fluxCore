@@ -10,10 +10,10 @@ compose_bundles <- function(baseline, policy = NULL, merge = c("policy_wins", "b
   if (!is.null(policy$propose_events)) {
     f_base <- baseline$propose_events
     f_pol <- policy$propose_events
-    out$propose_events <- function(patient, ctx = NULL, process_ids = NULL, current_proposals = NULL) {
+    out$propose_events <- function(entity, ctx = NULL, process_ids = NULL, current_proposals = NULL) {
       # Policy can choose to delegate or override. We provide baseline_propose_events.
       f_pol(
-        patient = patient,
+        entity = entity,
         ctx = ctx,
         process_ids = process_ids,
         current_proposals = current_proposals,
@@ -26,9 +26,9 @@ compose_bundles <- function(baseline, policy = NULL, merge = c("policy_wins", "b
   if (!is.null(policy$transition)) {
     f_base <- baseline$transition
     f_pol <- policy$transition
-    out$transition <- function(patient, event, ctx = NULL) {
-      ch0 <- f_base(patient, event, ctx)
-      ch1 <- f_pol(patient, event, ctx, baseline_changes = ch0)
+    out$transition <- function(entity, event, ctx = NULL) {
+      ch0 <- f_base(entity, event, ctx)
+      ch1 <- f_pol(entity, event, ctx, baseline_changes = ch0)
       merge_patches(ch0, ch1, merge = merge)
     }
   }
@@ -37,8 +37,8 @@ compose_bundles <- function(baseline, policy = NULL, merge = c("policy_wins", "b
   if (!is.null(policy$stop)) {
     f_base <- baseline$stop
     f_pol <- policy$stop
-    out$stop <- function(patient, event, ctx = NULL) {
-      isTRUE(f_base(patient, event, ctx)) || isTRUE(f_pol(patient, event, ctx))
+    out$stop <- function(entity, event, ctx = NULL) {
+      isTRUE(f_base(entity, event, ctx)) || isTRUE(f_pol(entity, event, ctx))
     }
   }
 
@@ -46,9 +46,9 @@ compose_bundles <- function(baseline, policy = NULL, merge = c("policy_wins", "b
   if (!is.null(policy$observe)) {
     f_base <- baseline$observe
     f_pol <- policy$observe
-    out$observe <- function(patient, event, ctx = NULL) {
-      o0 <- if (!is.null(f_base)) f_base(patient, event, ctx) else NULL
-      o1 <- f_pol(patient, event, ctx, baseline_obs = o0)
+    out$observe <- function(entity, event, ctx = NULL) {
+      o0 <- if (!is.null(f_base)) f_base(entity, event, ctx) else NULL
+      o1 <- f_pol(entity, event, ctx, baseline_obs = o0)
       # merge observations as lists; policy wins on conflicts
       if (is.null(o0)) return(o1)
       if (is.null(o1)) return(o0)

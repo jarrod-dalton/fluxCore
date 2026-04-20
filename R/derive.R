@@ -13,9 +13,9 @@ declare_variable <- function(name) {
   .var_target(name)
 }
 
-.get_window_idx <- function(patient, t, j, lookback_t = NULL, lookback_j = NULL, include_current = TRUE, clock = "time") {
-  ev <- patient$events
-  if (!clock %in% names(ev)) stop(sprintf("clock '%s' not found in patient$events", clock))
+.get_window_idx <- function(entity, t, j, lookback_t = NULL, lookback_j = NULL, include_current = TRUE, clock = "time") {
+  ev <- entity$events
+  if (!clock %in% names(ev)) stop(sprintf("clock '%s' not found in entity$events", clock))
   tt <- ev[[clock]]
   jj <- ev$j
 
@@ -67,15 +67,15 @@ derive <- function(name,
   if (length(name) != 1) stop("name must be length 1")
   if (!is.list(target) || is.null(target$kind)) stop("target must be created by event() or declare_variable()")
 
-  function(patient, j = patient$j, t = patient$last_time) {
+  function(entity, j = entity$j, t = entity$last_time) {
     j <- as.integer(j); t <- as.numeric(t)
-    keep <- .get_window_idx(patient, t = t, j = j,
+    keep <- .get_window_idx(entity, t = t, j = j,
                             lookback_t = lookback_t, lookback_j = lookback_j,
                             include_current = include_current, clock = clock)
 
     if (identical(target$kind, "event")) {
       et <- target$event_type
-      idx <- keep & (patient$events$event_type == et)
+      idx <- keep & (entity$events$event_type == et)
       n <- sum(idx)
       if (n == 0L) return(.empty_value(fn, force, na_value))
       if (identical(fn, "count")) return(n)
@@ -86,7 +86,7 @@ derive <- function(name,
 
     if (identical(target$kind, "var")) {
       vname <- target$name
-      h <- patient$hist[[vname]]
+      h <- entity$hist[[vname]]
       if (is.null(h)) return(.empty_value(fn, force, na_value))
       jj <- h$j; vv <- h$v
       in_j <- jj <= j
@@ -95,7 +95,7 @@ derive <- function(name,
       vv2 <- vv[in_j]
 
       if (!is.null(lookback_t)) {
-        ev_time <- patient$events[[clock]][match(jj2, patient$events$j)]
+        ev_time <- entity$events[[clock]][match(jj2, entity$events$j)]
         start <- t - as.numeric(lookback_t)
         in_t <- if (include_current) (ev_time > start) & (ev_time <= t) else (ev_time > start) & (ev_time < t)
         vv2 <- vv2[in_t]
@@ -104,7 +104,7 @@ derive <- function(name,
         j_start <- j_end - as.integer(lookback_j)
         vv2 <- vv2[(jj2 > j_start) & (jj2 <= j_end)]
       } else {
-        ev_time <- patient$events[[clock]][match(jj2, patient$events$j)]
+        ev_time <- entity$events[[clock]][match(jj2, entity$events$j)]
         vv2 <- if (include_current) vv2[ev_time <= t] else vv2[ev_time < t]
       }
 
@@ -143,10 +143,10 @@ lag_of <- function(name,
   k <- as.integer(k)
   if (!is.finite(k) || k < 1L) stop("k must be a positive integer")
 
-  function(patient, j = patient$j, t = patient$last_time) {
+  function(entity, j = entity$j, t = entity$last_time) {
     j <- as.integer(j); t <- as.numeric(t)
     vname <- target$name
-    h <- patient$hist[[vname]]
+    h <- entity$hist[[vname]]
     if (is.null(h)) return(if (force) na_value else NULL)
 
     jj <- h$j; vv <- h$v
@@ -156,7 +156,7 @@ lag_of <- function(name,
     if (length(vv2) == 0) return(if (force) na_value else NULL)
 
     if (!is.null(lookback_t)) {
-      ev_time <- patient$events[[clock]][match(jj2, patient$events$j)]
+      ev_time <- entity$events[[clock]][match(jj2, entity$events$j)]
       start <- t - as.numeric(lookback_t)
       in_t <- if (include_current) (ev_time > start) & (ev_time <= t) else (ev_time > start) & (ev_time < t)
       vv2 <- vv2[in_t]
@@ -165,7 +165,7 @@ lag_of <- function(name,
       j_start <- j_end - as.integer(lookback_j)
       vv2 <- vv2[(jj2 > j_start) & (jj2 <= j_end)]
     } else {
-      ev_time <- patient$events[[clock]][match(jj2, patient$events$j)]
+      ev_time <- entity$events[[clock]][match(jj2, entity$events$j)]
       vv2 <- if (include_current) vv2[ev_time <= t] else vv2[ev_time < t]
     }
 

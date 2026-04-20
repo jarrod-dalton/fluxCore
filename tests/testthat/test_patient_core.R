@@ -1,8 +1,8 @@
-test_that("Patient update increments j and records event", {
-  schema <- default_patient_schema()
+test_that("Entity update increments j and records event", {
+  schema <- default_entity_schema()
   schema$age <- list(type = "continuous", default = 40, coerce = as.numeric)
   schema$miles_to_work <- list(type = "continuous", default = 10, coerce = as.numeric)
-  p <- Patient$new(
+  p <- Entity$new(
     init = list(age = 50, miles_to_work = 10),
     schema = schema,
     time0 = 0
@@ -21,10 +21,10 @@ test_that("Patient update increments j and records event", {
 })
 
 test_that("changes=NULL produces a valid event but does not overwrite unchanged variables", {
-  schema <- default_patient_schema()
+  schema <- default_entity_schema()
   schema$age <- list(type = "continuous", default = 40, coerce = as.numeric)
   schema$miles_to_work <- list(type = "continuous", default = 10, coerce = as.numeric)
-  p <- Patient$new(
+  p <- Entity$new(
     init = list(age = 50, miles_to_work = 10),
     schema = schema,
     time0 = 0
@@ -37,13 +37,13 @@ test_that("changes=NULL produces a valid event but does not overwrite unchanged 
   expect_equal(p$current$miles_to_work, 10)
 })
 
-test_that("Engine run returns events and patient; time is non-decreasing", {
-  schema <- default_patient_schema()
+test_that("Engine run returns events and entity; time is non-decreasing", {
+  schema <- default_entity_schema()
   schema$age <- list(type = "continuous", default = 40, coerce = as.numeric)
   schema$miles_to_work <- list(type = "continuous", default = 10, coerce = as.numeric)
   eng <- Engine$new(provider = PackageProvider$new(), model_spec = list(name = "default"))
 
-  p <- Patient$new(
+  p <- Entity$new(
     init = list(age = 50, miles_to_work = 10),
     schema = schema,
     time0 = 0
@@ -57,7 +57,7 @@ test_that("Engine run returns events and patient; time is non-decreasing", {
 
   expect_true(is.list(out))
   expect_true(is.data.frame(out$events))
-  expect_true(inherits(out$patient, "Patient"))
+  expect_true(inherits(out$entity, "Entity"))
   expect_true(nrow(out$events) >= 1)
 
   # non-decreasing times
@@ -66,7 +66,7 @@ test_that("Engine run returns events and patient; time is non-decreasing", {
 })
 
 test_that("merge_patches respects policy_wins and baseline_wins", {
-  schema <- default_patient_schema()
+  schema <- default_entity_schema()
   schema$age <- list(type = "continuous", default = 40, coerce = as.numeric)
   schema$miles_to_work <- list(type = "continuous", default = 10, coerce = as.numeric)
   a <- list(x = 1, y = 2)
@@ -85,22 +85,22 @@ test_that("merge_patches respects policy_wins and baseline_wins", {
   expect_error(merge_patches(a, b, merge = "error_on_conflict"))
 })
 
-test_that("run_cohort produces index with patient_id, draw_id, sim_id and correct number of runs", {
-  schema <- default_patient_schema()
+test_that("run_cohort produces index with entity_id, param_draw_id, sim_id and correct number of runs", {
+  schema <- default_entity_schema()
   schema$age <- list(type = "continuous", default = 40, coerce = as.numeric)
   schema$miles_to_work <- list(type = "continuous", default = 10, coerce = as.numeric)
   eng <- Engine$new(provider = PackageProvider$new(), model_spec = list(name = "default"))
 
-  patients <- lapply(1:3, function(i) {
-    Patient$new(init = list(age = 40 + i, miles_to_work = 8),
+  entities <- lapply(1:3, function(i) {
+    Entity$new(init = list(age = 40 + i, miles_to_work = 8),
                 schema = schema,
                 time0 = 0)
   })
-  names(patients) <- paste0("id", 1:3)
+  names(entities) <- paste0("id", 1:3)
 
   batch <- run_cohort(
     engine = eng,
-    patients = patients,
+    entities = entities,
     time_unit = "years",
     n_param_draws = 2,
     n_sims = 3,
@@ -111,31 +111,31 @@ test_that("run_cohort produces index with patient_id, draw_id, sim_id and correc
 
   expect_true(is.data.frame(batch$index))
   expect_equal(nrow(batch$index), 3 * 2 * 3)
-  expect_true(all(c("patient_id","draw_id","sim_id","run_id") %in% names(batch$index)))
+  expect_true(all(c("entity_id","param_draw_id","sim_id","run_id") %in% names(batch$index)))
   expect_equal(length(batch$runs), nrow(batch$index))
 })
 
 test_that("Engine stops immediately when bundle stop() returns TRUE (no events after terminal)", {
-  schema <- default_patient_schema()
+  schema <- default_entity_schema()
   schema$age <- list(type = "continuous", default = 40, coerce = as.numeric)
   schema$miles_to_work <- list(type = "continuous", default = 10, coerce = as.numeric)
   # Create a tiny bundle that stops when it emits event_type == "STOP"
   bundle <- list(
-    propose_events = function(patient, ctx = NULL, process_ids = NULL, current_proposals = NULL) {
+    propose_events = function(entity, ctx = NULL, process_ids = NULL, current_proposals = NULL) {
       pid <- "default"
       if (!is.null(process_ids) && !(pid %in% process_ids)) return(list())
-      t0 <- patient$last_time
-      ev <- if (patient$j == 0L) {
+      t0 <- entity$last_time
+      ev <- if (entity$j == 0L) {
         list(time_next = t0 + 1, event_type = "GO")
       } else {
         list(time_next = t0 + 1, event_type = "STOP")
       }
       list(default = ev)
     },
-    transition = function(patient, event, ctx = NULL) {
+    transition = function(entity, event, ctx = NULL) {
       NULL
     },
-    stop = function(patient, event, ctx = NULL) {
+    stop = function(entity, event, ctx = NULL) {
       identical(event$event_type, "STOP")
     },
     observe = NULL,
@@ -145,7 +145,7 @@ test_that("Engine stops immediately when bundle stop() returns TRUE (no events a
   prov <- PackageProvider$new(registry = list(x = function() bundle))
   eng <- Engine$new(provider = prov, model_spec = list(name = "x"))
 
-  p <- Patient$new(init = list(age = 50, miles_to_work = 10),
+  p <- Entity$new(init = list(age = 50, miles_to_work = 10),
                    schema = schema,
                    time0 = 0)
 

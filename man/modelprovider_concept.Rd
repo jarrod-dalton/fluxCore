@@ -17,6 +17,6 @@ Providers may also optionally implement:
 \item \code{sample_param_draws(model_spec, n_param_draws)} -> list of length D
 }
 
-which supports global parameter draws reused across patients.
+which supports global parameter draws reused across entities.
 }
 \keyword{internal}

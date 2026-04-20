@@ -24,8 +24,8 @@ Engine <- R6::R6Class(
       invisible(self)
     },
 
-    # Run a simulation for one patient (see README for high-level flow)
-    run = function(patient,
+    # Run a simulation for one entity (see README for high-level flow)
+    run = function(entity,
                    max_events = 1000,
                    max_time = NULL,
                    return_observations = TRUE,
@@ -66,36 +66,36 @@ if (is.null(ctx$params)) {
 
 # One-time initialization hook (optional).
 # Models can use this to register derived variables and perform setup.
-.call_init_patient(self$bundle, patient, ctx = ctx)
+.call_init_entity(self$bundle, entity, ctx = ctx)
 
       obs_accum <- NULL
 
-      proposals <- .call_propose_events(self$bundle, patient, ctx = ctx)
+      proposals <- .call_propose_events(self$bundle, entity, ctx = ctx)
 
       step_once <- function() {
         ev <- .pick_next_event(proposals)
 
-        changes <- .call_transition(self$bundle, patient, ev, ctx = ctx)
+        changes <- .call_transition(self$bundle, entity, ev, ctx = ctx)
 
-        patient$update(time = ev$time_next, event_type = ev$event_type, changes = changes)
+        entity$update(time = ev$time_next, event_type = ev$event_type, changes = changes)
 
         if (isTRUE(return_observations)) {
-          o <- .call_observe(self$bundle, patient, ev, ctx = ctx)
+          o <- .call_observe(self$bundle, entity, ev, ctx = ctx)
           if (!is.null(o)) {
             obs_accum <<- if (is.null(obs_accum)) o else rbind(obs_accum, o)
           }
         }
 
-        if (.call_stop(self$bundle, patient, ev, ctx = ctx)) return(FALSE)
-        if (!is.null(max_time) && patient$last_time >= max_time) return(FALSE)
+        if (.call_stop(self$bundle, entity, ev, ctx = ctx)) return(FALSE)
+        if (!is.null(max_time) && entity$last_time >= max_time) return(FALSE)
 
-        refresh_ids <- .call_refresh_rules(self$bundle, patient, ev, changes, ctx = ctx)
+        refresh_ids <- .call_refresh_rules(self$bundle, entity, ev, changes, ctx = ctx)
 
         if (identical(refresh_ids, "ALL")) {
-          proposals <<- .call_propose_events(self$bundle, patient, ctx = ctx)
+          proposals <<- .call_propose_events(self$bundle, entity, ctx = ctx)
         } else if (length(refresh_ids) > 0) {
           new_props <- .call_propose_events(
-            self$bundle, patient, ctx = ctx,
+            self$bundle, entity, ctx = ctx,
             process_ids = refresh_ids,
             current_proposals = proposals
           )
@@ -120,32 +120,32 @@ if (is.null(ctx$params)) {
       }
 
       list(
-        patient = patient,
-        events = patient$events,
+        entity = entity,
+        events = entity$events,
         observations = if (isTRUE(return_observations)) obs_accum else NULL
       )
     }
   )
 )
 
-.call_init_patient <- function(bundle, patient, ctx = NULL) {
-  f <- bundle$init_patient
+.call_init_entity <- function(bundle, entity, ctx = NULL) {
+  f <- bundle$init_entity
   if (is.null(f)) return(invisible(NULL))
-  if (!is.function(f)) stop("init_patient must be a function if provided.", call. = FALSE)
+  if (!is.function(f)) stop("init_entity must be a function if provided.", call. = FALSE)
 
   fml <- names(formals(f))
-  args <- list(patient = patient)
+  args <- list(entity = entity)
   if ("ctx" %in% fml) args$ctx <- ctx
   invisible(do.call(f, args))
 }
 
-.call_propose_events <- function(bundle, patient, ctx = NULL, process_ids = NULL, current_proposals = NULL) {
+.call_propose_events <- function(bundle, entity, ctx = NULL, process_ids = NULL, current_proposals = NULL) {
   if (is.null(bundle$propose_events) || !is.function(bundle$propose_events)) {
-    stop("ModelBundle must provide propose_events(patient, ctx, ...).")
+    stop("ModelBundle must provide propose_events(entity, ctx, ...).")
   }
 
   fml <- names(formals(bundle$propose_events))
-  args <- list(patient = patient)
+  args <- list(entity = entity)
   if ("ctx" %in% fml) args$ctx <- ctx
   if ("process_ids" %in% fml) args$process_ids <- process_ids
   if ("current_proposals" %in% fml) args$current_proposals <- current_proposals
@@ -183,55 +183,55 @@ if (is.null(ctx$params)) {
 }
 
 
-.call_transition <- function(bundle, patient, ev, ctx = NULL) {
+.call_transition <- function(bundle, entity, ev, ctx = NULL) {
   f <- bundle$transition
   if (is.null(f) || !is.function(f)) stop("ModelBundle must provide transition().")
   fml <- names(formals(f))
 
   if (!("event" %in% fml)) {
-    stop("transition() must accept (patient, event, ...).")
+    stop("transition() must accept (entity, event, ...).")
   }
 
-  args <- list(patient = patient, event = ev)
+  args <- list(entity = entity, event = ev)
   if ("ctx" %in% fml) args$ctx <- ctx
   do.call(f, args)
 }
 
 
-.call_stop <- function(bundle, patient, ev, ctx = NULL) {
+.call_stop <- function(bundle, entity, ev, ctx = NULL) {
   f <- bundle$stop
   if (is.null(f) || !is.function(f)) stop("ModelBundle must provide stop().")
   fml <- names(formals(f))
 
   if (!("event" %in% fml)) {
-    stop("stop() must accept (patient, event, ...).")
+    stop("stop() must accept (entity, event, ...).")
   }
 
-  args <- list(patient = patient, event = ev)
+  args <- list(entity = entity, event = ev)
   if ("ctx" %in% fml) args$ctx <- ctx
   isTRUE(do.call(f, args))
 }
 
 
-.call_observe <- function(bundle, patient, ev, ctx = NULL) {
+.call_observe <- function(bundle, entity, ev, ctx = NULL) {
   f <- bundle$observe
   if (is.null(f) || !is.function(f)) return(NULL)
   fml <- names(formals(f))
 
   if (!("event" %in% fml)) {
-    stop("observe() must accept (patient, event, ...).")
+    stop("observe() must accept (entity, event, ...).")
   }
 
-  args <- list(patient = patient, event = ev)
+  args <- list(entity = entity, event = ev)
   if ("ctx" %in% fml) args$ctx <- ctx
   do.call(f, args)
 }
 
-.call_refresh_rules <- function(bundle, patient, ev, changes, ctx = NULL) {
+.call_refresh_rules <- function(bundle, entity, ev, changes, ctx = NULL) {
   f <- bundle$refresh_rules
   if (is.null(f) || !is.function(f)) return("ALL")
   fml <- names(formals(f))
-  args <- list(patient = patient, last_event = ev, changes = changes)
+  args <- list(entity = entity, last_event = ev, changes = changes)
   if ("ctx" %in% fml) args$ctx <- ctx
   out <- do.call(f, args)
   if (is.null(out)) return(character(0))

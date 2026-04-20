@@ -12,7 +12,7 @@ A target list used by \code{\link[=derive]{derive()}} and \code{\link[=lag_of]{l
 }
 \description{
 \code{declare_variable()} constructs a target that refers to a state variable's
-sparse history in \code{patient$hist}. It is used to define derived features
+sparse history in \code{entity$hist}. It is used to define derived features
 based on recent values (e.g., counts, means, lags) when building model-ready
 snapshots.
 }

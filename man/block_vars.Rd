@@ -5,7 +5,7 @@
 block_vars(schema, block)
 }
 \arguments{
-\item{schema}{A patient state schema (named list).}
+\item{schema}{An entity state schema (named list).}
 
 \item{block}{Block name (character scalar).}
 }

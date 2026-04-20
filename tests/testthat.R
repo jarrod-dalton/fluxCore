@@ -1,4 +1,4 @@
 library(testthat)
-library(patientSimCore)
+library(fluxCore)
 
-test_check("patientSimCore")
+test_check("fluxCore")

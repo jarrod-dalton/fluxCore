@@ -1,10 +1,10 @@
 test_that("snapshot includes derived vars and respects lookback semantics", {
-  schema <- default_patient_schema()
+  schema <- default_entity_schema()
   
   schema$age <- list(type = "continuous", default = 40, coerce = as.numeric)
   schema$miles_to_work <- list(type = "continuous", default = 10, coerce = as.numeric)
   schema$sbp <- list(type = "continuous", default = 120, coerce = as.numeric)
-p <- Patient$new(
+p <- Entity$new(
     init = list(age = 50, miles_to_work = 10),
     schema = schema,
     derived_vars = list(
@@ -24,7 +24,7 @@ p <- Patient$new(
   s_at2 <- p$snapshot_at(2)
   expect_equal(s_at2[["hosp_12"]], 1L)
 
-  p2 <- Patient$new(
+  p2 <- Entity$new(
     init = list(age = 50, miles_to_work = 10),
     schema = schema,
     derived_vars = list(
@@ -37,14 +37,14 @@ p <- Patient$new(
 })
 
 test_that("lag_of extracts k-th prior value from sparse variable history", {
-  schema <- default_patient_schema()
+  schema <- default_entity_schema()
   schema$age <- list(type = "continuous", default = 40, coerce = as.numeric)
   schema$miles_to_work <- list(type = "continuous", default = 10, coerce = as.numeric)
   if (!"sbp" %in% names(schema)) {
     schema$sbp <- list(type = "continuous", default = NA_real_, coerce = as.numeric, validate = function(x) TRUE)
   }
 
-  p <- Patient$new(
+  p <- Entity$new(
     init = list(age = 50, miles_to_work = 10, sbp = 120),
     schema = schema,
     derived_vars = list(
@@ -60,7 +60,7 @@ test_that("lag_of extracts k-th prior value from sparse variable history", {
   expect_equal(p$snapshot()[["sbp_lag1"]], 130)
   expect_equal(p$snapshot()[["sbp_lag2"]], 120)
 
-  p0 <- Patient$new(
+  p0 <- Entity$new(
     init = list(age = 50, miles_to_work = 10, sbp = 120),
     schema = schema,
     derived_vars = list(
@@ -72,12 +72,12 @@ test_that("lag_of extracts k-th prior value from sparse variable history", {
 })
 
 test_that("derive(declare_variable(), fn='count') counts non-missing values (does not count init defaults)", {
-  schema <- default_patient_schema()
+  schema <- default_entity_schema()
   schema$age <- list(type = "continuous", default = 40, coerce = as.numeric)
   schema$miles_to_work <- list(type = "continuous", default = 10, coerce = as.numeric)
   schema$sbp <- list(type = "continuous", default = NA_real_, coerce = as.numeric)
 
-  p <- Patient$new(
+  p <- Entity$new(
     init = list(age = 50, miles_to_work = 10),
     schema = schema,
     derived_vars = list(

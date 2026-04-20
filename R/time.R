@@ -1,6 +1,6 @@
 # Time axis helpers -----------------------------------------------------------
 #
-# The patientSim ecosystem operates on a numeric model time axis.
+# The flux ecosystem operates on a numeric model time axis.
 # These helpers provide deterministic mappings between calendar time
 # (Date / POSIXct) and numeric model time under a user-declared time unit.
 #

@@ -1,8 +1,8 @@
 # ------------------------------------------------------------------------------
-# default_patient_schema()
+# default_entity_schema()
 #
 # Purpose:
-#   Define the core state schema for a Patient. The schema is a named list where
+#   Define the core state schema for an Entity. The schema is a named list where
 #   each entry describes one state variable (default, coercion, validation) and
 #   optional metadata such as block membership via `blocks`.
 #
@@ -11,7 +11,7 @@
 #     blocks (many-to-many), e.g. sodium in both 'bmp' and 'cmp'.
 # ------------------------------------------------------------------------------
 
-default_patient_schema <- function() {
+default_entity_schema <- function() {
   list(
     # Canonical vital status indicator.
     alive = list(
@@ -22,7 +22,7 @@ default_patient_schema <- function() {
       validate = function(x) length(x) == 1L && (is.na(x) || is.logical(x))
     ),
 
-    # Indicates whether patient is under active follow-up / in-scope (distinct from alive).
+    # Indicates whether the entity is under active follow-up / in-scope (distinct from alive).
     #
     # IMPORTANT (v1.0 semantics): this is *just another state variable*.
     # - The Engine does not automatically stop when active_followup becomes FALSE.

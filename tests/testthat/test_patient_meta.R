@@ -1,8 +1,8 @@
-test_that("Patient has a meta slot for bundle bookkeeping", {
-  schema <- patientSimCore::default_patient_schema()
+test_that("Entity has a meta slot for bundle bookkeeping", {
+  schema <- fluxCore::default_entity_schema()
   schema$x <- list(type = "continuous", default = 1, coerce = as.numeric)
 
-  p <- patientSimCore::new_patient(init = list(x = 2), schema = schema, time0 = 0)
+  p <- fluxCore::new_entity(init = list(x = 2), schema = schema, time0 = 0)
   expect_true(is.list(p$meta))
   expect_length(p$meta, 0)
 
@@ -17,4 +17,13 @@ test_that("Patient has a meta slot for bundle bookkeeping", {
   # Meta is not a state variable
   st <- p$state()
   expect_false("meta" %in% names(st))
+})
+
+test_that("new_entity can attach entity_type metadata", {
+  p <- fluxCore::new_entity(
+    init = list(),
+    schema = fluxCore::default_entity_schema(),
+    entity_type = "entity"
+  )
+  expect_identical(p$meta$entity_type, "entity")
 })

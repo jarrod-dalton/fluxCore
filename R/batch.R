@@ -2,7 +2,7 @@
 # run_cohort()
 #
 # Purpose:
-#   Run a simulation engine for multiple patients, optionally with repeated
+#   Run a simulation engine for multiple entities, optionally with repeated
 #   parameter draws and repeated simulations per draw.
 #
 # Time units:
@@ -10,11 +10,11 @@
 #     run. Engine itself treats time as numeric; the unit is metadata for clarity.
 #
 # Returns:
-#   A list containing run index metadata and results (patients, events, observations).
+#   A list containing run index metadata and results (entities, events, observations).
 # ------------------------------------------------------------------------------
 
 run_cohort <- function(engine,
-                       patients,
+                       entities,
                        n_param_draws = 1,
                        n_sims = 1,
                        param_draws = NULL,
@@ -32,7 +32,7 @@ run_cohort <- function(engine,
   if (!is.finite(n_param_draws) || n_param_draws < 1L) stop("n_param_draws must be a positive integer.")
   if (!is.finite(n_sims) || n_sims < 1L) stop("n_sims must be a positive integer.")
 
-  if (!is.list(patients) || length(patients) == 0L) stop("patients must be a non-empty list of Patient objects.")
+  if (!is.list(entities) || length(entities) == 0L) stop("entities must be a non-empty list of Entity objects.")
 
   # materialize global parameter draws
   if (is.null(param_draws)) {
@@ -68,30 +68,31 @@ run_cohort <- function(engine,
 
   ctx_user <- ctx
 
-  # Patient IDs (stable)
-  patient_ids <- names(patients)
-  if (is.null(patient_ids) || any(patient_ids == "")) {
-    patient_ids <- paste0("p", seq_along(patients))
+  # Entity IDs (stable)
+  entity_ids <- names(entities)
+  if (is.null(entity_ids) || any(entity_ids == "")) {
+    entity_ids <- paste0("p", seq_along(entities))
+    names(entities) <- entity_ids
   }
 
-  # Build run index (run_id -> patient/draw/sim).
+  # Build run index (run_id -> entity/draw/sim).
   #
   # IMPORTANT INVARIANT:
   #   The ordering of `idx` rows MUST match the ordering of the returned `runs`
   #   list (runs[[i]] corresponds to idx[i,]). Downstream packages (Forecast,
   #   Validation, orchestration) rely on this invariant for correct grouping.
   #
-  # We therefore construct idx in patient-major order (patient -> draw -> sim),
+  # We therefore construct idx in entity-major order (entity -> draw -> sim),
   # which matches the natural execution/parallelization strategy used below.
-  idx_list <- lapply(patient_ids, function(pid) {
+  idx_list <- lapply(entity_ids, function(pid) {
     grid <- expand.grid(
       sim_id  = seq_len(n_sims),
-      draw_id = seq_len(n_param_draws),
+      param_draw_id = seq_len(n_param_draws),
       stringsAsFactors = FALSE
     )
     data.frame(
-      patient_id = rep(pid, nrow(grid)),
-      draw_id = grid$draw_id,
+      entity_id = rep(pid, nrow(grid)),
+      param_draw_id = grid$param_draw_id,
       sim_id = grid$sim_id,
       stringsAsFactors = FALSE
     )
@@ -99,9 +100,9 @@ run_cohort <- function(engine,
   idx <- do.call(rbind, idx_list)
   idx$run_id <- paste0("run_", seq_len(nrow(idx)))
 
-  # Group runs by patient for parallelization (preserve patient_ids order)
-  split_by_patient <- setNames(lapply(patient_ids, function(pid) idx[idx$patient_id == pid, , drop = FALSE]),
-                               patient_ids)
+  # Group runs by entity for parallelization (preserve entity_ids order)
+  split_by_entity <- stats::setNames(lapply(entity_ids, function(pid) idx[idx$entity_id == pid, , drop = FALSE]),
+                                      entity_ids)
 
   # base seed
   if (!is.null(seed)) {
@@ -109,11 +110,11 @@ run_cohort <- function(engine,
     if (!is.finite(seed) || length(seed) != 1L) stop("seed must be an integer scalar.")
   }
 
-run_one_patient <- function(patient_id) {
-  patientSimCore:::.run_one_patient_worker(
-    patient_id = patient_id,
-    patients = patients,
-    split_by_patient = split_by_patient,
+run_one_entity <- function(entity_id) {
+  .run_one_entity_worker(
+    entity_id = entity_id,
+    entities = entities,
+    split_by_entity = split_by_entity,
     engine = engine,
     param_draws = param_draws,
     max_events = max_events,
@@ -131,8 +132,8 @@ if (is.null(backend)) backend <- "none"
 backend <- match.arg(backend, c("none", "cluster", "mclapply", "future"))
 
 if (backend == "none") {
-  patient_out <- lapply(names(split_by_patient), run_one_patient)
-  runs <- do.call(c, patient_out)
+  entity_out <- lapply(names(split_by_entity), run_one_entity)
+  runs <- do.call(c, entity_out)
 
 } else if (backend == "cluster") {
   if (!requireNamespace("parallel", quietly = TRUE)) {
@@ -147,28 +148,19 @@ if (backend == "none") {
   cl <- parallel::makeCluster(n_workers)
   on.exit(parallel::stopCluster(cl), add = TRUE)
 
-  pkg_path <- tryCatch(getNamespaceInfo("patientSimCore", "path"), error = function(e) "")
-  parallel::clusterCall(
+  parallel::clusterEvalQ(cl, { library(fluxCore); NULL })
+  parallel::clusterExport(
     cl,
-    function(path) {
-      have_pkgload <- requireNamespace("pkgload", quietly = TRUE)
-      can_load_src <- nzchar(path) && file.exists(file.path(path, "DESCRIPTION"))
-      if (have_pkgload && can_load_src) {
-        pkgload::load_all(path = path, export_all = FALSE, quiet = TRUE)
-      } else {
-        library(patientSimCore)
-      }
-      invisible(TRUE)
-    },
-    pkg_path
+    varlist = c(".run_one_entity_worker", ".seed_for"),
+    envir = asNamespace("fluxCore")
   )
 
-  patient_out <- parallel::parLapply(
+  entity_out <- parallel::parLapply(
     cl,
-    names(split_by_patient),
-    patientSimCore:::.run_one_patient_worker,
-    patients = patients,
-    split_by_patient = split_by_patient,
+    names(split_by_entity),
+    .run_one_entity_worker,
+    entities = entities,
+    split_by_entity = split_by_entity,
     engine = engine,
     param_draws = param_draws,
     max_events = max_events,
@@ -178,7 +170,7 @@ if (backend == "none") {
     ctx_user = ctx_user,
     time_unit = time_unit
   )
-  runs <- do.call(c, patient_out)
+  runs <- do.call(c, entity_out)
 
 } else if (backend == "mclapply") {
   if (!requireNamespace("parallel", quietly = TRUE)) {
@@ -193,15 +185,15 @@ if (backend == "none") {
   n_workers <- as.integer(n_workers)
   if (!is.finite(n_workers) || n_workers < 1L) stop("n_workers must be a positive integer.", call. = FALSE)
 
-  patient_out <- parallel::mclapply(names(split_by_patient), run_one_patient, mc.cores = n_workers)
-  runs <- do.call(c, patient_out)
+  entity_out <- parallel::mclapply(names(split_by_entity), run_one_entity, mc.cores = n_workers)
+  runs <- do.call(c, entity_out)
 
 } else if (backend == "future") {
   if (!requireNamespace("future.apply", quietly = TRUE)) {
     stop("backend='future' requires the 'future.apply' package.", call. = FALSE)
   }
-  patient_out <- future.apply::future_lapply(names(split_by_patient), run_one_patient)
-  runs <- do.call(c, patient_out)
+  entity_out <- future.apply::future_lapply(names(split_by_entity), run_one_entity)
+  runs <- do.call(c, entity_out)
 }
 
   # Label runs with run_id (ordering already matches idx by construction).
@@ -214,9 +206,9 @@ if (backend == "none") {
 }
 
 # ---- internal helpers ----
-.run_one_patient_worker <- function(patient_id,
-                                   patients,
-                                   split_by_patient,
+.run_one_entity_worker <- function(entity_id,
+                                   entities,
+                                   split_by_entity,
                                    engine,
                                    param_draws,
                                    max_events,
@@ -225,40 +217,40 @@ if (backend == "none") {
                                    seed,
                                    ctx_user,
                                    time_unit) {
-  p0 <- patients[[patient_id]]
-  if (is.null(p0)) stop("Unknown patient_id in patients list: ", patient_id)
+  p0 <- entities[[entity_id]]
+  if (is.null(p0)) stop("Unknown entity_id in entities list: ", entity_id)
 
-  rows <- split_by_patient[[patient_id]]
+  rows <- split_by_entity[[entity_id]]
   out_list <- vector("list", nrow(rows))
 
   for (r in seq_len(nrow(rows))) {
-    draw_id <- rows$draw_id[[r]]
+    param_draw_id <- rows$param_draw_id[[r]]
     sim_id  <- rows$sim_id[[r]]
 
-    # Deep clone patient for each run (so sims don't interfere)
-    p <- .clone_patient(p0)
+    # Deep clone entity for each run (so sims don't interfere)
+    p <- p0$clone(deep = TRUE)
 
-    # Deterministic seeding per (patient, draw, sim) if seed is provided
+    # Deterministic seeding per (entity, draw, sim) if seed is provided
     if (!is.null(seed)) {
-      local_seed <- .seed_for(seed, patient_id, draw_id, sim_id)
+      local_seed <- .seed_for(seed, entity_id, param_draw_id, sim_id)
       set.seed(local_seed)
     }
 
     ctx_run <- list(
       time = list(unit = time_unit),
-      patient_id = patient_id,
-      draw_id = draw_id,
+      entity_id = entity_id,
+      param_draw_id = param_draw_id,
       sim_id = sim_id,
-      params = param_draws[[draw_id]]
+      params = param_draws[[param_draw_id]]
     )
 
     # Merge user-provided ctx (if any). Per-draw ctx overrides single ctx.
     if (!is.null(ctx_user)) {
-      base_ctx <- if (length(ctx_user) > 0L && all(vapply(ctx_user, is.list, logical(1)))) ctx_user[[draw_id]] else ctx_user
+      base_ctx <- if (length(ctx_user) > 0L && all(vapply(ctx_user, is.list, logical(1)))) ctx_user[[param_draw_id]] else ctx_user
       # Do not allow user ctx to overwrite identifiers; params are allowed.
       ctx_run <- utils::modifyList(ctx_run, base_ctx, keep.null = TRUE)
-      ctx_run$patient_id <- patient_id
-      ctx_run$draw_id <- draw_id
+      ctx_run$entity_id <- entity_id
+      ctx_run$param_draw_id <- param_draw_id
       ctx_run$sim_id <- sim_id
       if (is.null(ctx_run$time) || !is.list(ctx_run$time)) ctx_run$time <- list()
       if (is.null(ctx_run$time$unit)) ctx_run$time$unit <- time_unit
@@ -267,7 +259,7 @@ if (backend == "none") {
     }
 
     out <- engine$run(
-      patient = p,
+      entity = p,
       max_events = max_events,
       max_time = max_time,
       return_observations = return_observations,
@@ -305,14 +297,9 @@ if (backend == "none") {
   rep(list(NULL), n_param_draws)
 }
 
-.clone_patient <- function(p) {
-  # R6 deep clone: safe for per-sim runs
-  p$clone(deep = TRUE)
-}
-
-.seed_for <- function(base_seed, patient_id, draw_id, sim_id) {
+.seed_for <- function(base_seed, entity_id, param_draw_id, sim_id) {
   # stable integer seed derived from identifiers
   # (simple; if you want stronger guarantees, switch to L'Ecuyer streams)
-  h <- sum(utf8ToInt(as.character(patient_id))) %% 100000L
-  as.integer((base_seed + 100000L * draw_id + 1000L * sim_id + h) %% .Machine$integer.max)
+  h <- sum(utf8ToInt(as.character(entity_id))) %% 100000L
+  as.integer((base_seed + 100000L * param_draw_id + 1000L * sim_id + h) %% .Machine$integer.max)
 }

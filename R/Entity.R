@@ -1,5 +1,5 @@
 
-.eval_derived_vars <- function(derived_vars, patient, j, t) {
+.eval_derived_vars <- function(derived_vars, entity, j, t) {
   if (is.null(derived_vars) || length(derived_vars) == 0L) return(list())
   nms <- names(derived_vars)
   if (is.null(nms) || any(nms == "")) stop("All derived_vars must be a named list.")
@@ -7,14 +7,14 @@
   for (nm in nms) {
     f <- derived_vars[[nm]]
     if (!is.function(f)) stop(sprintf("derived_vars[['%s']] must be a function", nm))
-    val <- f(patient, j = j, t = t)
+    val <- f(entity, j = j, t = t)
     if (!is.null(val)) out[[nm]] <- val
   }
   out
 }
 
-Patient <- R6::R6Class(
-  classname = "Patient",
+Entity <- R6::R6Class(
+  classname = "Entity",
   public = list(
     schema = NULL,
     current = NULL,
@@ -27,9 +27,10 @@ Patient <- R6::R6Class(
     meta = NULL,
 
     initialize = function(init,
-                          schema = default_patient_schema(),
+                          schema = default_entity_schema(),
                           derived_vars = NULL,
                           id = NULL,
+                          entity_type = NULL,
                           time0 = 0,
                           event_type0 = "init") {
 
@@ -49,6 +50,15 @@ Patient <- R6::R6Class(
         id <- as.character(id)
       }
       self$id <- id
+
+      if (!is.null(entity_type)) {
+        if (length(entity_type) != 1L) stop("entity_type must be NULL or a length-1 scalar.")
+        entity_type <- as.character(entity_type)
+        if (identical(entity_type, "") || is.na(entity_type)) {
+          stop("entity_type must be a non-empty, non-missing scalar when provided.")
+        }
+      }
+
       self$current <- .init_state_from_schema(schema, init)
       self$hist    <- .init_hist_from_state(self$current)
 
@@ -63,6 +73,7 @@ Patient <- R6::R6Class(
       )
 
       self$meta <- list()
+      if (!is.null(entity_type)) self$meta$entity_type <- entity_type
 
       invisible(self)
     },
@@ -131,7 +142,7 @@ snapshot_at = function(j, vars = NULL) {
   j <- as.integer(j)
   if (length(j) != 1 || !is.finite(j)) stop("j must be a finite integer scalar.")
   if (j < 0L) stop("j must be >= 0.")
-  if (j > self$last_j) stop("j cannot exceed patient$last_j.")
+  if (j > self$last_j) stop("j cannot exceed entity$last_j.")
   t <- self$events$time[match(j, self$events$j)]
   base <- self$state_at(j, vars = NULL)
   d <- .eval_derived_vars(self$derived_vars, self, j = j, t = t)
@@ -161,7 +172,7 @@ state_at = function(j, vars = NULL) {
       j <- as.integer(j)
       if (!is.finite(j) || length(j) != 1L) stop("j must be a finite integer scalar.")
       if (j < 0L) stop("j must be >= 0.")
-      if (j > self$last_j) stop("j cannot exceed patient$last_j.")
+      if (j > self$last_j) stop("j cannot exceed entity$last_j.")
 
       if (is.null(vars)) {
         vars <- names(self$schema)

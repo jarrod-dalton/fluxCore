@@ -1,9 +1,9 @@
 # ------------------------------------------------------------------------------
-# new_patient()
+# new_entity()
 #
 # Purpose:
-#   Convenience constructor for a Patient R6 object. Designed to make it easy to
-#   create a patient from "real patient" inputs (e.g., a 1-row data.frame).
+#   Convenience constructor for an Entity R6 object. Designed to make it easy to
+#   create an entity from row-like inputs (e.g., a 1-row data.frame).
 #
 # Parameters:
 #   init        Initial state overrides. Supported:
@@ -11,20 +11,21 @@
 #                - named atomic vector
 #                - 1-row data.frame
 #                - NULL (treated as empty list)
-#   schema      Patient schema (see default_patient_schema()).
+#   schema      Entity schema (see default_entity_schema()).
 #   time0       Initial event time (numeric).
 #   event_type0 Event type label for the initial event.
 #
 # Returns:
-#   A Patient R6 object.
+#   An Entity R6 object.
 # ------------------------------------------------------------------------------
 
-new_patient <- function(init = list(),
-                        schema = default_patient_schema(),
+new_entity <- function(init = list(),
+                        schema = default_entity_schema(),
+                        entity_type = NULL,
                         time0 = 0,
                         event_type0 = "init") {
 
-  # Accept common "real patient" inputs:
+  # Accept common row-like inputs:
   # - named list (preferred)
   # - named atomic vector
   # - 1-row data.frame
@@ -41,5 +42,11 @@ new_patient <- function(init = list(),
 
   if (is.null(init)) init <- list()
 
-  Patient$new(init = init, schema = schema, time0 = time0, event_type0 = event_type0)
+  Entity$new(
+    init = init,
+    schema = schema,
+    entity_type = entity_type,
+    time0 = time0,
+    event_type0 = event_type0
+  )
 }

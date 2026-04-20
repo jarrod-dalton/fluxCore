@@ -1,20 +1,21 @@
-# Plumber API stub for patientSimCore scaffold (Engine owns model materialization)
+# Plumber API stub for fluxCore scaffold (Engine owns model materialization)
 # To run:
 #   plumber::plumb("inst/plumber/sim_api.R") |> pr_run(port = 8000)
 
 library(plumber)
-library(patientSimCore)
+library(fluxCore)
 
 .store <- new.env(parent = emptyenv())
 
-#* Create a new patient and engine
+#* Create a new entity and engine
 #* @post /sim/create
 function(age0 = 55, miles0 = 10, time0 = 0) {
   id <- paste0("sim_", as.integer(Sys.time()))
 
-  p <- Patient$new(
+  p <- Entity$new(
     init = list(age = as.numeric(age0), miles_to_work = as.numeric(miles0)),
-    schema = default_patient_schema(),
+    schema = default_entity_schema(),
+    entity_type = "entity",
     time0 = as.numeric(time0)
   )
 
@@ -23,7 +24,7 @@ function(age0 = 55, miles0 = 10, time0 = 0) {
     model_spec = list(name = "default")
   )
 
-  .store[[id]] <- list(patient = p, engine = eng)
+  .store[[id]] <- list(entity = p, engine = eng)
   list(id = id, state = p$state(c("age","miles_to_work")), events = p$events)
 }
 
@@ -33,8 +34,8 @@ function(id) {
   obj <- .store[[id]]
   if (is.null(obj)) stop("Unknown sim id")
 
-  out <- obj$engine$run(obj$patient, max_events = 1, return_observations = TRUE)
+  out <- obj$engine$run(obj$entity, max_events = 1, return_observations = TRUE)
 
-  .store[[id]] <- list(patient = out$patient, engine = obj$engine)
-  list(state = out$patient$state(c("age","miles_to_work")), last_event = tail(out$events, 1))
+  .store[[id]] <- list(entity = out$entity, engine = obj$engine)
+  list(state = out$entity$state(c("age","miles_to_work")), last_event = tail(out$events, 1))
 }

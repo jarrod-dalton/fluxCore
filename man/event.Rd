@@ -11,5 +11,5 @@ event(event_type)
 A target list used by \code{\link[=derive]{derive()}}.
 }
 \description{
-Create a target describing events of a given type in \code{patient$events}.
+Create a target describing events of a given type in \code{entity$events}.
 }

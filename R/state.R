@@ -1,12 +1,12 @@
 NULL
 
 .as_state <- function(x) {
-  if (is.null(x)) return(structure(list(), class = "ps_state"))
+  if (is.null(x)) return(structure(list(), class = "flux_state"))
   stopifnot(is.list(x))
-  structure(x, class = "ps_state")
+  structure(x, class = "flux_state")
 }
 
-`[.ps_state` <- function(x, i, ...) {
+`[.flux_state` <- function(x, i, ...) {
   if (missing(i)) return(x)
   # single index: behave like [[ for backward-compatibility with older
   # vector-based state() returns (where x["var"] produced the value).

@@ -3,14 +3,14 @@
 #
 # Purpose:
 #   Validate and expand a block-based update payload into a named list suitable
-#   for a single atomic patient state update (one event index j, many variables).
+#   for a single atomic entity state update (one event index j, many variables).
 #
 # Usage:
-#   - Intended for use inside ModelBundle$transition(patient, event, ctx)
+#   - Intended for use inside ModelBundle$transition(entity, event, ctx)
 #   - 'values' must be named (vector or list); mixed types are supported.
 #
 # Key behaviors:
-#   - Validates that supplied variables exist in the patient schema
+#   - Validates that supplied variables exist in the entity schema
 #   - Validates block membership (variables must belong to the requested block)
 #   - require_all=TRUE requires full block coverage; FALSE allows partial updates
 #   - unknown controls how variables not in schema are handled
@@ -19,15 +19,15 @@
 #   A named list of updates, ordered by schema/block variable order.
 # ------------------------------------------------------------------------------
 
-update_block <- function(patient,
+update_block <- function(entity,
                          block,
                          values,
                          require_all = TRUE,
                          unknown = c("error", "drop_warn_once", "drop_warn_always")) {
   unknown <- match.arg(unknown)
-  if (is.null(patient) || is.null(patient$schema)) stop("patient must have a $schema")
-  schema <- patient$schema
-  if (!is.list(schema) || is.null(names(schema))) stop("patient$schema must be a named list")
+  if (is.null(entity) || is.null(entity$schema)) stop("entity must have a $schema")
+  schema <- entity$schema
+  if (!is.list(schema) || is.null(names(schema))) stop("entity$schema must be a named list")
   if (!is.character(block) || length(block) != 1L || block == "") stop("block must be a non-empty string")
   if (!isTRUE(require_all) && !identical(require_all, FALSE)) stop("require_all must be TRUE or FALSE")
 

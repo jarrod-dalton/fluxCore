@@ -14,6 +14,6 @@ Named list suitable for \code{transition()} returns.
 }
 \description{
 Many models generate multivariate predictions (e.g., SBP/DBP, CBC panels) but
-\code{Patient$update()} expects a named list of scalar changes. \code{set_vars()}
+\code{Entity$update()} expects a named list of scalar changes. \code{set_vars()}
 converts vectors into the expected named-list format.
 }

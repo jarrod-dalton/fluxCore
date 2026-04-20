@@ -1,7 +1,7 @@
-Package: patientSimCore
+Package: fluxCore
 Type: Package
-Title: Event-driven patient simulation scaffold (core)
-Version: 1.4.0
+Title: Simulation Modeling of Probabilistic Dynamic Systems Models in Irregular Time: Core Architecture
+Version: 1.5.0
 Author: Jarrod Dalton [aut, cre]
 Maintainer: Jarrod Dalton <daltonj@ccf.org>
 Authors@R: person(given = "Jarrod",
@@ -9,15 +9,16 @@ Authors@R: person(given = "Jarrod",
                   role = c("aut", "cre"),
                   email = "daltonj@ccf.org")
 Description: A scaffold for event-driven simulation projects in R. Provides a schema-based
-    R6 Patient for mutable state with sparse history and an Engine for orchestrating
+    R6 entity object for mutable state with sparse history and an Engine for orchestrating
     simulations using pluggable ModelBundles loaded by ModelProviders (package, file,
     MLflow-friendly stubs). Supports non-uniform event times, event types, terminal events,
     and no-update events.
-License: Proprietary
+License: LGPL-3
 Encoding: UTF-8
 Imports:
     R6
 Suggests:
+    future.apply,
     parallel,
     testthat (>= 3.0.0)
 Config/testthat/edition: 3

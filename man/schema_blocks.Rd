@@ -5,7 +5,7 @@
 schema_blocks(schema)
 }
 \arguments{
-\item{schema}{A patient state schema (named list).}
+\item{schema}{An entity state schema (named list).}
 }
 \value{
 Character vector of unique block names.

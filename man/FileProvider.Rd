@@ -13,7 +13,7 @@ store parameters/reference data on disk and rebuild the bundle at load time.
 }
 \examples{
 \dontrun{
-library(patientSimCore)
+library(fluxCore)
 saveRDS(default_model_bundle(), "bundle.rds")
 prov <- FileProvider$new()
 bundle <- prov$load(list(path = "bundle.rds"))
