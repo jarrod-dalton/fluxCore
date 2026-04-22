@@ -1,3 +1,9 @@
+## fluxCore 1.7.0
+
+- Coordinated ecosystem release alignment to version 1.7.0.
+- Carries forward the canonical `time_spec` runtime contract introduced in
+  1.5.1 (single model declaration via `bundle$time_spec`, no runtime override).
+
 ## fluxCore 1.5.1
 
 - Canonical time-spec contract: simulation time is now declared once via
