@@ -50,7 +50,7 @@ test_that("Engine run returns events and entity; time is non-decreasing", {
   )
 
   out <- eng$run(
-    p, ctx = list(time = list(unit = "years")),
+    p,
     max_events = 50,
     return_observations = TRUE
   )
@@ -101,7 +101,6 @@ test_that("run_cohort produces index with entity_id, param_draw_id, sim_id and c
   batch <- run_cohort(
     engine = eng,
     entities = entities,
-    time_unit = "years",
     n_param_draws = 2,
     n_sims = 3,
     max_events = 10,
@@ -121,6 +120,7 @@ test_that("Engine stops immediately when bundle stop() returns TRUE (no events a
   schema$miles_to_work <- list(type = "continuous", default = 10, coerce = as.numeric)
   # Create a tiny bundle that stops when it emits event_type == "STOP"
   bundle <- list(
+    time_spec = time_spec(unit = "years"),
     propose_events = function(entity, ctx = NULL, process_ids = NULL, current_proposals = NULL) {
       pid <- "default"
       if (!is.null(process_ids) && !(pid %in% process_ids)) return(list())
@@ -150,7 +150,7 @@ test_that("Engine stops immediately when bundle stop() returns TRUE (no events a
                    time0 = 0)
 
   out <- eng$run(
-    p, ctx = list(time = list(unit = "years")),
+    p,
     max_events = 10,
     return_observations = FALSE
   )
@@ -160,3 +160,122 @@ test_that("Engine stops immediately when bundle stop() returns TRUE (no events a
   expect_identical(tail(out$events$event_type, 1), "STOP")
 })
 
+test_that("Engine$run propagates canonical bundle time spec", {
+  bundle <- list(
+    time_spec = time_spec(unit = "years"),
+    propose_events = function(entity, ctx = NULL, process_ids = NULL, current_proposals = NULL) {
+      list(p = list(time_next = entity$last_time + 1, event_type = "tick"))
+    },
+    transition = function(entity, event, ctx = NULL) NULL,
+    stop = function(entity, event, ctx = NULL) TRUE,
+    observe = function(entity, event, ctx = NULL) {
+      data.frame(time_unit = as.character(ctx$time$unit), stringsAsFactors = FALSE)
+    }
+  )
+  prov <- PackageProvider$new(registry = list(x = function() bundle))
+  eng <- Engine$new(provider = prov, model_spec = list(name = "x"))
+
+  p <- Entity$new(
+    init = list(alive = TRUE),
+    schema = default_entity_schema(),
+    time0 = 0
+  )
+
+  out <- eng$run(
+    entity = p,
+    max_events = 5,
+    return_observations = TRUE
+  )
+  expect_identical(out$observations$time_unit[[1]], "years")
+})
+
+test_that("Engine$run errors if runtime ctx attempts to override canonical time spec", {
+  bundle <- list(
+    time_spec = time_spec(unit = "years"),
+    propose_events = function(entity, ctx = NULL, process_ids = NULL, current_proposals = NULL) {
+      list(p = list(time_next = entity$last_time + 1, event_type = "tick"))
+    },
+    transition = function(entity, event, ctx = NULL) NULL,
+    stop = function(entity, event, ctx = NULL) TRUE,
+    observe = NULL
+  )
+  prov <- PackageProvider$new(registry = list(x = function() bundle))
+  eng <- Engine$new(provider = prov, model_spec = list(name = "x"))
+
+  p <- Entity$new(
+    init = list(alive = TRUE),
+    schema = default_entity_schema(),
+    time0 = 0
+  )
+
+  expect_error(
+    eng$run(
+      entity = p,
+      max_events = 5,
+      ctx = list(time = list(unit = "days"))
+    ),
+    "override canonical model time spec"
+  )
+})
+
+test_that("run_cohort propagates canonical bundle time spec", {
+  bundle <- list(
+    time_spec = time_spec(unit = "years"),
+    propose_events = function(entity, ctx = NULL, process_ids = NULL, current_proposals = NULL) {
+      list(p = list(time_next = entity$last_time + 1, event_type = "tick"))
+    },
+    transition = function(entity, event, ctx = NULL) NULL,
+    stop = function(entity, event, ctx = NULL) TRUE,
+    observe = function(entity, event, ctx = NULL) {
+      data.frame(time_unit = as.character(ctx$time$unit), stringsAsFactors = FALSE)
+    }
+  )
+  prov <- PackageProvider$new(registry = list(x = function() bundle))
+  eng <- Engine$new(provider = prov, model_spec = list(name = "x"))
+
+  entities <- list(
+    id1 = Entity$new(init = list(alive = TRUE), schema = default_entity_schema(), time0 = 0),
+    id2 = Entity$new(init = list(alive = TRUE), schema = default_entity_schema(), time0 = 0)
+  )
+
+  out <- run_cohort(
+    engine = eng,
+    entities = entities,
+    n_param_draws = 2,
+    n_sims = 1,
+    max_events = 5,
+    backend = "none"
+  )
+
+  units <- vapply(out$runs, function(z) z$observations$time_unit[[1]], character(1))
+  expect_true(all(units == "years"))
+})
+
+test_that("run_cohort errors if runtime ctx attempts to override canonical time spec", {
+  bundle <- list(
+    time_spec = time_spec(unit = "years"),
+    propose_events = function(entity, ctx = NULL, process_ids = NULL, current_proposals = NULL) {
+      list(p = list(time_next = entity$last_time + 1, event_type = "tick"))
+    },
+    transition = function(entity, event, ctx = NULL) NULL,
+    stop = function(entity, event, ctx = NULL) TRUE
+  )
+  prov <- PackageProvider$new(registry = list(x = function() bundle))
+  eng <- Engine$new(provider = prov, model_spec = list(name = "x"))
+  entities <- list(
+    id1 = Entity$new(init = list(alive = TRUE), schema = default_entity_schema(), time0 = 0)
+  )
+
+  expect_error(
+    run_cohort(
+      engine = eng,
+      entities = entities,
+      n_param_draws = 1,
+      n_sims = 1,
+      ctx = list(time = list(unit = "days")),
+      max_events = 5,
+      backend = "none"
+    ),
+    "override canonical model time spec"
+  )
+})

@@ -106,10 +106,13 @@ A bundle may also provide:
 
 ### What is `ctx`?
 `ctx` is an optional “context” list passed into bundle functions. It can include:
-- `time_unit` (a single string, e.g., `"days"`, `"months"`, `"years"`). All event times are interpreted in this unit.
+- `time` / `time_spec` (internal/canonical time metadata populated by the engine)
 - `param_draw_id` and `sim_id` (identifiers when running repeated simulations)
 - `params` (a parameter draw, if you are doing parameter uncertainty)
 - any other run-level inputs you want to pass through cleanly
+
+Declare the model time axis once in the model bundle via
+`time_spec(unit = "...")`. Runtime `ctx` must not override canonical time settings.
 
 Bundles that do not need context can ignore it.
 
@@ -125,7 +128,10 @@ set.seed(1)
 
 p <- Entity$new(
   init   = list(age = 55, miles_to_work = 10),
-  schema = default_entity_schema(),
+  schema = within(default_entity_schema(), {
+    age <- list(type = "continuous", default = 50, coerce = as.numeric)
+    miles_to_work <- list(type = "continuous", default = 8, coerce = as.numeric)
+  }),
   entity_type = "entity",
   time0  = 0
 )
@@ -135,7 +141,7 @@ eng <- Engine$new(
   model_spec = list(name = "default")
 )
 
-out <- eng$run(p, max_events = 50, ctx = list(time_unit = "years"))
+out <- eng$run(p, max_events = 50)
 
 tail(out$events, 5)
 out$entity$state(c("age", "miles_to_work"))
@@ -195,7 +201,6 @@ batch <- run_cohort(
   n_param_draws = 1,
   n_sims = 1,
   max_events = 100,
-  time_unit = "years",
   backend = "cluster",
   n_workers = 4,
   seed = 123

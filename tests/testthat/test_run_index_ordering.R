@@ -2,6 +2,7 @@ test_that("run_cohort index is ordered entity -> draw -> sim", {
   schema <- default_entity_schema()
   # Use a minimal bundle that does not assume any non-core state vars.
   minimal_bundle <- list(
+    time_spec = time_spec(unit = "days"),
     propose_events = function(entity, ctx = NULL, process_ids = NULL, current_proposals = NULL) {
       # Propose a single no-op event strictly after the current engine time.
       # This avoids triggering the engine error path "No proposals available"
@@ -30,8 +31,7 @@ test_that("run_cohort index is ordered entity -> draw -> sim", {
     entities = list(p1 = p1, p2 = p2),
     n_param_draws = 3,
     n_sims = 4,
-    seed = 123,
-    time_unit = "days"
+    seed = 123
   )
 
   idx <- out$index

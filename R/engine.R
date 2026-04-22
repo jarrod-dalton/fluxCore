@@ -4,6 +4,7 @@ Engine <- R6::R6Class(
     provider = NULL,
     model_spec = NULL,
     bundle = NULL,
+    time_spec = NULL,
 
     initialize = function(provider = PackageProvider$new(),
                           model_spec = list(name = "default"),
@@ -20,6 +21,7 @@ Engine <- R6::R6Class(
 
       self$bundle <- provider$load(model_spec = model_spec, ...)
       .validate_model_bundle(self$bundle)
+      self$time_spec <- self$bundle$time_spec
 
       invisible(self)
     },
@@ -34,21 +36,9 @@ Engine <- R6::R6Class(
       
 if (is.null(ctx)) ctx <- list()
 if (!is.list(ctx)) stop("ctx must be a list (or NULL).", call. = FALSE)
-
-# Time is a numeric axis shared across all processes. The Engine does not
-# enforce units, but models should declare the unit explicitly to avoid
-# silent mistakes when mixing rates/cadences (e.g., days vs years).
-if (is.null(ctx$time) ||
-    !is.list(ctx$time) ||
-    is.null(ctx$time$unit) ||
-    !is.character(ctx$time$unit) ||
-    length(ctx$time$unit) != 1L ||
-    !nzchar(ctx$time$unit)) {
-  warning(
-    "ctx$time$unit is missing or invalid. Time is treated as unitless. Set ctx$time$unit (e.g., 'days', 'weeks', 'months', 'years') for clarity.",
-    call. = FALSE
-  )
-}
+.assert_ctx_time_compatible(ctx = ctx, canonical_time_spec = self$time_spec, where = "Engine$run() ctx")
+ctx$time <- .time_ctx_from_spec(self$time_spec)
+ctx$time_spec <- self$time_spec
 
 # Standardize model parameters in ctx$params.
 # - Users may provide ctx$params to override defaults for a run.

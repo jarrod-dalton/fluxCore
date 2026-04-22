@@ -13,7 +13,19 @@ test_that("run_cohort backend='cluster' runs and preserves index/run alignment",
   schema <- default_entity_schema()
   schema$age <- list(type = "continuous", default = 40, coerce = as.numeric)
   schema$miles_to_work <- list(type = "continuous", default = 10, coerce = as.numeric)
-  eng <- Engine$new(provider = PackageProvider$new(), model_spec = list(name = "default"))
+  bundle <- list(
+    time_spec = time_spec(unit = "years"),
+    propose_events = function(entity, ctx = NULL, process_ids = NULL, current_proposals = NULL) {
+      list(p = list(time_next = entity$last_time + 1, event_type = "tick"))
+    },
+    transition = function(entity, event, ctx = NULL) NULL,
+    stop = function(entity, event, ctx = NULL) TRUE,
+    observe = function(entity, event, ctx = NULL) {
+      data.frame(time_unit = as.character(ctx$time$unit), stringsAsFactors = FALSE)
+    }
+  )
+  prov <- PackageProvider$new(registry = list(x = function() bundle))
+  eng <- Engine$new(provider = prov, model_spec = list(name = "x"))
 
   entities <- lapply(1:3, function(i) {
     Entity$new(init = list(age = 40 + i, miles_to_work = 8),
@@ -25,7 +37,6 @@ test_that("run_cohort backend='cluster' runs and preserves index/run alignment",
   batch <- run_cohort(
     engine = eng,
     entities = entities,
-    time_unit = "years",
     n_param_draws = 2,
     n_sims = 2,
     max_events = 5,
@@ -40,4 +51,7 @@ test_that("run_cohort backend='cluster' runs and preserves index/run alignment",
 
   # critical invariant: ordering of runs matches index rows
   expect_identical(names(batch$runs), batch$index$run_id)
+
+  units <- vapply(batch$runs, function(z) z$observations$time_unit[[1]], character(1))
+  expect_true(all(units == "years"))
 })

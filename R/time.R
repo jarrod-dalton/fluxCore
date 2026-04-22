@@ -2,12 +2,11 @@
 #
 # The flux ecosystem operates on a numeric model time axis.
 # These helpers provide deterministic mappings between calendar time
-# (Date / POSIXct) and numeric model time under a user-declared time unit.
+# (Date / POSIXct) and numeric model time under a declared time spec.
 #
 # Key concepts:
-# - ctx$time$unit is REQUIRED when mapping calendar time; it is a modeling choice.
-# - ctx$time$origin is a reference used for conversion (default: system epoch).
-# - ctx$time$zone defaults to 'UTC' and is validated against Olson/IANA tz names.
+# - time_spec(unit=..., origin=..., zone=...) is the canonical declaration.
+# - ctx$time remains a compatibility transport path.
 # - 'months' and 'years' are fixed approximations (30.4375 and 365.25 days).
 #
 # NOTE: time_origin is NOT baseline. Baseline/start-of-followup is model-defined.
@@ -31,43 +30,51 @@
   )
 }
 
-time_spec <- function(ctx) {
-  if (is.null(ctx) || !is.list(ctx)) {
-    stop("ctx must be a list.", call. = FALSE)
-  }
-  if (is.null(ctx$time) || !is.list(ctx$time)) {
-    stop("ctx$time must be a list with fields unit/origin/zone.", call. = FALSE)
+time_spec <- function(unit = NULL, origin = NULL, zone = "UTC", ctx = NULL) {
+  # Backward-compatibility path: time_spec(ctx)
+  if (is.list(unit) && is.null(ctx) && is.null(origin) && identical(zone, "UTC")) {
+    ctx <- unit
+    unit <- NULL
   }
 
-  unit <- ctx$time$unit
+  if (!is.null(ctx)) {
+    if (!is.list(ctx)) stop("ctx must be a list.", call. = FALSE)
+    if (is.null(ctx$time) || !is.list(ctx$time)) {
+      stop("ctx$time must be a list with fields unit/origin/zone.", call. = FALSE)
+    }
+    if (!is.null(unit)) {
+      stop("Specify either `unit`/`origin`/`zone` or `ctx`, not both.", call. = FALSE)
+    }
+    unit <- ctx$time$unit
+    origin <- ctx$time$origin
+    if (!is.null(ctx$time$zone)) zone <- ctx$time$zone
+  }
+
   if (is.null(unit) || !is.character(unit) || length(unit) != 1L || !nzchar(unit)) {
-    stop("ctx$time$unit must be a non-empty single string.", call. = FALSE)
+    stop("unit must be a non-empty single string.", call. = FALSE)
   }
   unit <- tolower(unit)
   if (!unit %in% .time_allowed_units) {
     stop(
-      "Unsupported ctx$time$unit: '", unit, "'. Allowed: ",
+      "Unsupported unit: '", unit, "'. Allowed: ",
       paste(.time_allowed_units, collapse = ", "),
       call. = FALSE
     )
   }
 
-  zone <- ctx$time$zone
-  if (is.null(zone)) zone <- "UTC"
   if (!is.character(zone) || length(zone) != 1L || !nzchar(zone)) {
-    stop("ctx$time$zone must be a non-empty single string (e.g., 'UTC').", call. = FALSE)
+    stop("zone must be a non-empty single string (e.g., 'UTC').", call. = FALSE)
   }
   zone <- as.character(zone)
 
   # Validate time zone once (expensive-ish), not in per-call conversion.
   if (!identical(zone, "UTC") && !(zone %in% OlsonNames())) {
     stop(
-      "Invalid ctx$time$zone: '", zone, "'. Use an IANA/Olson time zone name (e.g., 'UTC', 'America/New_York').",
+      "Invalid zone: '", zone, "'. Use an IANA/Olson time zone name (e.g., 'UTC', 'America/New_York').",
       call. = FALSE
     )
   }
 
-  origin <- ctx$time$origin
   if (is.null(origin)) {
     # Default origin: system epoch. Use POSIXct (UTC) as canonical internal origin,
     # and also keep a Date origin for Date arithmetic.
@@ -80,7 +87,7 @@ time_spec <- function(ctx) {
   } else if (inherits(origin, c("POSIXct", "POSIXt"))) {
     origin_class <- "POSIXct"
   } else {
-    stop("ctx$time$origin must be a Date or POSIXct/POSIXt.", call. = FALSE)
+    stop("origin must be a Date or POSIXct/POSIXt.", call. = FALSE)
   }
 
   # Canonical internal origin for POSIX arithmetic, stored in ctx$time$zone.
@@ -107,7 +114,7 @@ time_spec <- function(ctx) {
 
 time_to_model <- function(x, time_spec) {
   if (is.null(time_spec) || !inherits(time_spec, "time_spec")) {
-    stop("time_spec must be a 'time_spec' created by time_spec(ctx).", call. = FALSE)
+    stop("time_spec must be a 'time_spec' created by time_spec(...).", call. = FALSE)
   }
 
   # Explicitly disallow "time-only" classes (no date component). These are
@@ -143,7 +150,7 @@ time_to_model <- function(x, time_spec) {
 
 time_from_model <- function(t, time_spec, class = c("origin", "Date", "POSIXct")) {
   if (is.null(time_spec) || !inherits(time_spec, "time_spec")) {
-    stop("time_spec must be a 'time_spec' created by time_spec(ctx).", call. = FALSE)
+    stop("time_spec must be a 'time_spec' created by time_spec(...).", call. = FALSE)
   }
   class <- match.arg(class)
 
@@ -170,6 +177,26 @@ set_time_unit <- function(ctx = NULL, unit, origin = NULL, zone = "UTC") {
   if (!is.null(zone)) ctx$time$zone <- zone
 
   # Validate once; then return.
-  time_spec(ctx)
+  time_spec(ctx = ctx)
   ctx
+}
+
+.time_ctx_from_spec <- function(spec) {
+  if (is.null(spec) || !inherits(spec, "time_spec")) {
+    stop("spec must be a 'time_spec'.", call. = FALSE)
+  }
+  list(
+    unit = spec$unit,
+    origin = spec$origin,
+    zone = spec$zone
+  )
+}
+
+.time_spec_equal <- function(a, b) {
+  if (is.null(a) || is.null(b)) return(FALSE)
+  if (!inherits(a, "time_spec") || !inherits(b, "time_spec")) return(FALSE)
+  identical(a$unit, b$unit) &&
+    identical(a$zone, b$zone) &&
+    identical(a$origin_class, b$origin_class) &&
+    isTRUE(all.equal(as.numeric(a$origin_posix), as.numeric(b$origin_posix), tolerance = 0))
 }

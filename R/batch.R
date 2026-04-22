@@ -5,9 +5,9 @@
 #   Run a simulation engine for multiple entities, optionally with repeated
 #   parameter draws and repeated simulations per draw.
 #
-# Time units:
-#   - This function accepts `time_unit` and places it into ctx$time$unit for each
-#     run. Engine itself treats time as numeric; the unit is metadata for clarity.
+# Time semantics:
+#   - The canonical model time spec is declared once in bundle$time_spec.
+#   - Runtime ctx may not override time metadata.
 #
 # Returns:
 #   A list containing run index metadata and results (entities, events, observations).
@@ -22,8 +22,7 @@ run_cohort <- function(engine,
                        max_events = 1000,
                        max_time = NULL,
                        return_observations = TRUE,
-                       time_unit = NULL,
-                        backend = NULL,
+                       backend = NULL,
                        n_workers = NULL,
                        seed = NULL) {
 
@@ -33,6 +32,10 @@ run_cohort <- function(engine,
   if (!is.finite(n_sims) || n_sims < 1L) stop("n_sims must be a positive integer.")
 
   if (!is.list(entities) || length(entities) == 0L) stop("entities must be a non-empty list of Entity objects.")
+  if (is.null(engine$time_spec) || !inherits(engine$time_spec, "time_spec")) {
+    stop("engine$time_spec must be a valid fluxCore `time_spec`.", call. = FALSE)
+  }
+  canonical_time_spec <- engine$time_spec
 
   # materialize global parameter draws
   if (is.null(param_draws)) {
@@ -42,7 +45,6 @@ run_cohort <- function(engine,
       stop("param_draws must be a list of length n_param_draws.")
     }
   }
-
 
   # Validate max_time early. This is intentionally strict to avoid accidental
   # partial-argument matches (e.g., passing `time = ...` which could match `max_time`).
@@ -58,14 +60,11 @@ run_cohort <- function(engine,
   # - a list of per-draw ctx lists of length n_param_draws
   if (!is.null(ctx)) {
     if (!is.list(ctx)) stop("ctx must be a list, a list of lists, or NULL.", call. = FALSE)
-    is_list_of_lists <- length(ctx) > 0L && all(vapply(ctx, is.list, logical(1)))
-    if (is_list_of_lists) {
-      if (length(ctx) != n_param_draws) {
-        stop("If ctx is a list of lists, it must have length n_param_draws.", call. = FALSE)
-      }
+    is_per_draw_ctx <- .ctx_is_per_draw(ctx)
+    if (is_per_draw_ctx && length(ctx) != n_param_draws) {
+      stop("If ctx is a list of lists, it must have length n_param_draws.", call. = FALSE)
     }
   }
-
   ctx_user <- ctx
 
   # Entity IDs (stable)
@@ -86,7 +85,7 @@ run_cohort <- function(engine,
   # which matches the natural execution/parallelization strategy used below.
   idx_list <- lapply(entity_ids, function(pid) {
     grid <- expand.grid(
-      sim_id  = seq_len(n_sims),
+      sim_id = seq_len(n_sims),
       param_draw_id = seq_len(n_param_draws),
       stringsAsFactors = FALSE
     )
@@ -102,7 +101,7 @@ run_cohort <- function(engine,
 
   # Group runs by entity for parallelization (preserve entity_ids order)
   split_by_entity <- stats::setNames(lapply(entity_ids, function(pid) idx[idx$entity_id == pid, , drop = FALSE]),
-                                      entity_ids)
+                                     entity_ids)
 
   # base seed
   if (!is.null(seed)) {
@@ -110,91 +109,92 @@ run_cohort <- function(engine,
     if (!is.finite(seed) || length(seed) != 1L) stop("seed must be an integer scalar.")
   }
 
-run_one_entity <- function(entity_id) {
-  .run_one_entity_worker(
-    entity_id = entity_id,
-    entities = entities,
-    split_by_entity = split_by_entity,
-    engine = engine,
-    param_draws = param_draws,
-    max_events = max_events,
-    max_time = max_time,
-    return_observations = return_observations,
-    seed = seed,
-    ctx_user = ctx_user,
-    time_unit = time_unit
-  )
-}
-
-## Resolve backend.
-## NOTE: Core no longer supports the legacy `parallel=` alias. Use `backend=`.
-if (is.null(backend)) backend <- "none"
-backend <- match.arg(backend, c("none", "cluster", "mclapply", "future"))
-
-if (backend == "none") {
-  entity_out <- lapply(names(split_by_entity), run_one_entity)
-  runs <- do.call(c, entity_out)
-
-} else if (backend == "cluster") {
-  if (!requireNamespace("parallel", quietly = TRUE)) {
-    stop("backend='cluster' requires the 'parallel' package (base R).", call. = FALSE)
+  run_one_entity <- function(entity_id) {
+    .run_one_entity_worker(
+      entity_id = entity_id,
+      entities = entities,
+      split_by_entity = split_by_entity,
+      engine = engine,
+      canonical_time_spec = canonical_time_spec,
+      param_draws = param_draws,
+      max_events = max_events,
+      max_time = max_time,
+      return_observations = return_observations,
+      seed = seed,
+      ctx_user = ctx_user,
+      ctx_is_per_draw = .ctx_is_per_draw(ctx_user)
+    )
   }
-  if (is.null(n_workers)) {
-    n_workers <- max(1L, parallel::detectCores() - 1L)
+
+  # Resolve backend.
+  if (is.null(backend)) backend <- "none"
+  backend <- match.arg(backend, c("none", "cluster", "mclapply", "future"))
+
+  if (backend == "none") {
+    entity_out <- lapply(names(split_by_entity), run_one_entity)
+    runs <- do.call(c, entity_out)
+
+  } else if (backend == "cluster") {
+    if (!requireNamespace("parallel", quietly = TRUE)) {
+      stop("backend='cluster' requires the 'parallel' package (base R).", call. = FALSE)
+    }
+    if (is.null(n_workers)) {
+      n_workers <- max(1L, parallel::detectCores() - 1L)
+    }
+    n_workers <- as.integer(n_workers)
+    if (!is.finite(n_workers) || n_workers < 1L) stop("n_workers must be a positive integer.", call. = FALSE)
+
+    cl <- parallel::makeCluster(n_workers)
+    on.exit(parallel::stopCluster(cl), add = TRUE)
+
+    parallel::clusterEvalQ(cl, { library(fluxCore); NULL })
+    parallel::clusterExport(
+      cl,
+      varlist = c(".run_one_entity_worker", ".seed_for"),
+      envir = asNamespace("fluxCore")
+    )
+
+    entity_out <- parallel::parLapply(
+      cl,
+      names(split_by_entity),
+      .run_one_entity_worker,
+      entities = entities,
+      split_by_entity = split_by_entity,
+      engine = engine,
+      canonical_time_spec = canonical_time_spec,
+      param_draws = param_draws,
+      max_events = max_events,
+      max_time = max_time,
+      return_observations = return_observations,
+      seed = seed,
+      ctx_user = ctx_user,
+      ctx_is_per_draw = .ctx_is_per_draw(ctx_user)
+    )
+    runs <- do.call(c, entity_out)
+
+  } else if (backend == "mclapply") {
+    if (!requireNamespace("parallel", quietly = TRUE)) {
+      stop("backend='mclapply' requires the 'parallel' package (base R).", call. = FALSE)
+    }
+    if (.Platform$OS.type == "windows") {
+      stop("backend='mclapply' is not supported on Windows. Use backend='cluster' or backend='future'.", call. = FALSE)
+    }
+    if (is.null(n_workers)) {
+      n_workers <- max(1L, parallel::detectCores() - 1L)
+    }
+    n_workers <- as.integer(n_workers)
+    if (!is.finite(n_workers) || n_workers < 1L) stop("n_workers must be a positive integer.", call. = FALSE)
+
+    entity_out <- parallel::mclapply(names(split_by_entity), run_one_entity, mc.cores = n_workers)
+    runs <- do.call(c, entity_out)
+
+  } else if (backend == "future") {
+    if (!requireNamespace("future.apply", quietly = TRUE)) {
+      stop("backend='future' requires the 'future.apply' package.", call. = FALSE)
+    }
+    entity_out <- future.apply::future_lapply(names(split_by_entity), run_one_entity)
+    runs <- do.call(c, entity_out)
   }
-  n_workers <- as.integer(n_workers)
-  if (!is.finite(n_workers) || n_workers < 1L) stop("n_workers must be a positive integer.", call. = FALSE)
-
-  cl <- parallel::makeCluster(n_workers)
-  on.exit(parallel::stopCluster(cl), add = TRUE)
-
-  parallel::clusterEvalQ(cl, { library(fluxCore); NULL })
-  parallel::clusterExport(
-    cl,
-    varlist = c(".run_one_entity_worker", ".seed_for"),
-    envir = asNamespace("fluxCore")
-  )
-
-  entity_out <- parallel::parLapply(
-    cl,
-    names(split_by_entity),
-    .run_one_entity_worker,
-    entities = entities,
-    split_by_entity = split_by_entity,
-    engine = engine,
-    param_draws = param_draws,
-    max_events = max_events,
-    max_time = max_time,
-    return_observations = return_observations,
-    seed = seed,
-    ctx_user = ctx_user,
-    time_unit = time_unit
-  )
-  runs <- do.call(c, entity_out)
-
-} else if (backend == "mclapply") {
-  if (!requireNamespace("parallel", quietly = TRUE)) {
-    stop("backend='mclapply' requires the 'parallel' package (base R).", call. = FALSE)
-  }
-  if (.Platform$OS.type == "windows") {
-    stop("backend='mclapply' is not supported on Windows. Use backend='cluster' or backend='future'.", call. = FALSE)
-  }
-  if (is.null(n_workers)) {
-    n_workers <- max(1L, parallel::detectCores() - 1L)
-  }
-  n_workers <- as.integer(n_workers)
-  if (!is.finite(n_workers) || n_workers < 1L) stop("n_workers must be a positive integer.", call. = FALSE)
-
-  entity_out <- parallel::mclapply(names(split_by_entity), run_one_entity, mc.cores = n_workers)
-  runs <- do.call(c, entity_out)
-
-} else if (backend == "future") {
-  if (!requireNamespace("future.apply", quietly = TRUE)) {
-    stop("backend='future' requires the 'future.apply' package.", call. = FALSE)
-  }
-  entity_out <- future.apply::future_lapply(names(split_by_entity), run_one_entity)
-  runs <- do.call(c, entity_out)
-}
 
   # Label runs with run_id (ordering already matches idx by construction).
   if (length(runs) != nrow(idx)) {
@@ -210,13 +210,14 @@ if (backend == "none") {
                                    entities,
                                    split_by_entity,
                                    engine,
+                                   canonical_time_spec,
                                    param_draws,
                                    max_events,
                                    max_time,
                                    return_observations,
                                    seed,
                                    ctx_user,
-                                   time_unit) {
+                                   ctx_is_per_draw) {
   p0 <- entities[[entity_id]]
   if (is.null(p0)) stop("Unknown entity_id in entities list: ", entity_id)
 
@@ -225,7 +226,7 @@ if (backend == "none") {
 
   for (r in seq_len(nrow(rows))) {
     param_draw_id <- rows$param_draw_id[[r]]
-    sim_id  <- rows$sim_id[[r]]
+    sim_id <- rows$sim_id[[r]]
 
     # Deep clone entity for each run (so sims don't interfere)
     p <- p0$clone(deep = TRUE)
@@ -237,7 +238,8 @@ if (backend == "none") {
     }
 
     ctx_run <- list(
-      time = list(unit = time_unit),
+      time = .time_ctx_from_spec(canonical_time_spec),
+      time_spec = canonical_time_spec,
       entity_id = entity_id,
       param_draw_id = param_draw_id,
       sim_id = sim_id,
@@ -246,14 +248,22 @@ if (backend == "none") {
 
     # Merge user-provided ctx (if any). Per-draw ctx overrides single ctx.
     if (!is.null(ctx_user)) {
-      base_ctx <- if (length(ctx_user) > 0L && all(vapply(ctx_user, is.list, logical(1)))) ctx_user[[param_draw_id]] else ctx_user
+      base_ctx <- if (ctx_is_per_draw) ctx_user[[param_draw_id]] else ctx_user
+      .assert_ctx_time_compatible(
+        ctx = base_ctx,
+        canonical_time_spec = canonical_time_spec,
+        where = sprintf("run_cohort() ctx for entity '%s', draw %d", entity_id, param_draw_id)
+      )
+      base_ctx$time <- NULL
+      base_ctx$time_spec <- NULL
+
       # Do not allow user ctx to overwrite identifiers; params are allowed.
       ctx_run <- utils::modifyList(ctx_run, base_ctx, keep.null = TRUE)
       ctx_run$entity_id <- entity_id
       ctx_run$param_draw_id <- param_draw_id
       ctx_run$sim_id <- sim_id
-      if (is.null(ctx_run$time) || !is.list(ctx_run$time)) ctx_run$time <- list()
-      if (is.null(ctx_run$time$unit)) ctx_run$time$unit <- time_unit
+      ctx_run$time <- .time_ctx_from_spec(canonical_time_spec)
+      ctx_run$time_spec <- canonical_time_spec
       # If base_ctx provides params, honor it; otherwise keep param_draws.
       if (!is.null(base_ctx$params)) ctx_run$params <- base_ctx$params
     }
@@ -271,8 +281,6 @@ if (backend == "none") {
 
   out_list
 }
-
-
 
 .maybe_sample_param_draws <- function(engine, n_param_draws) {
   # 1) Bundle can provide sample_params(D)
@@ -302,4 +310,15 @@ if (backend == "none") {
   # (simple; if you want stronger guarantees, switch to L'Ecuyer streams)
   h <- sum(utf8ToInt(as.character(entity_id))) %% 100000L
   as.integer((base_seed + 100000L * param_draw_id + 1000L * sim_id + h) %% .Machine$integer.max)
+}
+
+.ctx_is_per_draw <- function(ctx) {
+  if (is.null(ctx) || !is.list(ctx) || length(ctx) == 0L) return(FALSE)
+  if (!all(vapply(ctx, is.list, logical(1)))) return(FALSE)
+  nms <- names(ctx)
+  if (!is.null(nms)) {
+    reserved <- c("time", "time_spec", "params", "entity_id", "param_draw_id", "sim_id")
+    if (any(nzchar(nms) & nms %in% reserved)) return(FALSE)
+  }
+  TRUE
 }

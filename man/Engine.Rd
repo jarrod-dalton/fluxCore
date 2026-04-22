@@ -14,8 +14,9 @@ When multiple processes are present, the Engine caches each process's next propo
 refreshes proposals on-demand using \code{bundle$refresh_rules()} (default: refresh all).
 
 Time is represented as a numeric value on a single global time axis. The Engine does not
-enforce units; for clarity and consistency (rates, cadences, lookbacks), models should set
-\code{ctx$time$unit} (e.g., \code{"days"}, \code{"months"}, \code{"years"}).
+enforce units at the arithmetic level; for clarity and consistency (rates, cadences,
+lookbacks), models must declare a canonical \code{bundle$time_spec} via
+\code{time_spec(unit = ...)}.
 }
 \section{Fields}{
 
@@ -25,4 +26,3 @@ enforce units; for clarity and consistency (rates, cadences, lookbacks), models 
 \item \code{bundle}: the loaded ModelBundle (named list of functions)
 }
 }
-

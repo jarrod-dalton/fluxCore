@@ -1,3 +1,13 @@
+## fluxCore 1.5.1
+
+- Canonical time-spec contract: simulation time is now declared once via
+  `bundle$time_spec`; runtime context attempts to override time metadata now
+  error.
+- Removed runtime `time_unit` wiring from cohort/engine run APIs and aligned
+  manual documentation with actual signatures.
+- Added/updated unit tests to lock canonical time propagation and override
+  protection behavior in serial and backend execution paths.
+
 ## fluxCore 1.5.0
 
 - Finalized ecosystem harmonization for the 1.5.0 coordinated release.

@@ -51,6 +51,7 @@ default_model_bundle <- function(terminal_event_type = "death") {
   }
 
   list(
+    time_spec = time_spec(unit = "years"),
     propose_events = propose_events,
     transition = transition,
     stop = stop,

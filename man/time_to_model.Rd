@@ -5,11 +5,10 @@
 \usage{time_to_model(x, time_spec)}
 \arguments{
 \item{x}{A numeric vector, \code{Date}, or \code{POSIXct}/\code{POSIXt} vector of times.}
-\item{time_spec}{A compiled time spec from \code{time_spec(ctx)}.}
+\item{time_spec}{A compiled time spec from \code{time_spec(unit = ...)}.}
 }
 \value{Numeric model time in units of \code{time_spec$unit}.}
-\details{Use \code{time_spec(ctx)} once per workflow, then call \code{time_to_model()} repeatedly for fast conversion.}
-\examples{ctx <- set_time_unit(unit = 'days')
-spec <- time_spec(ctx)
+\details{Use \code{time_spec(unit = ...)} once per workflow, then call \code{time_to_model()} repeatedly for fast conversion.}
+\examples{spec <- time_spec(unit = 'days')
 time_to_model(as.Date('1970-01-02'), spec)
 }

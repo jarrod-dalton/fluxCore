@@ -12,7 +12,6 @@ run_cohort(
   max_events = 1000,
   max_time = NULL,
   return_observations = TRUE,
-  time_unit = NULL,
   backend = NULL,
   n_workers = NULL,
   seed = NULL
@@ -39,8 +38,6 @@ list of per-draw context lists of length \code{n_param_draws}.}
 \item{max_time}{Optional max time per run.}
 
 \item{return_observations}{Logical; whether to return observations (if bundle provides observe()).}
-
-\item{time_unit}{Optional string documenting the unit for the global time axis. Engine treats time as numeric; if provided, this is passed to each run as \code{ctx$time$unit}.}
 
 \item{backend}{Backend used to parallelize across entities. One of \code{"none"}, \code{"cluster"}, \code{"mclapply"}, or \code{"future"}. Default is \code{"none"}. \code{"cluster"} uses a PSOCK cluster (cross-platform). \code{"mclapply"} uses forking (macOS/Linux only). \code{"future"} uses \code{future.apply::future_lapply()} and respects the user's \code{future} plan.}
 
@@ -102,8 +99,7 @@ out <- run_cohort(
   n_param_draws = 2,
   n_sims = 2,
   max_events = 50,
-  backend = "none",
-  time_unit = "years"
+  backend = "none"
 )
 nrow(out$index)
 
