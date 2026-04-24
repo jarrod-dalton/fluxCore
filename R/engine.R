@@ -261,6 +261,35 @@ if (is.null(ctx$params)) {
   args <- list(entity = entity, last_event = ev, changes = changes)
   if ("ctx" %in% fml) args$ctx <- ctx
   out <- do.call(f, args)
-  if (is.null(out)) return(character(0))
+  if (!is.character(out)) {
+    stop(
+      "bundle$refresh_rules must return exactly \"ALL\" or a character vector of process_id values.",
+      call. = FALSE
+    )
+  }
+  if (length(out) == 1L && identical(out[[1L]], "ALL")) return("ALL")
+  if (any(out == "ALL")) {
+    stop(
+      "bundle$refresh_rules may return \"ALL\" only as a single scalar value.",
+      call. = FALSE
+    )
+  }
+  bad <- which(is.na(out) | !nzchar(out))
+  if (length(bad) > 0L) {
+    stop(
+      "bundle$refresh_rules returned empty or missing process_id values.",
+      call. = FALSE
+    )
+  }
+  dup <- unique(out[duplicated(out)])
+  if (length(dup) > 0L) {
+    stop(
+      sprintf(
+        "bundle$refresh_rules returned duplicated process_id values: %s",
+        paste(dup, collapse = ", ")
+      ),
+      call. = FALSE
+    )
+  }
   out
 }

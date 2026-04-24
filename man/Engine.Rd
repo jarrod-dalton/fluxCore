@@ -11,7 +11,10 @@ The Engine requires \code{bundle$propose_events(entity, ...)} returning one prop
 per process, as a named list keyed by \code{process_id}.
 
 When multiple processes are present, the Engine caches each process's next proposal and
-refreshes proposals on-demand using \code{bundle$refresh_rules()} (default: refresh all).
+refreshes proposals on-demand using \code{bundle$refresh_rules()}.
+If omitted, refresh behavior defaults to \code{"ALL"} (refresh all process clocks).
+When implemented, \code{refresh_rules()} must return exactly \code{"ALL"} or a
+character vector of unique \code{process_id} values.
 
 Time is represented as a numeric value on a single global time axis. The Engine does not
 enforce units at the arithmetic level; for clarity and consistency (rates, cadences,

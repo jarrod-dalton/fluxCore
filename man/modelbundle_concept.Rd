@@ -17,7 +17,7 @@ Required functions:
 Optional functions:
 \itemize{
 \item \code{observe(entity, event, ctx)} -> list/data.frame row of observed outputs for logging
-\item \code{refresh_rules(entity, last_event, changes, ctx)} -> "ALL" or character vector of \code{process_id}s
+\item \code{refresh_rules(entity, last_event, changes, ctx)} -> exactly \code{"ALL"} or character vector of unique \code{process_id}s
 }
 
 A bundle can close over fitted models, parameters, reference data, etc. This makes
@@ -26,5 +26,7 @@ it easy to swap dynamics while keeping the Entity and Engine generic.
 All proposed event times (\code{time_next}) live on one shared numeric time axis. The
 package does not enforce units; bundles should document the intended unit (typically via
 \code{ctx$time$unit}).
+
+If \code{refresh_rules} is omitted, Engine defaults to \code{"ALL"} refresh behavior after each event.
 }
 \keyword{internal}
