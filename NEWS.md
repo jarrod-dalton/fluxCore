@@ -1,3 +1,14 @@
+## fluxCore 1.8.1
+
+- Hardened `refresh_rules()` engine boundary validation:
+  - allows exactly `"ALL"` (scalar), or
+  - character vector of unique, non-empty process ids.
+- Added explicit fail-fast error messages for malformed refresh outputs.
+- Added regression tests for missing hook default (`"ALL"`), valid targeted
+  refresh, and malformed return structures.
+- Updated manual docs to clarify optional `refresh_rules` behavior and strict
+  return contract.
+
 ## fluxCore 1.8.0
 
 - Hardened engine/model-bundle proposal contracts with clearer validation around
