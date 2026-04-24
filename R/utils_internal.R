@@ -146,6 +146,39 @@
     stop("ModelBundle must define `$time_spec` as a fluxCore `time_spec` object.", call. = FALSE)
   }
 
+  .validate_bundle_event_metadata(bundle)
+
+  invisible(TRUE)
+}
+
+.validate_bundle_event_set <- function(x, field_name) {
+  if (is.null(x)) return(NULL)
+  if (!is.character(x)) {
+    stop(sprintf("bundle$%s must be a character vector when provided.", field_name), call. = FALSE)
+  }
+  x <- unique(as.character(x))
+  if (length(x) < 1L || any(is.na(x)) || any(!nzchar(x))) {
+    stop(sprintf("bundle$%s must contain one or more non-empty event labels.", field_name), call. = FALSE)
+  }
+  x
+}
+
+.validate_bundle_event_metadata <- function(bundle) {
+  event_catalog <- .validate_bundle_event_set(bundle$event_catalog, "event_catalog")
+  terminal_events <- .validate_bundle_event_set(bundle$terminal_events, "terminal_events")
+
+  if (!is.null(event_catalog) && !is.null(terminal_events)) {
+    unknown <- setdiff(terminal_events, event_catalog)
+    if (length(unknown) > 0L) {
+      stop(
+        sprintf(
+          "bundle$terminal_events contains labels not in bundle$event_catalog: %s",
+          paste(unknown, collapse = ", ")
+        ),
+        call. = FALSE
+      )
+    }
+  }
   invisible(TRUE)
 }
 

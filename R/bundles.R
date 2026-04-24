@@ -52,6 +52,8 @@ default_model_bundle <- function(terminal_event_type = "death") {
 
   list(
     time_spec = time_spec(unit = "years"),
+    event_catalog = c("VISIT", terminal_event_type),
+    terminal_events = terminal_event_type,
     propose_events = propose_events,
     transition = transition,
     stop = stop,

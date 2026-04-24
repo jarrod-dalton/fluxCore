@@ -59,11 +59,12 @@ if (is.null(ctx$params)) {
 .call_init_entity(self$bundle, entity, ctx = ctx)
 
       obs_accum <- NULL
+      model_event_catalog <- .validate_bundle_event_set(self$bundle$event_catalog, "event_catalog")
 
       proposals <- .call_propose_events(self$bundle, entity, ctx = ctx)
 
       step_once <- function() {
-        ev <- .pick_next_event(proposals)
+        ev <- .pick_next_event(proposals, event_catalog = model_event_catalog)
 
         changes <- .call_transition(self$bundle, entity, ev, ctx = ctx)
 
@@ -143,10 +144,37 @@ if (is.null(ctx$params)) {
   out <- do.call(bundle$propose_events, args)
   if (is.null(out)) return(list())
   if (!is.list(out)) stop("bundle$propose_events must return a list of events keyed by process_id.")
+  if (length(out) == 0L) return(out)
+
+  pids <- names(out)
+  if (is.null(pids)) {
+    stop("bundle$propose_events must return a *named* list keyed by process_id.", call. = FALSE)
+  }
+  bad <- which(is.na(pids) | !nzchar(pids))
+  if (length(bad) > 0L) {
+    stop("bundle$propose_events returned empty or missing process_id names.", call. = FALSE)
+  }
+  dup <- unique(pids[duplicated(pids)])
+  if (length(dup) > 0L) {
+    stop(
+      sprintf(
+        "bundle$propose_events returned duplicated process_id names: %s",
+        paste(dup, collapse = ", ")
+      ),
+      call. = FALSE
+    )
+  }
   out
 }
 
-.pick_next_event <- function(proposals) {
+.pick_next_event <- function(proposals, event_catalog = NULL) {
+  if (length(proposals) == 0L) stop("No proposals available.")
+
+  if (is.null(names(proposals))) {
+    stop("Internal error: proposals must be a named list keyed by process_id.", call. = FALSE)
+  }
+  keep <- !vapply(proposals, is.null, logical(1))
+  proposals <- proposals[keep]
   if (length(proposals) == 0L) stop("No proposals available.")
 
   .validate_event <- function(x, pid) {
@@ -155,8 +183,17 @@ if (is.null(ctx$params)) {
     if (is.null(x$time_next) || !is.numeric(x$time_next) || length(x$time_next) != 1L || !is.finite(x$time_next)) {
       stop(sprintf("Event proposal for process_id '%s' must include numeric scalar time_next.", pid))
     }
-    if (is.null(x$event_type) || !is.character(x$event_type) || length(x$event_type) != 1L) {
+    if (is.null(x$event_type) || !is.character(x$event_type) || length(x$event_type) != 1L || !nzchar(x$event_type)) {
       stop(sprintf("Event proposal for process_id '%s' must include character scalar event_type.", pid))
+    }
+    if (!is.null(event_catalog) && !(x$event_type %in% event_catalog)) {
+      stop(
+        sprintf(
+          "Event proposal for process_id '%s' has event_type '%s' not declared in bundle$event_catalog.",
+          pid, x$event_type
+        ),
+        call. = FALSE
+      )
     }
     invisible(TRUE)
   }
