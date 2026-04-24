@@ -1,3 +1,10 @@
+## fluxCore 1.8.0
+
+- Hardened engine/model-bundle proposal contracts with clearer validation around
+  event proposal structure and terminal-event metadata handling.
+- Added regression tests covering lifecycle and proposal-contract behavior.
+- Added README release/download badges.
+
 ## fluxCore 1.7.0
 
 - Coordinated ecosystem release alignment to version 1.7.0.
