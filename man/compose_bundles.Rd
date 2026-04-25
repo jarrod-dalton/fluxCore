@@ -24,12 +24,24 @@ The key idea is to compose functions that return sparse \code{changes} patches
 }
 \examples{
 library(fluxCore)
-base <- default_model_bundle()
+base <- list(
+  time_spec = time_spec(unit = "hours"),
+  event_catalog = c("dispatch_check", "end_shift"),
+  terminal_events = "end_shift",
+  propose_events = function(entity, ctx = NULL, process_ids = NULL, current_proposals = NULL) {
+    list(dispatch = list(time_next = entity$last_time + 1, event_type = "dispatch_check"))
+  },
+  transition = function(entity, event, ctx = NULL) list(),
+  stop = function(entity, event, ctx = NULL) FALSE
+)
 policy <- list(
-  transition = function(entity, event_type, time_next, ctx) {
-    # Example: if age >= 65, set a flag (requires schema includes on_medicare)
-    if ("on_medicare" \%in\% names(entity$current) && entity$current$age >= 65) {
-      return(list(on_medicare = 1))
+  transition = function(entity, event, ctx = NULL, baseline_changes = NULL) {
+    # Example: if battery is low, set recharge mode (requires schema include recharge_mode)
+    if ("recharge_mode" \%in\% names(entity$current) &&
+        "battery_pct" \%in\% names(entity$current) &&
+        is.finite(entity$current$battery_pct) &&
+        entity$current$battery_pct < 20) {
+      return(list(recharge_mode = "on"))
     }
     NULL
   }

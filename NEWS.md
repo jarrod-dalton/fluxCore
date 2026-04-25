@@ -1,3 +1,11 @@
+## fluxCore 1.9.0
+
+- Removed implicit runtime defaults: deleted package-level `default_model_bundle()` and `default_entity_schema()` from runtime code.
+- `PackageProvider` now requires explicit `registry` input; no hidden fallback bundle is injected.
+- Constructor simplification: removed `new_entity()` wrapper and standardized on `Entity$new()`; wrapper input-normalization behavior is now handled directly in `Entity$initialize()`.
+- Documentation cleanup: removed default-function man pages and updated provider/composition docs and README examples to use explicit, domain-neutral bundle/schema definitions.
+- Test architecture cleanup: moved former default schema/bundle helpers into test fixtures (`tests/testthat/helper_fixtures.R`).
+
 ## fluxCore 1.8.1
 
 - Hardened `refresh_rules()` engine boundary validation:

@@ -27,9 +27,12 @@ A named list of state updates suitable for returning from \code{transition()}. V
 are returned in schema block order.
 }
 \examples{
-schema <- default_entity_schema()
-schema$sbp <- list(type="continuous", default=120, coerce=as.numeric, validate=NULL, blocks=c("bp"))
-schema$dbp <- list(type="continuous", default=80, coerce=as.numeric, validate=NULL, blocks=c("bp"))
-p <- new_entity(schema = schema, entity_type = "entity")
+schema <- list(
+  battery_pct = list(type = "continuous", default = 100, coerce = as.numeric),
+  payload_kg = list(type = "continuous", default = 0, coerce = as.numeric),
+  sbp = list(type="continuous", default=120, coerce=as.numeric, validate=NULL, blocks=c("bp")),
+  dbp = list(type="continuous", default=80, coerce=as.numeric, validate=NULL, blocks=c("bp"))
+)
+p <- Entity$new(schema = schema, entity_type = "entity")
 update_block(p, "bp", c(sbp=125, dbp=87))
 }

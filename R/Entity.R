@@ -26,13 +26,34 @@ Entity <- R6::R6Class(
                           id = NULL,
     meta = NULL,
 
-    initialize = function(init,
-                          schema = default_entity_schema(),
+    initialize = function(init = list(),
+                          schema,
                           derived_vars = NULL,
                           id = NULL,
                           entity_type = NULL,
                           time0 = 0,
                           event_type0 = "init") {
+
+      if (missing(schema) || is.null(schema)) {
+        stop("schema is required; define an explicit state schema when constructing Entity.", call. = FALSE)
+      }
+
+      # Accept common row-like inputs:
+      # - named list (preferred)
+      # - named atomic vector
+      # - 1-row data.frame
+      if (is.data.frame(init)) {
+        if (nrow(init) != 1L) stop("If init is a data.frame it must have exactly one row.", call. = FALSE)
+        init <- as.list(init[1, , drop = FALSE])
+      } else if (!is.list(init) && !is.null(init)) {
+        if (is.atomic(init) && !is.null(names(init))) {
+          init <- as.list(init)
+        } else {
+          stop("init must be a named list, a named atomic vector, a 1-row data.frame, or NULL.", call. = FALSE)
+        }
+      }
+
+      if (is.null(init)) init <- list()
 
       schema <- .validate_schema(schema)
       self$schema <- schema

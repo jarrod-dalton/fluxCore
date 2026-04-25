@@ -7,7 +7,7 @@ stores current state, event history, derived-variable registrations, and metadat
 such as \code{id} and optional \code{meta$entity_type}.
 }
 \details{
-\code{Entity} is typically created via \code{\link{new_entity}}, which applies schema
+\code{Entity} is created via \code{Entity$new(...)}, which applies schema
 validation/coercion and initializes the baseline event at \code{time0}.
 
 Common public methods include:

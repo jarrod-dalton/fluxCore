@@ -41,7 +41,7 @@ test_that("Engine run returns events and entity; time is non-decreasing", {
   schema <- default_entity_schema()
   schema$age <- list(type = "continuous", default = 40, coerce = as.numeric)
   schema$miles_to_work <- list(type = "continuous", default = 10, coerce = as.numeric)
-  eng <- Engine$new(provider = PackageProvider$new(), model_spec = list(name = "default"))
+  eng <- Engine$new(provider = test_package_provider(), model_spec = list(name = "default"))
 
   p <- Entity$new(
     init = list(age = 50, miles_to_work = 10),
@@ -89,7 +89,7 @@ test_that("run_cohort produces index with entity_id, param_draw_id, sim_id and c
   schema <- default_entity_schema()
   schema$age <- list(type = "continuous", default = 40, coerce = as.numeric)
   schema$miles_to_work <- list(type = "continuous", default = 10, coerce = as.numeric)
-  eng <- Engine$new(provider = PackageProvider$new(), model_spec = list(name = "default"))
+  eng <- Engine$new(provider = test_package_provider(), model_spec = list(name = "default"))
 
   entities <- lapply(1:3, function(i) {
     Entity$new(init = list(age = 40 + i, miles_to_work = 8),

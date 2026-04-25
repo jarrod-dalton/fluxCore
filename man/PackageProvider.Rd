@@ -6,12 +6,27 @@
 }
 \description{
 Loads a bundle from in-package functions/objects. Use \code{model_spec$name} to select
-among multiple bundle builders. By default, \code{"default"} maps to \code{\link[=default_model_bundle]{default_model_bundle()}}.
+among multiple bundle builders.
 }
 \examples{
 library(fluxCore)
-prov <- PackageProvider$new()
-bundle <- prov$load(list(name = "default"))
+prov <- PackageProvider$new(
+  registry = list(
+    delivery = function() {
+      list(
+        time_spec = time_spec(unit = "hours"),
+        event_catalog = c("dispatch_check", "end_shift"),
+        terminal_events = "end_shift",
+        propose_events = function(entity, ctx = NULL, process_ids = NULL, current_proposals = NULL) {
+          list(dispatch = list(time_next = entity$last_time + 1, event_type = "dispatch_check"))
+        },
+        transition = function(entity, event, ctx = NULL) list(),
+        stop = function(entity, event, ctx = NULL) FALSE
+      )
+    }
+  )
+)
+bundle <- prov$load(list(name = "delivery"))
 names(bundle)
 
 }

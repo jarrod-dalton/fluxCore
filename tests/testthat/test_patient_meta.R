@@ -1,8 +1,8 @@
 test_that("Entity has a meta slot for bundle bookkeeping", {
-  schema <- fluxCore::default_entity_schema()
+  schema <- default_entity_schema()
   schema$x <- list(type = "continuous", default = 1, coerce = as.numeric)
 
-  p <- fluxCore::new_entity(init = list(x = 2), schema = schema, time0 = 0)
+  p <- fluxCore::Entity$new(init = list(x = 2), schema = schema, time0 = 0)
   expect_true(is.list(p$meta))
   expect_length(p$meta, 0)
 
@@ -19,10 +19,10 @@ test_that("Entity has a meta slot for bundle bookkeeping", {
   expect_false("meta" %in% names(st))
 })
 
-test_that("new_entity can attach entity_type metadata", {
-  p <- fluxCore::new_entity(
+test_that("Entity$new can attach entity_type metadata", {
+  p <- fluxCore::Entity$new(
     init = list(),
-    schema = fluxCore::default_entity_schema(),
+    schema = default_entity_schema(),
     entity_type = "entity"
   )
   expect_identical(p$meta$entity_type, "entity")

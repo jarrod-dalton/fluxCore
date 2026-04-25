@@ -27,10 +27,10 @@ If you can describe your model as “a sequence of events over time that change 
 An object that holds (1) the current values of state variables and (2) a record of events over time.
 
 **State**  
-The set of variables that describe the entity *right now* and can influence what happens next (age, biomarker level, treatment status, comorbidity flags, etc.).
+The set of variables that describe the entity *right now* and can influence what happens next (route zone, battery level, payload, dispatch mode, etc.).
 
 **Event**  
-Something that occurs at a particular time and may change the entity state (clinic visit, adverse event, hospitalization, death, etc.).
+Something that occurs at a particular time and may change the entity state (dispatch check, delivery completion, shift end, maintenance event, etc.).
 
 **Event time**  
 A numeric time value on a single global time axis shared across processes.
@@ -38,12 +38,12 @@ A numeric time value on a single global time axis shared across processes.
 The Engine treats time as *unitless* math, but **your model should declare a unit** (e.g., days, months, years) so rates, cadences, and derived-variable lookbacks are interpretable and consistent.
 
 **Event type**  
-A label for what kind of event occurred (e.g., `"visit"`, `"AE_Y"`, `"hospital_admit"`, `"death"`).
+A label for what kind of event occurred (e.g., `"dispatch_check"`, `"delivery_completed"`, `"end_shift"`).
 
 **State update (patch)**  
 A named list of only the variables that change at an event. Variables not in the patch are unchanged.
 
-Example patch: `list(bmi = 29.1, tx_on = 1L)`
+Example patch: `list(battery_pct = 82, payload_kg = 3.1)`
 
 **Observation (optional)**  
 Information you want to record for analysis/reporting that does *not* affect future events (cost, utility, “was this an ED visit?”, etc.). Observations are separate from state updates on purpose.
@@ -70,7 +70,7 @@ A single simulation run repeatedly does the following:
    If you want to log costs or other outputs, compute and store them here.
 
 5. **Stop or repeat**  
-   Stop if the model says the simulation is finished (often at death), otherwise go back to step 1.
+   Stop if the model says the simulation is finished (for example, shift end), otherwise go back to step 1.
 
 That is the full conceptual loop.
 
@@ -124,31 +124,65 @@ Bundles that do not need context can ignore it.
 
 ## Minimal example (single entity)
 
-This uses the small toy bundle that ships with the package so you can see the mechanics.
+This uses a small urban delivery toy bundle so the example is self-contained.
 
 ```r
 library(fluxCore)
 set.seed(1)
 
+schema <- list(
+  route_zone = list(
+    type = "categorical",
+    levels = c("urban", "suburban", "rural"),
+    default = "urban",
+    coerce = as.character
+  ),
+  battery_pct = list(type = "continuous", default = 100, coerce = as.numeric),
+  payload_kg = list(type = "continuous", default = 0, coerce = as.numeric)
+)
+
+toy_bundle <- list(
+  time_spec = time_spec(unit = "hours"),
+  event_catalog = c("dispatch_check", "delivery_completed", "end_shift"),
+  terminal_events = "end_shift",
+  propose_events = function(entity, ctx = NULL, process_ids = NULL, current_proposals = NULL) {
+    list(
+      dispatch = list(time_next = entity$last_time + stats::rexp(1, rate = 0.8), event_type = "dispatch_check"),
+      delivery = list(time_next = entity$last_time + stats::rexp(1, rate = 1.2), event_type = "delivery_completed"),
+      end_shift = list(time_next = 8, event_type = "end_shift")
+    )
+  },
+  transition = function(entity, event, ctx = NULL) {
+    if (identical(event$event_type, "dispatch_check")) {
+      return(list(payload_kg = max(0, stats::rlnorm(1, log(2), 0.3))))
+    }
+    if (identical(event$event_type, "delivery_completed")) {
+      s <- entity$as_list(c("battery_pct", "payload_kg"))
+      return(list(
+        battery_pct = max(0, as.numeric(s$battery_pct) - stats::rexp(1, rate = 1 / 4)),
+        payload_kg = max(0, as.numeric(s$payload_kg) - stats::rlnorm(1, log(1), 0.4))
+      ))
+    }
+    list()
+  },
+  stop = function(entity, event, ctx = NULL) identical(event$event_type, "end_shift")
+)
+
 p <- Entity$new(
-  init   = list(age = 55, miles_to_work = 10),
-  schema = within(default_entity_schema(), {
-    age <- list(type = "continuous", default = 50, coerce = as.numeric)
-    miles_to_work <- list(type = "continuous", default = 8, coerce = as.numeric)
-  }),
-  entity_type = "entity",
+  init   = list(route_zone = "urban", battery_pct = 100, payload_kg = 0),
+  schema = schema,
+  entity_type = "courier",
   time0  = 0
 )
 
 eng <- Engine$new(
-  provider   = PackageProvider$new(),
-  model_spec = list(name = "default")
+  provider = list(load = function(model_spec = NULL, ...) toy_bundle)
 )
 
 out <- eng$run(p, max_events = 50)
 
 tail(out$events, 5)
-out$entity$state(c("age", "miles_to_work"))
+out$entity$state(c("route_zone", "battery_pct", "payload_kg"))
 ```
 
 
@@ -157,16 +191,18 @@ out$entity$state(c("age", "miles_to_work"))
 
 ## Schema blocks and vectorized updates
 
-For convenience when building multivariate models (e.g., SBP/DBP, CBC/CMP panels),
+For convenience when building multivariate models (e.g., battery/payload telemetry),
 schema entries may include an optional `blocks` field (many-to-many). This lets you
 refer to groups of variables by name:
 
 ```r
-schema <- default_entity_schema()
-# Example: schema$sbp$blocks <- c("bp")
-#          schema$dbp$blocks <- c("bp")
+schema <- list(
+  battery_pct = list(type = "continuous", default = 100, coerce = as.numeric, blocks = c("vehicle_status", "telemetry")),
+  payload_kg = list(type = "continuous", default = 0, coerce = as.numeric, blocks = "vehicle_status")
+)
+# battery_pct appears in two blocks; payload_kg appears in one.
 
-bp_vars <- block_vars(schema, "bp")   # c("sbp", "dbp")
+vehicle_vars <- block_vars(schema, "vehicle_status")   # c("battery_pct", "payload_kg")
 ```
 
 Model `transition()` functions can generate vector-valued predictions and expand
@@ -174,9 +210,9 @@ them into per-variable updates with helpers:
 
 ```r
 transition <- function(entity, event, ctx) {
-  if (event$event_type != "bp_check") return(NULL)
-  draw <- c(120, 78)
-  set_vars(bp_vars, draw)
+  if (event$event_type != "dispatch_check") return(NULL)
+  draw <- c(82, 3.1) # battery_pct, payload_kg
+  set_vars(vehicle_vars, draw)
 }
 ```
 ---
@@ -189,15 +225,27 @@ Use `run_cohort()` to run a list of entities. You can also run in parallel acros
 library(fluxCore)
 set.seed(1)
 
-eng <- Engine$new(provider = PackageProvider$new(), model_spec = list(name = "default"))
+schema <- list(
+  route_zone = list(type = "categorical", levels = c("urban", "suburban", "rural"), default = "urban", coerce = as.character),
+  battery_pct = list(type = "continuous", default = 100, coerce = as.numeric),
+  payload_kg = list(type = "continuous", default = 0, coerce = as.numeric)
+)
 
 entities <- lapply(1:10, function(i) {
-  Entity$new(init = list(age = 40 + i, miles_to_work = 8),
-              schema = default_entity_schema(),
-              entity_type = "entity",
-              time0 = 0)
+  Entity$new(
+    init = list(
+      route_zone = c("urban", "suburban", "rural")[((i - 1) %% 3) + 1],
+      battery_pct = 100 - i,
+      payload_kg = i %% 4
+    ),
+    schema = schema,
+    entity_type = "courier",
+    time0 = 0
+  )
 })
 names(entities) <- paste0("id", seq_along(entities))
+
+eng <- Engine$new(provider = list(load = function(model_spec = NULL, ...) toy_bundle))
 
 batch <- run_cohort(
   engine = eng,
@@ -205,8 +253,7 @@ batch <- run_cohort(
   n_param_draws = 1,
   n_sims = 1,
   max_events = 100,
-  backend = "cluster",
-  n_workers = 4,
+  backend = "none",
   seed = 123
 )
 
@@ -276,7 +323,6 @@ The core package does not force any one approach. The example model package demo
 - `R/engine.R`  : running a single entity simulation
 - `R/batch.R`   : running many entities (serial/parallel; draws/sims)
 - `R/compose.R` : layering interventions/policies
-- `R/bundles.R` : an example bundle (toy dynamics)
 - `R/providers.R`: loading bundles from package/files/MLflow (stub)
 
 ---

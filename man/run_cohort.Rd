@@ -78,17 +78,35 @@ uncertainty can ignore \code{ctx$params} (or simply have no entry in \code{ctx$p
 library(fluxCore)
 set.seed(1)
 
-eng <- Engine$new(provider = PackageProvider$new(), model_spec = list(name = "default"))
+schema <- list(
+  route_zone = list(
+    type = "categorical",
+    levels = c("urban", "suburban", "rural"),
+    default = "urban",
+    coerce = as.character
+  ),
+  battery_pct = list(type = "continuous", default = 100, coerce = as.numeric)
+)
 
-schema <- default_entity_schema()
-schema$age <- list(type = "continuous", default = 50, coerce = as.numeric)
-schema$miles_to_work <- list(type = "continuous", default = 10, coerce = as.numeric)
+toy_bundle <- list(
+  time_spec = time_spec(unit = "hours"),
+  propose_events = function(entity, ctx = NULL, process_ids = NULL, current_proposals = NULL) {
+    list(dispatch = list(time_next = entity$last_time + 1, event_type = "dispatch_check"))
+  },
+  transition = function(entity, event, ctx = NULL) {
+    if (!identical(event$event_type, "dispatch_check")) return(list())
+    list(battery_pct = max(0, as.numeric(entity$as_list("battery_pct")$battery_pct) - 5))
+  },
+  stop = function(entity, event, ctx = NULL) entity$last_time >= 4
+)
+
+eng <- Engine$new(provider = list(load = function(model_spec, ...) toy_bundle))
 
 entities <- lapply(1:3, function(i) {
   Entity$new(
-    init = list(alive = TRUE, age = 50 + i, miles_to_work = 10),
+    init = list(route_zone = "urban", battery_pct = 100 - i),
     schema = schema,
-    entity_type = "entity",
+    entity_type = "courier",
     time0 = 0
   )
 })

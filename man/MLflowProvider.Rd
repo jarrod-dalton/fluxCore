@@ -20,7 +20,18 @@ with \code{cov(beta)}).
 \examples{
 library(fluxCore)
 prov <- MLflowProvider$new(
-  builder_fn = function(model_uri, artifacts = NULL, model_spec = NULL) default_model_bundle()
+  builder_fn = function(model_uri, artifacts = NULL, model_spec = NULL) {
+    list(
+      time_spec = time_spec(unit = "hours"),
+      event_catalog = c("dispatch_check", "end_shift"),
+      terminal_events = "end_shift",
+      propose_events = function(entity, ctx = NULL, process_ids = NULL, current_proposals = NULL) {
+        list(dispatch = list(time_next = entity$last_time + 1, event_type = "dispatch_check"))
+      },
+      transition = function(entity, event, ctx = NULL) list(),
+      stop = function(entity, event, ctx = NULL) FALSE
+    )
+  }
 )
 bundle <- prov$load(list(model_uri = "models:/my_model@champion"))
 

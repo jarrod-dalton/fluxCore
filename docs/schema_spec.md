@@ -24,7 +24,24 @@ Each `<var_descriptor>` is itself a named list with a small vocabulary of recogn
 
 ## 2. Variable descriptor fields
 
-### 2.1 Required field
+### 2.1 Required fields
+
+#### `type`
+**Type:** character scalar  
+**Meaning:** Variable type label used by downstream summaries/validators.
+Must be one of:
+
+- `binary`
+- `categorical`
+- `ordinal`
+- `continuous`
+- `count`
+
+Example:
+
+```r
+alive = list(type = "binary", default = TRUE, levels = c("0", "1"))
+```
 
 #### `default`
 **Type:** scalar (length 1)  
@@ -42,13 +59,31 @@ Notes:
 
 ---
 
+#### `levels`
+**Type:** character vector  
+**Meaning:** Allowed level labels for discrete state variables.
+
+Required when `type` is one of `binary`, `categorical`, or `ordinal`.
+
+Example:
+
+```r
+route_zone = list(
+  type = "categorical",
+  levels = c("urban", "suburban", "rural"),
+  default = "urban"
+)
+```
+
+---
+
 ### 2.2 Optional fields (recognized by fluxCore)
 
 #### `coerce`
 **Type:** function  
 **Signature:** `function(x) -> scalar`  
 **Meaning:** Applied to values entering the entity state, including:
-- initialization via `new_entity(init = ...)`
+- initialization via `Entity$new(init = ..., schema = ...)`
 - all subsequent updates returned by `transition()`
 
 Example:
@@ -90,7 +125,7 @@ Notes:
 #### `required`
 **Type:** logical scalar  
 **Default:** `FALSE`  
-**Meaning:** If `TRUE`, the variable must be supplied in `init` at entity creation, otherwise `new_entity()` errors.
+**Meaning:** If `TRUE`, the variable must be supplied in `init` at entity creation, otherwise `Entity$new()` errors.
 
 Example:
 
@@ -122,6 +157,9 @@ dbp = list(default = 80,  coerce = as.numeric, blocks = "bp")
 
 Notes:
 - A variable may belong to **multiple blocks**:
+
+  (Example intuition: this is like one telemetry variable being reused by two
+  operational groupings. In healthcare data, sodium often appears in both BMP and CMP panels.)
 
 ```r
 sodium = list(default = 140, coerce = as.numeric, blocks = c("bmp", "cmp"))
@@ -194,14 +232,14 @@ bmp_order_time = list(
 The schema does not:
 - encode derived variables (those are defined separately)
 - encode event types or processes
-- encode time units (use `ctx$time$unit` for that)
+- encode time units (declare canonical model time via bundle `time_spec(...)`)
 - provide ordering-based mapping for vectorized models (use named outputs + blocks)
 
 ---
 
 ## 7. Practical guidance
 
-- Prefer explicit `coerce` and `validate` for variables that matter clinically.
+- Prefer explicit `coerce` and `validate` for variables that matter in your domain.
 - Use `required = TRUE` for variables your model cannot sensibly run without.
 - Use `blocks` to support panel updates with `update_block(entity, block, values)` and `combine_updates(...)`.
 - Keep core state scalar. If you need longitudinal arrays, represent them as events/observations instead.

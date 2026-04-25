@@ -5,9 +5,9 @@ PackageProvider <- R6::R6Class(
   public = list(
     registry = NULL,
 
-    initialize = function(registry = NULL) {
-      if (is.null(registry)) {
-        registry <- list(default = default_model_bundle)
+    initialize = function(registry) {
+      if (missing(registry) || is.null(registry)) {
+        stop("registry is required; supply a named list of bundle builder functions.")
       }
       if (!is.list(registry) || is.null(names(registry)) || any(names(registry) == "")) {
         stop("registry must be a named list of bundle builder functions.")
@@ -19,10 +19,21 @@ PackageProvider <- R6::R6Class(
       invisible(self)
     },
 
-    load = function(model_spec = list(name = "default"), ...) {
+    load = function(model_spec = list(), ...) {
       if (is.null(model_spec) || !is.list(model_spec)) stop("model_spec must be a list.")
       name <- model_spec$name
-      if (is.null(name)) name <- "default"
+      if (is.null(name)) {
+        if (length(self$registry) == 1L) {
+          name <- names(self$registry)[1]
+        } else {
+          stop(
+            sprintf(
+              "model_spec$name is required when registry has multiple bundles. Available: %s",
+              paste(names(self$registry), collapse = ", ")
+            )
+          )
+        }
+      }
       name <- as.character(name)
 
       if (!name %in% names(self$registry)) {
@@ -35,7 +46,7 @@ PackageProvider <- R6::R6Class(
       bundle
     },
 
-    sample_param_draws = function(model_spec = list(name = "default"), n_param_draws = 1L, ...) {
+    sample_param_draws = function(model_spec = list(), n_param_draws = 1L, ...) {
       # Optional hook for global parameter draws.
       # Default behavior:
       # - if the bundle builder returns a bundle with $sample_params(D), use it
