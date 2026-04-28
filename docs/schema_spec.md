@@ -31,16 +31,31 @@ Each `<var_descriptor>` is itself a named list with a small vocabulary of recogn
 **Meaning:** Variable type label used by downstream summaries/validators.
 Must be one of:
 
+- `logical`
 - `binary`
+- `integer`
+- `count`
+- `nonnegative_integer`
+- `positive_integer`
+- `numeric`
+- `nonnegative_numeric`
+- `positive_numeric`
+- `probability`
 - `categorical`
 - `ordinal`
-- `continuous`
-- `count`
+- `string`
+- `nonempty_string`
+- `id_string`
+
+For backward compatibility, `continuous` is accepted and aliased to `numeric`.
 
 Example:
 
 ```r
 alive = list(type = "binary", default = TRUE, levels = c("0", "1"))
+age = list(type = "nonnegative_integer", default = 0L)
+risk = list(type = "probability", default = 0.5)
+name = list(type = "id_string", default = "entity1")
 ```
 
 #### `default`
@@ -119,6 +134,110 @@ age = list(
 Notes:
 - Validation should be fast and deterministic.
 - Validation should return a single TRUE/FALSE value, not a vector.
+
+#### `allow_na`
+**Type:** logical scalar  
+**Default:** `FALSE`  
+**Meaning:** If `TRUE`, missing values (`NA`) are accepted by built-in schema validation logic.
+
+Example:
+
+```r
+bmp_order_time = list(
+  default = NA_real_,
+  coerce = as.numeric,
+  allow_na = TRUE,
+  validate = function(x) length(x) == 1L && (is.na(x) || is.finite(x))
+)
+```
+
+#### `min` / `max`
+**Type:** numeric scalar  
+**Meaning:** Inclusive bounds enforced for numeric types after coercion.
+
+Supported for types: `integer`, `count`, `nonnegative_integer`, `positive_integer`, `numeric`, `nonnegative_numeric`, `positive_numeric`, `probability`.
+
+Example:
+
+```r
+age = list(
+  type = "nonnegative_integer",
+  default = 40L,
+  coerce = as.integer,
+  min = 0L,
+  max = 120L
+)
+risk = list(
+  type = "probability",
+  default = 0.5,
+  coerce = as.numeric,
+  min = 0,
+  max = 1
+)
+```
+
+#### `levels`
+**Type:** character vector  
+**Meaning:** Declares allowed values for discrete variables. For `binary`, `categorical`, and `ordinal` types, values are automatically validated against these levels when inserted into state.
+
+Example:
+
+```r
+route_zone = list(
+  type = "categorical",
+  levels = c("urban", "suburban", "rural"),
+  default = "urban",
+  coerce = as.character,
+  allow_na = FALSE
+)
+```
+
+#### Built-in type validation
+
+When no explicit `validate` function is provided, `fluxCore` applies built-in validation based on the `type` field:
+
+- `logical`: Must be `TRUE` or `FALSE`.
+- `binary`: Must be logical or match declared `levels`.
+- `integer`: Must be an integer (whole number).
+- `count`: Must be a non-negative integer.
+- `nonnegative_integer`: Must be a non-negative integer.
+- `positive_integer`: Must be a positive integer (>0).
+- `numeric`: Must be numeric.
+- `nonnegative_numeric`: Must be non-negative numeric.
+- `positive_numeric`: Must be positive numeric (>0).
+- `probability`: Must be numeric in [0,1].
+- `categorical`: Must match declared `levels`.
+- `ordinal`: Must match declared `levels`.
+- `string`: Must be character.
+- `nonempty_string`: Must be non-empty character.
+- `id_string`: Must be non-empty character with only alphanumeric and underscore characters.
+
+Example:
+
+```r
+age = list(type = "nonnegative_integer", default = 40L)
+# Automatically validates >=0
+risk = list(type = "probability", default = 0.5)
+# Automatically validates 0 <= x <= 1
+```
+
+#### Validator presets
+`fluxCore` provides helper constructors for common validation patterns:
+- `schema_validator_numeric(min, max, allow_na = FALSE)`
+- `schema_validator_integer(min, max, allow_na = FALSE)`
+- `schema_validator_levels(levels, allow_na = FALSE)`
+
+Example:
+
+```r
+statin_intensity = list(
+  type = "categorical",
+  levels = c("none", "moderate", "high"),
+  default = "none",
+  coerce = as.character,
+  validate = schema_validator_levels(c("none", "moderate", "high"), allow_na = FALSE)
+)
+```
 
 ---
 

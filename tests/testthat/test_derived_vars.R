@@ -73,9 +73,9 @@ test_that("lag_of extracts k-th prior value from sparse variable history", {
 
 test_that("derive(declare_variable(), fn='count') counts non-missing values (does not count init defaults)", {
   schema <- default_entity_schema()
-  schema$age <- list(type = "continuous", default = 40, coerce = as.numeric)
-  schema$miles_to_work <- list(type = "continuous", default = 10, coerce = as.numeric)
-  schema$sbp <- list(type = "continuous", default = NA_real_, coerce = as.numeric)
+  schema$age <- list(type = "numeric", default = 40, coerce = as.numeric)
+  schema$miles_to_work <- list(type = "numeric", default = 10, coerce = as.numeric)
+  schema$sbp <- list(type = "numeric", default = NA_real_, coerce = as.numeric, allow_na = TRUE)
 
   p <- Entity$new(
     init = list(age = 50, miles_to_work = 10),

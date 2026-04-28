@@ -21,16 +21,38 @@
   for (k in names(schema)) {
     spec <- schema[[k]]
     if (!is.list(spec)) stop(sprintf("schema[['%s']] must be a list.", k))
-    if (is.null(spec$default)) stop(sprintf("schema[['%s']] must define $default.", k))
-    # coerce is optional; default is identity
-    if (is.null(spec$coerce)) {
-      spec$coerce <- function(x) x
-    }
-    if (!is.function(spec$coerce)) {
+    # coerce is optional; default based on type
+    if (!is.null(spec$coerce) && !is.function(spec$coerce)) {
       stop(sprintf("schema[['%s']] $coerce must be a function or NULL.", k))
     }
     if (!is.null(spec$validate) && !is.function(spec$validate)) {
       stop(sprintf("schema[['%s']] $validate must be a function or NULL.", k))
+    }
+
+    if (is.null(spec$required)) {
+      spec$required <- FALSE
+    } else if (!is.logical(spec$required) || length(spec$required) != 1L || is.na(spec$required)) {
+      stop(sprintf("schema[['%s']] $required must be a single TRUE/FALSE value.", k))
+    }
+
+    if (is.null(spec$allow_na)) {
+      spec$allow_na <- FALSE
+    } else if (!is.logical(spec$allow_na) || length(spec$allow_na) != 1L || is.na(spec$allow_na)) {
+      stop(sprintf("schema[['%s']] $allow_na must be a single TRUE/FALSE value.", k))
+    }
+
+    if (!is.null(spec$min)) {
+      if (!is.numeric(spec$min) || length(spec$min) != 1L || is.na(spec$min)) {
+        stop(sprintf("schema[['%s']] $min must be a single finite numeric value.", k))
+      }
+    }
+    if (!is.null(spec$max)) {
+      if (!is.numeric(spec$max) || length(spec$max) != 1L || is.na(spec$max)) {
+        stop(sprintf("schema[['%s']] $max must be a single finite numeric value.", k))
+      }
+    }
+    if (!is.null(spec$min) && !is.null(spec$max) && spec$max < spec$min) {
+      stop(sprintf("schema[['%s']] $max must be greater than or equal to $min.", k))
     }
 
     # Declared variable type metadata (used by downstream summary/validation code).
@@ -38,11 +60,67 @@
       stop(sprintf("schema[['%s']] must define $type.", k))
     }
     t <- tolower(as.character(spec$type)[1])
-    ok <- c("binary","categorical","ordinal","continuous","count")
+    # Alias "continuous" to "numeric" for backward compatibility
+    if (t == "continuous") t <- "numeric"
+    ok <- c("logical", "binary", "integer", "count", "nonnegative_integer", "positive_integer", 
+            "numeric", "nonnegative_numeric", "positive_numeric", "probability", 
+            "categorical", "ordinal", "string", "nonempty_string", "id_string")
     if (!(t %in% ok)) {
       stop(sprintf("schema[['%s']] $type must be one of: %s", k, paste(ok, collapse = ", ")))
     }
     spec$type <- t
+
+    # Set default coerce based on type if not provided
+    if (is.null(spec$coerce)) {
+      spec$coerce <- switch(t,
+        logical = as.logical,
+        binary = as.logical,
+        integer = as.integer,
+        count = as.integer,
+        nonnegative_integer = as.integer,
+        positive_integer = as.integer,
+        numeric = as.numeric,
+        nonnegative_numeric = as.numeric,
+        positive_numeric = as.numeric,
+        probability = as.numeric,
+        categorical = as.character,
+        ordinal = as.character,
+        string = as.character,
+        nonempty_string = as.character,
+        id_string = as.character,
+        function(x) x  # fallback
+      )
+    }
+
+    # Set default value based on type if not provided
+    if (is.null(spec$default)) {
+      spec$default <- switch(t,
+        logical = NA,
+        binary = NA,
+        integer = NA_integer_,
+        count = NA_integer_,
+        nonnegative_integer = NA_integer_,
+        positive_integer = NA_integer_,
+        numeric = NA_real_,
+        nonnegative_numeric = NA_real_,
+        positive_numeric = NA_real_,
+        probability = NA_real_,
+        categorical = NA_character_,
+        ordinal = NA_character_,
+        string = NA_character_,
+        nonempty_string = NA_character_,
+        id_string = NA_character_,
+        NA  # fallback
+      )
+    }
+
+    if (!is.null(spec$min) || !is.null(spec$max)) {
+      numeric_types <- c("integer", "count", "nonnegative_integer", "positive_integer", 
+                         "numeric", "nonnegative_numeric", "positive_numeric", "probability")
+      if (!t %in% numeric_types) {
+        stop(sprintf("schema[['%s']] $min/$max are only supported for numeric types.", k))
+      }
+    }
 
     # Support / level metadata
     if (t %in% c("binary","categorical","ordinal")) {
@@ -56,7 +134,7 @@
         stop(sprintf("schema[['%s']] $levels must not contain duplicates.", k))
       }
     } else {
-      # count/continuous: levels may be provided (e.g., for display bins), but are optional
+      # Other types: levels may be provided (e.g., for display bins), but are optional
       if (!is.null(spec$levels)) {
         if (!is.character(spec$levels) || any(is.na(spec$levels)) || any(spec$levels == "")) {
           stop(sprintf("schema[['%s']] $levels must be a character vector with no empty values.", k))
@@ -70,22 +148,131 @@
   schema
 }
 
+.validate_state_value <- function(spec, val, var_name, phase = "value") {
+  if (length(val) != 1L) {
+    stop(sprintf("Value for '%s' must be a scalar.", var_name), call. = FALSE)
+  }
+
+  if (is.na(val)) {
+    if (!isTRUE(spec$allow_na)) {
+      stop(sprintf("Value for '%s' must not be missing.", var_name), call. = FALSE)
+    }
+  } else {
+    t <- spec$type
+    if (t == "logical") {
+      if (!is.logical(val)) {
+        stop(sprintf("Value for '%s' must be logical.", var_name), call. = FALSE)
+      }
+    } else if (t == "binary") {
+      if (!is.logical(val) && !(is.numeric(val) && val %in% c(0, 1)) && !as.character(val) %in% spec$levels) {
+        stop(
+          sprintf(
+            "Value for '%s' must be logical or one of: %s",
+            var_name,
+            paste(spec$levels, collapse = ", ")
+          ),
+          call. = FALSE
+        )
+      }
+    } else if (t %in% c("categorical", "ordinal")) {
+      if (!as.character(val) %in% spec$levels) {
+        stop(
+          sprintf(
+            "Value for '%s' must be one of: %s",
+            var_name,
+            paste(spec$levels, collapse = ", ")
+          ),
+          call. = FALSE
+        )
+      }
+    } else if (t == "integer") {
+      if (!is.integer(val) && !(is.numeric(val) && val == as.integer(val))) {
+        stop(sprintf("Value for '%s' must be an integer.", var_name), call. = FALSE)
+      }
+    } else if (t == "count") {
+      if (!is.integer(val) && !(is.numeric(val) && val == as.integer(val)) || val < 0) {
+        stop(sprintf("Value for '%s' must be a non-negative integer.", var_name), call. = FALSE)
+      }
+    } else if (t == "nonnegative_integer") {
+      if (!is.integer(val) && !(is.numeric(val) && val == as.integer(val)) || val < 0) {
+        stop(sprintf("Value for '%s' must be a non-negative integer.", var_name), call. = FALSE)
+      }
+    } else if (t == "positive_integer") {
+      if (!is.integer(val) && !(is.numeric(val) && val == as.integer(val)) || val <= 0) {
+        stop(sprintf("Value for '%s' must be a positive integer.", var_name), call. = FALSE)
+      }
+    } else if (t == "numeric") {
+      if (!is.numeric(val)) {
+        stop(sprintf("Value for '%s' must be numeric.", var_name), call. = FALSE)
+      }
+    } else if (t == "nonnegative_numeric") {
+      if (!is.numeric(val) || val < 0) {
+        stop(sprintf("Value for '%s' must be a non-negative numeric.", var_name), call. = FALSE)
+      }
+    } else if (t == "positive_numeric") {
+      if (!is.numeric(val) || val <= 0) {
+        stop(sprintf("Value for '%s' must be a positive numeric.", var_name), call. = FALSE)
+      }
+    } else if (t == "probability") {
+      if (!is.numeric(val) || val < 0 || val > 1) {
+        stop(sprintf("Value for '%s' must be a probability (0 <= x <= 1).", var_name), call. = FALSE)
+      }
+    } else if (t == "string") {
+      if (!is.character(val)) {
+        stop(sprintf("Value for '%s' must be a character string.", var_name), call. = FALSE)
+      }
+    } else if (t == "nonempty_string") {
+      if (!is.character(val) || nchar(val) == 0) {
+        stop(sprintf("Value for '%s' must be a non-empty character string.", var_name), call. = FALSE)
+      }
+    } else if (t == "id_string") {
+      if (!is.character(val) || nchar(val) == 0 || grepl("[^a-zA-Z0-9_]", val)) {
+        stop(sprintf("Value for '%s' must be a valid identifier string (alphanumeric + underscore, non-empty).", var_name), call. = FALSE)
+      }
+    }
+    
+    # Additional min/max validation for numeric types
+    if (!is.null(spec$min) || !is.null(spec$max)) {
+      if (!is.numeric(val)) {
+        stop(sprintf("Value for '%s' must be numeric for min/max validation.", var_name), call. = FALSE)
+      }
+      if (!is.null(spec$min) && val < spec$min) {
+        stop(sprintf("Value for '%s' must be >= %s.", var_name, spec$min), call. = FALSE)
+      }
+      if (!is.null(spec$max) && val > spec$max) {
+        stop(sprintf("Value for '%s' must be <= %s.", var_name, spec$max), call. = FALSE)
+      }
+    }
+  }
+
+  if (!is.null(spec$validate) && !isTRUE(spec$validate(val))) {
+    stop(sprintf("Invalid %s value for '%s'.", phase, var_name), call. = FALSE)
+  }
+
+  invisible(TRUE)
+}
+
 .init_state_from_schema <- function(schema, init) {
   init <- if (is.null(init)) list() else init
   if (!is.list(init)) stop("init must be a list or NULL.")
-  if (!is.null(names(init)) && any(names(init) == "")) stop("init must be a *named* list or NULL.")
+  if (!is.null(names(init))) {
+    if (any(names(init) == "")) stop("init must be a *named* list or NULL.")
+    if (anyDuplicated(names(init))) stop("init must not contain duplicate names.")
+  }
 
   state <- vector("list", length(schema))
   names(state) <- names(schema)
 
   for (k in names(schema)) {
     spec <- schema[[k]]
-    val <- if (!is.null(names(init)) && k %in% names(init)) init[[k]] else spec$default
-    val <- spec$coerce(val)
-
-    if (!is.null(spec$validate) && !isTRUE(spec$validate(val))) {
-      stop(sprintf("Invalid initial value for '%s'.", k))
+    has_init <- !is.null(names(init)) && k %in% names(init)
+    if (!has_init && isTRUE(spec$required)) {
+      stop(sprintf("Missing required init state var '%s'.", k), call. = FALSE)
     }
+
+    val <- if (has_init) init[[k]] else spec$default
+    val <- spec$coerce(val)
+    .validate_state_value(spec, val, k, phase = "initial")
     state[[k]] <- val
   }
 
@@ -108,6 +295,7 @@
   if (!is.list(changes)) stop("changes must be a named list or NULL.")
   nms <- names(changes)
   if (is.null(nms) || any(nms == "")) stop("changes must be a *named* list or NULL.")
+  if (anyDuplicated(nms)) stop("changes must not contain duplicate names.")
 
   extras <- setdiff(nms, names(schema))
   if (length(extras) > 0) stop(sprintf("changes contained unknown state vars: %s", paste(extras, collapse = ", ")))
@@ -115,10 +303,7 @@
   for (k in nms) {
     spec <- schema[[k]]
     val <- spec$coerce(changes[[k]])
-
-    if (!is.null(spec$validate) && !isTRUE(spec$validate(val))) {
-      stop(sprintf("Invalid update for '%s' at j=%d.", k, j))
-    }
+    .validate_state_value(spec, val, k, phase = "update")
 
     current[[k]] <- val
     hist[[k]]$j <- c(hist[[k]]$j, j)
