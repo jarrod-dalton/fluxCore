@@ -1,3 +1,12 @@
+## fluxCore 1.10.0
+
+- **Expanded type system**: introduced 14 built-in variable types: `logical`, `binary`, `integer`, `count`, `nonnegative_integer`, `positive_integer`, `numeric`, `nonnegative_numeric`, `positive_numeric`, `probability`, `categorical`, `ordinal`, `string`, `nonempty_string`, `id_string`.
+- **Automatic type-specific defaults**: `default` and `coerce` fields are now optional in schema specifications; fluxCore applies appropriate defaults (e.g., `as.numeric` for numeric types, `NA_real_` for numeric defaults).
+- **New `set_schema()` helper**: simplified schema creation via named character vector of type mappings; reduces boilerplate for common use cases.
+- **Backward compatibility**: "continuous" type now aliases to "numeric" for existing code migration.
+- **Enhanced schema validation**: `.validate_schema()` now handles automatic defaults; stricter type checking and validation rules for new types.
+- **Updated documentation**: expanded `schema_spec.md` with complete type reference; tutorial examples showcase both manual and helper-function workflows.
+
 ## fluxCore 1.9.0
 
 - Removed implicit runtime defaults: deleted package-level `default_model_bundle()` and `default_entity_schema()` from runtime code.
