@@ -1,3 +1,9 @@
+## fluxCore 1.10.2
+
+- **`Engine$new(bundle = ...)` shortcut.** New `bundle` parameter to the `Engine` constructor accepts a `ModelBundle` directly, bypassing the `ModelProvider` machinery for in-memory / inline models. Equivalent to writing your own one-method provider, but without the boilerplate. The `provider = ...` path is unchanged and remains the right choice for packaged or pluggable models. Supplying both `bundle` and `provider` is an error.
+- Tutorial 01 (`tutorials/01_core_engine_scaffold.Rmd`) updated to use `Engine$new(bundle = toy_bundle)` directly; `ModelProvider` is now a forward-pointer aside rather than a required first-encounter concept. Vignette title renamed to "Engine and ModelBundle scaffold".
+- `man/Engine.Rd` updated with a Constructor section documenting the two construction paths.
+
 ## fluxCore 1.10.1
 
 - **Removed `id_string` type** (no deprecation alias). Use `nonempty_string` or a custom `validate` function for identifier columns; the supported type list is now 14 entries.

@@ -24,8 +24,27 @@ lookbacks), models must declare a canonical \code{bundle$time_spec} via
 \section{Fields}{
 
 \itemize{
-\item \code{provider}: a ModelProvider (e.g., \link{PackageProvider}, \link{FileProvider})
-\item \code{model_spec}: named list describing what to load
-\item \code{bundle}: the loaded ModelBundle (named list of functions)
+\item \code{provider}: a ModelProvider (e.g., \link{PackageProvider}, \link{FileProvider}).
+  May be \code{NULL} when the engine was constructed via the \code{bundle} shortcut.
+\item \code{model_spec}: named list describing what to load. \code{NULL} when constructed
+  via the \code{bundle} shortcut.
+\item \code{bundle}: the loaded ModelBundle (named list of functions).
 }
+}
+
+\section{Constructor}{
+\code{Engine$new(bundle = NULL, provider = NULL, model_spec = list(name = "default"), ...)}
+
+Two ways to wire a model:
+
+\itemize{
+\item \strong{Direct bundle (recommended for in-memory / inline models).} Pass
+  \code{bundle = my_bundle}. The engine validates the bundle and uses it as-is;
+  \code{provider} and \code{model_spec} are ignored and stored as \code{NULL}.
+\item \strong{Provider (for packaged or pluggable models).} Pass a
+  \code{ModelProvider} (e.g. \code{PackageProvider$new(registry = ...)}); the engine
+  calls \code{provider$load(model_spec, ...)} to obtain the bundle.
+}
+
+Supplying both \code{bundle} and \code{provider} is an error.
 }

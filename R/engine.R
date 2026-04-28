@@ -6,9 +6,24 @@ Engine <- R6::R6Class(
     bundle = NULL,
     time_spec = NULL,
 
-    initialize = function(provider = PackageProvider$new(),
+    initialize = function(bundle = NULL,
+                          provider = NULL,
                           model_spec = list(name = "default"),
                           ...) {
+      if (!is.null(bundle)) {
+        if (!is.null(provider)) {
+          stop("Engine$new(): supply either `bundle` or `provider`, not both.", call. = FALSE)
+        }
+        .validate_model_bundle(bundle)
+        self$provider <- NULL
+        self$model_spec <- NULL
+        self$bundle <- bundle
+        self$time_spec <- bundle$time_spec
+        return(invisible(self))
+      }
+
+      if (is.null(provider)) provider <- PackageProvider$new()
+
       self$provider <- provider
       self$model_spec <- model_spec
 
