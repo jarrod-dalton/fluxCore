@@ -70,8 +70,7 @@ test_that("new type presets enforce correct validation", {
     positive_num = list(type = "positive_numeric", default = 1.0, coerce = as.numeric, allow_na = TRUE),
     prob_var = list(type = "probability", default = 0.5, coerce = as.numeric, allow_na = TRUE),
     string_var = list(type = "string", default = "test", coerce = as.character, allow_na = TRUE),
-    nonempty_str = list(type = "nonempty_string", default = "test", coerce = as.character, allow_na = TRUE),
-    id_str = list(type = "id_string", default = "id1", coerce = as.character, allow_na = TRUE)
+    nonempty_str = list(type = "nonempty_string", default = "test", coerce = as.character, allow_na = TRUE)
   )
 
   expect_silent(schema_validate(schema))
@@ -89,8 +88,7 @@ test_that("new type presets enforce correct validation", {
     positive_num = 0.1,
     prob_var = 0.7,
     string_var = "hello",
-    nonempty_str = "world",
-    id_str = "valid_id"
+    nonempty_str = "world"
   ), schema = schema, time0 = 0)
 
   # Test invalid values
@@ -106,23 +104,7 @@ test_that("new type presets enforce correct validation", {
     positive_num = 0.1,
     prob_var = 0.7,
     string_var = "hello",
-    nonempty_str = "world",
-    id_str = "valid_id"
-  ), schema = schema, time0 = 0), "must be a non-negative integer")
-  expect_error(Entity$new(init = list(
-    logical_var = FALSE,
-    binary_var = TRUE,
-    integer_var = 2L,
-    count_var = 5L,
-    nonnegative_int = -1L,
-    positive_int = 2L,
-    numeric_var = 3.14,
-    nonnegative_num = 0.0,
-    positive_num = 0.1,
-    prob_var = 0.7,
-    string_var = "hello",
-    nonempty_str = "world",
-    id_str = "valid_id"
+    nonempty_str = "world"
   ), schema = schema, time0 = 0), "must be a non-negative integer")
   expect_error(Entity$new(init = list(
     logical_var = FALSE,
@@ -136,8 +118,7 @@ test_that("new type presets enforce correct validation", {
     positive_num = 0.1,
     prob_var = 0.7,
     string_var = "hello",
-    nonempty_str = "world",
-    id_str = "valid_id"
+    nonempty_str = "world"
   ), schema = schema, time0 = 0), "must be a positive integer")
   expect_error(Entity$new(init = list(
     logical_var = FALSE,
@@ -151,8 +132,7 @@ test_that("new type presets enforce correct validation", {
     positive_num = 0.1,
     prob_var = 0.7,
     string_var = "hello",
-    nonempty_str = "world",
-    id_str = "valid_id"
+    nonempty_str = "world"
   ), schema = schema, time0 = 0), "must be a non-negative numeric")
   expect_error(Entity$new(init = list(
     logical_var = FALSE,
@@ -166,8 +146,7 @@ test_that("new type presets enforce correct validation", {
     positive_num = 0.0,
     prob_var = 0.7,
     string_var = "hello",
-    nonempty_str = "world",
-    id_str = "valid_id"
+    nonempty_str = "world"
   ), schema = schema, time0 = 0), "must be a positive numeric")
   expect_error(Entity$new(init = list(
     logical_var = FALSE,
@@ -181,8 +160,7 @@ test_that("new type presets enforce correct validation", {
     positive_num = 0.1,
     prob_var = 1.5,
     string_var = "hello",
-    nonempty_str = "world",
-    id_str = "valid_id"
+    nonempty_str = "world"
   ), schema = schema, time0 = 0), "must be a probability")
   expect_error(Entity$new(init = list(
     logical_var = FALSE,
@@ -196,8 +174,7 @@ test_that("new type presets enforce correct validation", {
     positive_num = 0.1,
     prob_var = -0.1,
     string_var = "hello",
-    nonempty_str = "world",
-    id_str = "valid_id"
+    nonempty_str = "world"
   ), schema = schema, time0 = 0), "must be a probability")
   expect_error(Entity$new(init = list(
     logical_var = FALSE,
@@ -211,22 +188,75 @@ test_that("new type presets enforce correct validation", {
     positive_num = 0.1,
     prob_var = 0.7,
     string_var = "hello",
-    nonempty_str = "",
-    id_str = "valid_id"
+    nonempty_str = ""
   ), schema = schema, time0 = 0), "must be a non-empty character string")
-  expect_error(Entity$new(init = list(
-    logical_var = FALSE,
-    binary_var = TRUE,
-    integer_var = 2L,
-    count_var = 5L,
-    nonnegative_int = 0L,
-    positive_int = 2L,
-    numeric_var = 3.14,
-    nonnegative_num = 0.0,
-    positive_num = 0.1,
-    prob_var = 0.7,
-    string_var = "hello",
-    nonempty_str = "world",
-    id_str = "invalid id"
-  ), schema = schema, time0 = 0), "must be a valid identifier string")
+})
+
+test_that("percent type accepts [0,100] and rejects out-of-range / non-numeric", {
+  schema <- list(
+    pct = list(type = "percent", default = 50, coerce = as.numeric)
+  )
+  expect_silent(schema_validate(schema))
+  expect_silent(Entity$new(init = list(pct = 0),   schema = schema, time0 = 0))
+  expect_silent(Entity$new(init = list(pct = 50),  schema = schema, time0 = 0))
+  expect_silent(Entity$new(init = list(pct = 100), schema = schema, time0 = 0))
+  expect_error(Entity$new(init = list(pct = -1),  schema = schema, time0 = 0), "must be a percent")
+  expect_error(Entity$new(init = list(pct = 101), schema = schema, time0 = 0), "must be a percent")
+})
+
+test_that("id_string type is no longer accepted", {
+  expect_error(
+    schema_validate(list(x = list(type = "id_string", default = "a"))),
+    "\\$type must be one of"
+  )
+  expect_error(
+    set_schema(vars = list(x = "id_string")),
+    "\\$type must be one of"
+  )
+})
+
+test_that("set_schema hybrid syntax accepts strings and lists, mixed", {
+  s <- set_schema(vars = list(
+    route_zone  = list(type = "categorical",
+                       levels = c("urban", "suburban", "rural")),
+    battery_pct = "percent",
+    payload_kg  = list(type = "positive_numeric", max = 20),
+    deliveries  = "count",
+    prob_rain   = "probability"
+  ))
+  expect_equal(names(s), c("route_zone", "battery_pct", "payload_kg", "deliveries", "prob_rain"))
+  expect_equal(s$battery_pct$type, "percent")
+  expect_equal(s$payload_kg$max, 20)
+  expect_equal(s$route_zone$levels, c("urban", "suburban", "rural"))
+})
+
+test_that("set_schema accepts named character vector shorthand", {
+  s <- set_schema(vars = c(a = "count", b = "probability"))
+  expect_equal(s$a$type, "count")
+  expect_equal(s$b$type, "probability")
+})
+
+test_that("set_schema list spec without type errors", {
+  expect_error(
+    set_schema(vars = list(x = list(levels = c("a", "b")))),
+    "`type` field",
+    fixed = TRUE
+  )
+})
+
+test_that("set_schema overwrite=FALSE errors on collision; TRUE replaces", {
+  s0 <- set_schema(vars = list(x = "count"))
+  expect_error(
+    set_schema(vars = list(x = "probability"), schema = s0),
+    "already exists"
+  )
+  s1 <- set_schema(vars = list(x = "probability"), schema = s0, overwrite = TRUE)
+  expect_equal(s1$x$type, "probability")
+})
+
+test_that("set_schema remove drops vars and errors on unknown name", {
+  s0 <- set_schema(vars = list(x = "count", y = "numeric"))
+  s1 <- set_schema(schema = s0, remove = "x")
+  expect_equal(names(s1), "y")
+  expect_error(set_schema(schema = s0, remove = "nope"), "not found in schema")
 })

@@ -62,9 +62,9 @@
     t <- tolower(as.character(spec$type)[1])
     # Alias "continuous" to "numeric" for backward compatibility
     if (t == "continuous") t <- "numeric"
-    ok <- c("logical", "binary", "integer", "count", "nonnegative_integer", "positive_integer", 
-            "numeric", "nonnegative_numeric", "positive_numeric", "probability", 
-            "categorical", "ordinal", "string", "nonempty_string", "id_string")
+    ok <- c("logical", "binary", "integer", "count", "nonnegative_integer", "positive_integer",
+            "numeric", "nonnegative_numeric", "positive_numeric", "probability", "percent",
+            "categorical", "ordinal", "string", "nonempty_string")
     if (!(t %in% ok)) {
       stop(sprintf("schema[['%s']] $type must be one of: %s", k, paste(ok, collapse = ", ")))
     }
@@ -83,11 +83,11 @@
         nonnegative_numeric = as.numeric,
         positive_numeric = as.numeric,
         probability = as.numeric,
+        percent = as.numeric,
         categorical = as.character,
         ordinal = as.character,
         string = as.character,
         nonempty_string = as.character,
-        id_string = as.character,
         function(x) x  # fallback
       )
     }
@@ -105,18 +105,18 @@
         nonnegative_numeric = NA_real_,
         positive_numeric = NA_real_,
         probability = NA_real_,
+        percent = NA_real_,
         categorical = NA_character_,
         ordinal = NA_character_,
         string = NA_character_,
         nonempty_string = NA_character_,
-        id_string = NA_character_,
         NA  # fallback
       )
     }
 
     if (!is.null(spec$min) || !is.null(spec$max)) {
-      numeric_types <- c("integer", "count", "nonnegative_integer", "positive_integer", 
-                         "numeric", "nonnegative_numeric", "positive_numeric", "probability")
+      numeric_types <- c("integer", "count", "nonnegative_integer", "positive_integer",
+                         "numeric", "nonnegative_numeric", "positive_numeric", "probability", "percent")
       if (!t %in% numeric_types) {
         stop(sprintf("schema[['%s']] $min/$max are only supported for numeric types.", k))
       }
@@ -217,6 +217,10 @@
       if (!is.numeric(val) || val < 0 || val > 1) {
         stop(sprintf("Value for '%s' must be a probability (0 <= x <= 1).", var_name), call. = FALSE)
       }
+    } else if (t == "percent") {
+      if (!is.numeric(val) || val < 0 || val > 100) {
+        stop(sprintf("Value for '%s' must be a percent (0 <= x <= 100).", var_name), call. = FALSE)
+      }
     } else if (t == "string") {
       if (!is.character(val)) {
         stop(sprintf("Value for '%s' must be a character string.", var_name), call. = FALSE)
@@ -224,10 +228,6 @@
     } else if (t == "nonempty_string") {
       if (!is.character(val) || nchar(val) == 0) {
         stop(sprintf("Value for '%s' must be a non-empty character string.", var_name), call. = FALSE)
-      }
-    } else if (t == "id_string") {
-      if (!is.character(val) || nchar(val) == 0 || grepl("[^a-zA-Z0-9_]", val)) {
-        stop(sprintf("Value for '%s' must be a valid identifier string (alphanumeric + underscore, non-empty).", var_name), call. = FALSE)
       }
     }
     

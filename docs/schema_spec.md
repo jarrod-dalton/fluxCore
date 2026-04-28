@@ -41,11 +41,11 @@ Must be one of:
 - `nonnegative_numeric`
 - `positive_numeric`
 - `probability`
+- `percent`
 - `categorical`
 - `ordinal`
 - `string`
 - `nonempty_string`
-- `id_string`
 
 For backward compatibility, `continuous` is accepted and aliased to `numeric`.
 
@@ -55,7 +55,7 @@ Example:
 alive = list(type = "binary", default = TRUE, levels = c("0", "1"))
 age = list(type = "nonnegative_integer", default = 0L)
 risk = list(type = "probability", default = 0.5)
-name = list(type = "id_string", default = "entity1")
+battery_pct = list(type = "percent", default = 100)
 ```
 
 #### `default`
@@ -155,7 +155,7 @@ bmp_order_time = list(
 **Type:** numeric scalar  
 **Meaning:** Inclusive bounds enforced for numeric types after coercion.
 
-Supported for types: `integer`, `count`, `nonnegative_integer`, `positive_integer`, `numeric`, `nonnegative_numeric`, `positive_numeric`, `probability`.
+Supported for types: `integer`, `count`, `nonnegative_integer`, `positive_integer`, `numeric`, `nonnegative_numeric`, `positive_numeric`, `probability`, `percent`.
 
 Example:
 
@@ -194,7 +194,11 @@ route_zone = list(
 
 #### Built-in type validation
 
-When no explicit `validate` function is provided, `fluxCore` applies built-in validation based on the `type` field:
+When no explicit `validate` function is provided, `fluxCore` applies built-in
+validation based on the `type` field. Built-in validators are intentionally
+**permissive within the type's semantic** — they enforce only what the type
+name implies, not arbitrary range limits. Use `min` / `max` (numeric types)
+or a custom `validate` function to tighten further.
 
 - `logical`: Must be `TRUE` or `FALSE`.
 - `binary`: Must be logical or match declared `levels`.
@@ -206,11 +210,11 @@ When no explicit `validate` function is provided, `fluxCore` applies built-in va
 - `nonnegative_numeric`: Must be non-negative numeric.
 - `positive_numeric`: Must be positive numeric (>0).
 - `probability`: Must be numeric in [0,1].
+- `percent`: Must be numeric in [0,100].
 - `categorical`: Must match declared `levels`.
 - `ordinal`: Must match declared `levels`.
 - `string`: Must be character.
 - `nonempty_string`: Must be non-empty character.
-- `id_string`: Must be non-empty character with only alphanumeric and underscore characters.
 
 Example:
 
@@ -296,6 +300,42 @@ When a value is inserted into state (init or update), the intended order is:
 1. **coerce** (if provided)
 2. **validate** (if provided)
 3. store value into core state
+
+---
+
+## 3.5 Building schemas with `set_schema()`
+
+`set_schema()` builds (or extends) a validated schema using a hybrid `vars`
+specification: each entry is either a **type-name string** or a **full list
+spec**. Both shapes can be mixed in a single call.
+
+```r
+schema <- set_schema(vars = list(
+  route_zone  = list(type = "categorical",
+                     levels = c("urban", "suburban", "rural")),
+  battery_pct = "percent",
+  payload_kg  = list(type = "positive_numeric", max = 20),
+  deliveries  = "count",
+  prob_rain   = "probability"
+))
+```
+
+**Signature:** `set_schema(vars = NULL, schema = NULL, remove = NULL, overwrite = FALSE)`
+
+- `vars`: named list (or named character vector). Each element is either a
+  single type-name string (e.g. `"count"`) or a list with `type` plus any
+  recognized schema fields (`min`, `max`, `levels`, `default`, `coerce`,
+  `validate`, `allow_na`, `required`, `blocks`).
+- `schema`: optional existing schema to extend. If `NULL`, a new schema is
+  created.
+- `remove`: optional character vector of variable names to drop from `schema`
+  before merging `vars`. Errors if any name is not present.
+- `overwrite`: if `FALSE` (default), adding a variable already present in
+  `schema` is an error. If `TRUE`, existing entries are replaced.
+
+All produced specs flow through fluxCore's internal schema validator, so
+type-driven defaults (`coerce`, `default`, validator) are filled in
+automatically; user-supplied fields override the type defaults.
 
 ---
 

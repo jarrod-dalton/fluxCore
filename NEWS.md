@@ -1,3 +1,11 @@
+## fluxCore 1.10.1
+
+- **Removed `id_string` type** (no deprecation alias). Use `nonempty_string` or a custom `validate` function for identifier columns; the supported type list is now 14 entries.
+- **Added `percent` type**: numeric in [0, 100], honors optional `min` / `max` overrides.
+- **`set_schema()` rewrite** with hybrid `vars` syntax. Each `vars` entry is now either a type-name string (e.g. `"count"`) or a full list spec (e.g. `list(type = "positive_numeric", max = 20)`); both shapes can be mixed in one call. New `overwrite = FALSE` argument errors on collision when extending an existing `schema` (set `overwrite = TRUE` to replace). New `remove =` argument drops named entries (errors if absent). Removed the previous `replace =` and `add =` arguments.
+- Built-in type validators are now explicitly documented as **permissive within type semantic** (no arbitrary range limits beyond what the type implies); use `min` / `max` or a custom `validate` function to tighten.
+- Schema spec doc updated to reflect the new `set_schema()` shape, the `percent` type, and the removal of `id_string`.
+
 ## fluxCore 1.10.0
 
 - **Expanded type system**: introduced 14 built-in variable types: `logical`, `binary`, `integer`, `count`, `nonnegative_integer`, `positive_integer`, `numeric`, `nonnegative_numeric`, `positive_numeric`, `probability`, `categorical`, `ordinal`, `string`, `nonempty_string`, `id_string`.

@@ -1,7 +1,7 @@
 Package: fluxCore
 Type: Package
 Title: Simulation Modeling of Probabilistic Dynamic Systems Models in Irregular Time: Core Architecture
-Version: 1.10.0
+Version: 1.10.1
 Author: Jarrod Dalton [aut, cre]
 Maintainer: Jarrod Dalton <daltonj@ccf.org>
 Authors@R: person(given = "Jarrod",

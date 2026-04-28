@@ -1,0 +1,45 @@
+% Generated manually; do not regenerate via roxygen.
+\name{set_schema}
+\alias{set_schema}
+\title{Build or extend a fluxCore schema with hybrid shorthand}
+\usage{
+set_schema(vars = NULL, schema = NULL, remove = NULL, overwrite = FALSE)
+}
+\arguments{
+\item{vars}{Named list (or named character vector) of variable specs. Each
+element is either a single type-name string (e.g. \code{"count"}) or a list
+containing \code{type} plus any recognized schema fields (\code{min},
+\code{max}, \code{levels}, \code{default}, \code{coerce}, \code{validate},
+\code{allow_na}, \code{required}, \code{blocks}).}
+
+\item{schema}{Optional existing schema to extend. If \code{NULL}, a new
+schema is created.}
+
+\item{remove}{Optional character vector of variable names to drop from
+\code{schema} before merging \code{vars}. Errors if any name is not present.}
+
+\item{overwrite}{Logical scalar. If \code{FALSE} (default), adding a variable
+already present in \code{schema} is an error. If \code{TRUE}, existing
+entries are replaced.}
+}
+\value{
+A validated fluxCore schema (named list).
+}
+\description{
+Constructs a validated fluxCore schema from a hybrid \code{vars}
+specification. Each element of \code{vars} may be either a type-name string
+or a fully-specified list. Optionally merges onto an existing \code{schema},
+with explicit \code{overwrite} and \code{remove} controls.
+}
+\examples{
+\dontrun{
+  s <- set_schema(vars = list(
+    route_zone  = list(type = "categorical",
+                       levels = c("urban", "suburban", "rural")),
+    battery_pct = "percent",
+    payload_kg  = list(type = "positive_numeric", max = 20),
+    deliveries  = "count",
+    prob_rain   = "probability"
+  ))
+}
+}
