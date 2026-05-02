@@ -1,3 +1,12 @@
+#' Feature target: event type
+#'
+#' Create a target describing events of a given type in entity$events.
+#'
+#' @param event_type Character scalar.
+#'
+#' @return A target list used by derive().
+#'
+#' @export
 event <- function(event_type) {
   if (length(event_type) != 1) stop("event_type must be length 1")
   list(kind = "event", event_type = as.character(event_type))
@@ -9,6 +18,18 @@ event <- function(event_type) {
   list(kind = "var", name = as.character(name))
 }
 
+#' Target a variable for history-derived features
+#'
+#' declare_variable() constructs a target that refers to a state variable's
+#' sparse history in entity$hist. It is used to define derived features
+#' based on recent values (e.g., counts, means, lags) when building model-ready
+#' snapshots.
+#'
+#' @param name Single variable name (character scalar).
+#'
+#' @return A target list used by derive() and lag_of().
+#'
+#' @export
 declare_variable <- function(name) {
   .var_target(name)
 }
@@ -54,6 +75,24 @@ declare_variable <- function(name) {
   na_value
 }
 
+#' Define a derived feature
+#'
+#' derive() returns a function computing a history-derived feature as of (j, t).
+#' Intended to populate Entity$derived_vars and be used by Entity$snapshot*().
+#'
+#' @param name Name of the derived feature.
+#' @param target A target created by event() or declare_variable().
+#' @param lookback_t Optional numeric lookback window on the time axis. Takes precedence over lookback_j.
+#' @param lookback_j Optional integer lookback window in event-index units.
+#' @param fn Summary function name. For event() targets, only count, any, and all are supported.
+#' @param include_current Logical; include the boundary event at t/j (default TRUE).
+#' @param force Logical; if TRUE, return a value when there is no history (default FALSE).
+#' @param na_value Value to return when force=TRUE and no history exists (default NA).
+#' @param clock Which column in entity$events defines the time axis for lookback_t (default "time").
+#'
+#' @return A function (entity, j, t) -> scalar or NULL.
+#'
+#' @export
 derive <- function(name,
                    target,
                    lookback_t = NULL,
@@ -129,6 +168,23 @@ derive <- function(name,
   }
 }
 
+#' Define a lagged feature from variable history
+#'
+#' Extract the k-th most recent value of a variable from sparse history as of (j, t).
+#'
+#' @param name Name of the derived feature.
+#' @param target A target created by declare_variable().
+#' @param k Positive integer lag order (1 = most recent prior value by default).
+#' @param lookback_t Optional numeric lookback window on the time axis. Takes precedence over lookback_j.
+#' @param lookback_j Optional integer lookback window in event-index units.
+#' @param include_current Logical; include boundary event at t/j (default FALSE).
+#' @param force Logical; if TRUE return na_value when insufficient history exists (default FALSE).
+#' @param na_value Value to return when force=TRUE and insufficient history exists (default NA).
+#' @param clock Which column in entity$events defines the time axis for lookback_t (default "time").
+#'
+#' @return A function (entity, j, t) -> scalar or NULL.
+#'
+#' @export
 lag_of <- function(name,
                    target,
                    k = 1,

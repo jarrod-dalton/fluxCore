@@ -20,6 +20,17 @@
 # This function is intended to be called once per run during initialization
 # (e.g., via bundle$init_entity()).
 # ------------------------------------------------------------------------------
+#' Register derived variables on an Entity
+#'
+#' Validates and registers derived-variable functions for snapshot-time evaluation.
+#'
+#' @param entity A Entity object.
+#' @param derived_vars Named list of derived-variable functions, or NULL.
+#' @param replace If TRUE, overwrite existing derived vars with the same names.
+#'
+#' @return Returns entity invisibly.
+#'
+#' @export
 check_derived <- function(entity, derived_vars, replace = FALSE) {
   if (is.null(derived_vars)) return(invisible(entity))
 

@@ -19,6 +19,28 @@
 #   A named list of updates, ordered by schema/block variable order.
 # ------------------------------------------------------------------------------
 
+#' Block-oriented state updates for vectorized models
+#'
+#' Many models generate multivariate outputs (e.g., SBP/DBP or lab panels).
+#' update_block() validates a named payload against an entity's schema and a
+#' named schema block, then returns a named list of per-variable state updates for
+#' use as a transition() return value.
+#'
+#' @param entity A Entity object.
+#' @param block Block name (character scalar) corresponding to schema$<var>$blocks.
+#' @param values Named vector or named list of values to update. Names must correspond
+#' to state variables in the entity's schema.
+#' @param require_all Logical; if TRUE (default) all variables belonging to block
+#' must be supplied in values.
+#' @param unknown Policy for variables supplied in values that are not present in
+#' the entity's schema. One of "error" (default), "drop_warn_once", or
+#' "drop_warn_always".
+#'
+#' @return
+#' A named list of state updates suitable for returning from transition(). Values
+#' are returned in schema block order.
+#'
+#' @export
 update_block <- function(entity,
                          block,
                          values,
@@ -112,6 +134,18 @@ update_block <- function(entity,
 #   A single named list of updates.
 # ------------------------------------------------------------------------------
 
+#' Combine multiple update lists into one atomic update payload
+#'
+#' Convenience helper for transition() implementations that need to apply
+#' multiple update sources (e.g., scalar tweaks plus one or more block updates).
+#' The function concatenates named lists and errors if any variable is updated more
+#' than once within the same event.
+#'
+#' @param ... One or more named lists of updates (or NULL).
+#'
+#' @return A single named list of updates, or NULL if all inputs are NULL.
+#'
+#' @export
 combine_updates <- function(...) {
   parts <- list(...)
   parts <- parts[!vapply(parts, is.null, logical(1))]

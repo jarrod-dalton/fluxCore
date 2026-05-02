@@ -1,5 +1,13 @@
 NULL
 
+#' PackageProvider
+#'
+#' Loads a bundle from in-package functions/objects. Use model_spec$name to select
+#' among multiple bundle builders.
+#'
+#' @param registry Named list mapping bundle names to functions returning ModelBundles.
+#'
+#' @export
 PackageProvider <- R6::R6Class(
   classname = "PackageProvider",
   public = list(
@@ -67,6 +75,13 @@ PackageProvider <- R6::R6Class(
   )
 )
 
+#' FileProvider
+#'
+#' Loads a bundle from an .rds file. Expects model_spec$path.
+#'
+#' @param base_path Optional base directory.
+#'
+#' @export
 FileProvider <- R6::R6Class(
   classname = "FileProvider",
   public = list(
@@ -102,6 +117,15 @@ FileProvider <- R6::R6Class(
   )
 )
 
+#' MLflowProvider (stub)
+#'
+#' Scaffold for MLflow-based workflows. model_spec should include at least
+#' model_uri and optionally references to artifacts needed to build a bundle.
+#'
+#' @param builder_fn Function returning a ModelBundle.
+#' @param sampler_fn Optional function returning a list of length D parameter contexts.
+#'
+#' @export
 MLflowProvider <- R6::R6Class(
   classname = "MLflowProvider",
   public = list(

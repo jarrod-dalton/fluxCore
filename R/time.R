@@ -30,6 +30,18 @@
   )
 }
 
+#' Compile and validate canonical time settings
+#'
+#' Compiles and validates calendar-to-model time settings from explicit arguments (preferred) or ctx$time (compatibility).
+#'
+#' @param unit Required time unit when using explicit arguments. One of "seconds", "minutes", "hours", "days", "weeks", "months", "years".
+#' @param origin Optional Date or POSIXct/POSIXt origin used for calendar-time conversion. Defaults to Unix epoch.
+#' @param zone Time zone used for calendar-time conversion (default "UTC").
+#' @param ctx Optional compatibility path. A context list containing ctx$time$unit and optional ctx$time$origin/ctx$time$zone.
+#'
+#' @return An object of class time_spec with precomputed conversion constants.
+#'
+#' @export
 time_spec <- function(unit = NULL, origin = NULL, zone = "UTC", ctx = NULL) {
   # Backward-compatibility path: time_spec(ctx)
   if (is.list(unit) && is.null(ctx) && is.null(origin) && identical(zone, "UTC")) {
@@ -112,6 +124,16 @@ time_spec <- function(unit = NULL, origin = NULL, zone = "UTC", ctx = NULL) {
   )
 }
 
+#' Convert calendar time to numeric model time
+#'
+#' Converts numeric, Date, or POSIXct/POSIXt time to numeric model time under a compiled time spec.
+#'
+#' @param x A numeric vector, Date, or POSIXct/POSIXt vector of times.
+#' @param time_spec A compiled time spec from time_spec(unit = ...).
+#'
+#' @return Numeric model time in units of time_spec$unit.
+#'
+#' @export
 time_to_model <- function(x, time_spec) {
   if (is.null(time_spec) || !inherits(time_spec, "time_spec")) {
     stop("time_spec must be a 'time_spec' created by time_spec(...).", call. = FALSE)
@@ -148,6 +170,17 @@ time_to_model <- function(x, time_spec) {
   stop("x must be numeric, Date, or POSIXct/POSIXt.", call. = FALSE)
 }
 
+#' Convert numeric model time to calendar time
+#'
+#' Converts numeric model time to Date or POSIXct using a compiled time spec.
+#'
+#' @param t Numeric model time.
+#' @param time_spec A compiled time spec from time_spec(unit = ...).
+#' @param class Output class: 'origin' (match the origin class), 'Date', or 'POSIXct'.
+#'
+#' @return A Date or POSIXct vector.
+#'
+#' @export
 time_from_model <- function(t, time_spec, class = c("origin", "Date", "POSIXct")) {
   if (is.null(time_spec) || !inherits(time_spec, "time_spec")) {
     stop("time_spec must be a 'time_spec' created by time_spec(...).", call. = FALSE)
@@ -167,6 +200,18 @@ time_from_model <- function(t, time_spec, class = c("origin", "Date", "POSIXct")
   return(as.Date(out_posix, tz = time_spec$zone))
 }
 
+#' Set time settings in ctx
+#'
+#' Convenience helper to set ctx$time$unit and optionally ctx$time$origin and ctx$time$zone.
+#'
+#' @param ctx Context list (or NULL to create a new one).
+#' @param unit Time unit string. Must be one of: seconds, minutes, hours, days, weeks, months, years.
+#' @param origin Optional Date or POSIXct origin used as a mapping reference. Default is system epoch.
+#' @param zone Optional IANA/Olson time zone string. Default is 'UTC'.
+#'
+#' @return Updated ctx list (validated).
+#'
+#' @export
 set_time_unit <- function(ctx = NULL, unit, origin = NULL, zone = "UTC") {
   if (is.null(ctx)) ctx <- list()
   if (!is.list(ctx)) stop("ctx must be a list.", call. = FALSE)

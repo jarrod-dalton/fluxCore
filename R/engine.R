@@ -1,3 +1,10 @@
+#' Engine
+#'
+#' Orchestrates simulation by repeatedly proposing the next event(s), applying a transition
+#' patch, recording the event on a Entity, and stopping when bundle$stop() returns TRUE
+#' (or a max_time / max_events limit is reached).
+#'
+#' @export
 Engine <- R6::R6Class(
   classname = "Engine",
   public = list(

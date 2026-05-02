@@ -4,10 +4,30 @@
 # These helpers provide fast, centralized validation and lookup of schema
 # metadata (variable existence, type, levels, blocks).
 
+#' Validate an entity schema
+#'
+#' Validates the structure and required metadata of an entity schema.
+#' The schema is a named list where each entry describes one state variable.
+#'
+#' @param schema A named list schema.
+#'
+#' @return The validated schema (invisibly), with normalized type fields.
+#'
+#' @export
 schema_validate <- function(schema) {
   invisible(.validate_schema(schema))
 }
 
+#' Assert that variables exist in a schema
+#'
+#' Stops with an informative error if any requested variable names are not present in the schema.
+#'
+#' @param schema A validated schema (or a raw schema that can be validated).
+#' @param vars Character vector of variable names.
+#'
+#' @return Invisibly returns TRUE.
+#'
+#' @export
 schema_assert_vars <- function(schema, vars) {
   schema <- .validate_schema(schema)
   if (is.null(vars) || length(vars) == 0L) return(invisible(TRUE))
@@ -21,6 +41,16 @@ schema_assert_vars <- function(schema, vars) {
   invisible(TRUE)
 }
 
+#' Get schema metadata for variables
+#'
+#' Returns schema metadata (type, levels, blocks) for the requested variables.
+#'
+#' @param schema A validated schema (or a raw schema that can be validated).
+#' @param vars Character vector of variable names.
+#'
+#' @return A data.frame with columns var, type, levels, and blocks.
+#'
+#' @export
 schema_var_info <- function(schema, vars) {
   schema <- .validate_schema(schema)
   if (!is.character(vars) || length(vars) == 0L) {
@@ -50,6 +80,17 @@ schema_var_info <- function(schema, vars) {
   )
 }
 
+#' Assert that variables have allowed schema types
+#'
+#' Stops with an informative error if any variables have schema types outside the allowed set.
+#'
+#' @param schema A validated schema (or a raw schema that can be validated).
+#' @param vars Character vector of variable names.
+#' @param allowed_types Character vector of allowed schema types.
+#'
+#' @return Invisibly returns TRUE.
+#'
+#' @export
 schema_assert_types <- function(schema, vars, allowed_types) {
   schema <- .validate_schema(schema)
   schema_assert_vars(schema, vars)
@@ -75,6 +116,17 @@ schema_assert_types <- function(schema, vars, allowed_types) {
   invisible(TRUE)
 }
 
+#' Assert that levels are declared in the schema
+#'
+#' For binary/categorical/ordinal variables, stops if any provided levels are not declared in the schema.
+#'
+#' @param schema A validated schema (or a raw schema that can be validated).
+#' @param var A single variable name.
+#' @param levels Character vector of levels to check.
+#'
+#' @return Invisibly returns TRUE.
+#'
+#' @export
 schema_assert_levels <- function(schema, var, levels) {
   schema <- .validate_schema(schema)
   if (!is.character(var) || length(var) != 1L || is.na(var) || var == "") {
@@ -105,6 +157,17 @@ schema_assert_levels <- function(schema, var, levels) {
   invisible(TRUE)
 }
 
+#' Create a numeric schema validator
+#'
+#' Returns a predicate function that checks a scalar numeric value against inclusive numeric bounds and optional missingness.
+#'
+#' @param min A single numeric lower bound.
+#' @param max A single numeric upper bound.
+#' @param allow_na Logical scalar indicating whether missing values are permitted.
+#'
+#' @return A function of signature function(x) -> TRUE/FALSE.
+#'
+#' @export
 schema_validator_numeric <- function(min = -Inf, max = Inf, allow_na = FALSE) {
   if (!is.numeric(min) || length(min) != 1L || is.na(min)) {
     stop("min must be a single numeric value.", call. = FALSE)
@@ -126,6 +189,17 @@ schema_validator_numeric <- function(min = -Inf, max = Inf, allow_na = FALSE) {
   }
 }
 
+#' Create an integer schema validator
+#'
+#' Returns a predicate function that checks a scalar integer value against inclusive numeric bounds and optional missingness.
+#'
+#' @param min A single numeric lower bound.
+#' @param max A single numeric upper bound.
+#' @param allow_na Logical scalar indicating whether missing values are permitted.
+#'
+#' @return A function of signature function(x) -> TRUE/FALSE.
+#'
+#' @export
 schema_validator_integer <- function(min = -Inf, max = Inf, allow_na = FALSE) {
   if (!is.numeric(min) || length(min) != 1L || is.na(min)) {
     stop("min must be a single numeric value.", call. = FALSE)
@@ -148,6 +222,16 @@ schema_validator_integer <- function(min = -Inf, max = Inf, allow_na = FALSE) {
   }
 }
 
+#' Create a levels-based schema validator
+#'
+#' Returns a predicate function that checks a scalar value against a set of allowed character levels and optional missingness.
+#'
+#' @param levels A character vector of allowed level labels.
+#' @param allow_na Logical scalar indicating whether missing values are permitted.
+#'
+#' @return A function of signature function(x) -> TRUE/FALSE.
+#'
+#' @export
 schema_validator_levels <- function(levels, allow_na = FALSE) {
   if (!is.character(levels) || length(levels) == 0L || anyNA(levels) || any(levels == "")) {
     stop("levels must be a non-empty character vector with no missing or empty values.", call. = FALSE)

@@ -6,6 +6,9 @@ NULL
   structure(x, class = "flux_state")
 }
 
+#' @export
+#' @method [ flux_state
+#' @noRd
 `[.flux_state` <- function(x, i, ...) {
   if (missing(i)) return(x)
   # single index: behave like [[ for backward-compatibility with older
