@@ -333,3 +333,15 @@ The core package does not force any one approach. The example model package demo
 - It does not assume daily time steps or fixed visit schedules.
 - It does not require parameter uncertainty (you can ignore draws).
 - It does not require episodes/submodels (you can keep everything at the top level).
+
+---
+
+## Development
+
+`man/` and `NAMESPACE` are **generated** — do not edit them by hand.
+
+To regenerate after changing roxygen comments in `R/`:
+
+```r
+roxygen2::roxygenise(".")
+```

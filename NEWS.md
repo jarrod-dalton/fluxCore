@@ -1,3 +1,9 @@
+## fluxCore 1.11.0
+
+- Migrated documentation from manual `.Rd` files to inline roxygen2 comments.
+  `man/` and `NAMESPACE` are now generated artifacts; do not edit by hand.
+- No functional changes to the public API.
+
 ## fluxCore 1.10.2
 
 - **`Engine$new(bundle = ...)` shortcut.** New `bundle` parameter to the `Engine` constructor accepts a `ModelBundle` directly, bypassing the `ModelProvider` machinery for in-memory / inline models. Equivalent to writing your own one-method provider, but without the boilerplate. The `provider = ...` path is unchanged and remains the right choice for packaged or pluggable models. Supplying both `bundle` and `provider` is an error.
