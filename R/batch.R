@@ -13,6 +13,35 @@
 #   A list containing run index metadata and results (entities, events, observations).
 # ------------------------------------------------------------------------------
 
+#' Run a cohort of entities (serial or parallel) with optional global parameter draws
+#'
+#' These helpers support batch simulation with:
+#' global parameter draws reused across entities (parameter uncertainty)
+#' multiple stochastic sims per entity per draw (stochastic uncertainty)
+#' parallelization across entities
+#'
+#' @param engine An Engine object (with a materialized bundle).
+#' @param entities List of Entity objects.
+#' @param n_param_draws Integer; number of global parameter draws (D). Default 1.
+#' @param n_sims Integer; number of stochastic sims per entity per draw (S). Default 1.
+#' @param param_draws Optional; a list of length D with per-draw parameter contexts. If NULL,
+#' the function will attempt to call engine$bundle$sample_params(D) or engine$provider$sample_param_draws(...)
+#' when available; otherwise it uses a single NULL draw.
+#' @param ctx Optional context. Either a single list merged into each run context, or a
+#' list of per-draw context lists of length n_param_draws.
+#' @param max_events Max events per run.
+#' @param max_time Optional max time per run.
+#' @param return_observations Logical; whether to return observations (if bundle provides observe()).
+#' @param backend Backend used to parallelize across entities. One of "none", "cluster", "mclapply", or "future". Default is "none". "cluster" uses a PSOCK cluster (cross-platform). "mclapply" uses forking (macOS/Linux only). "future" uses future.apply::future_lapply() and respects the user's future plan.
+#' @param n_workers Integer; workers for parallel; default parallel::detectCores() - 1.
+#' @param seed Optional base seed for reproducibility.
+#'
+#' @return
+#' A list with:
+#' runs: list of per-run outputs (entity/events/observations) with labels
+#' index: data.frame mapping run_id -> entity_id/param_draw_id/sim_id
+#'
+#' @export
 run_cohort <- function(engine,
                        entities,
                        n_param_draws = 1,

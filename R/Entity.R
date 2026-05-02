@@ -13,6 +13,14 @@
   out
 }
 
+#' Entity
+#'
+#' R6 simulation state container used by fluxCore::Engine. An Entity
+#' stores current state, event history, derived-variable registrations, and metadata
+#' such as id and optional meta$entity_type.
+#'
+#' @importFrom R6 R6Class
+#' @export
 Entity <- R6::R6Class(
   classname = "Entity",
   public = list(

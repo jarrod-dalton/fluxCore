@@ -1,3 +1,6 @@
+#' @export
+#' @method print flux_state
+#' @noRd
 print.flux_state <- function(x, ...) {
   # Lightweight print method for flux_state objects (internal state snapshots).
   # Keep it stable and readable for debugging and test output.

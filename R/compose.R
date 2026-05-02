@@ -1,3 +1,14 @@
+#' Compose ModelBundles and transition components
+#'
+#' These helpers make it easy to layer policy/intervention logic on top of baseline
+#' natural history dynamics without rewriting the baseline bundle.
+#'
+#' @param baseline Baseline model bundle list.
+#' @param policy Optional policy/intervention bundle list overriding selected components.
+#' @param merge Patch conflict strategy for transition updates:
+#' "policy_wins", "baseline_wins", or "error_on_conflict".
+#'
+#' @export
 compose_bundles <- function(baseline, policy = NULL, merge = c("policy_wins", "baseline_wins", "error_on_conflict")) {
   merge <- match.arg(merge)
 
