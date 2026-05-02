@@ -1,0 +1,24 @@
+Package: fluxCore
+Type: Package
+Title: Simulation Modeling of Probabilistic Dynamic Systems Models in
+        Irregular Time: Core Architecture
+Version: 1.10.2
+Author: Jarrod Dalton [aut, cre]
+Maintainer: Jarrod Dalton <daltonj@ccf.org>
+Authors@R: person(given = "Jarrod",
+                  family = "Dalton",
+                  role = c("aut", "cre"),
+                  email = "daltonj@ccf.org")
+Description: A scaffold for event-driven simulation projects in R. Provides a schema-based
+    R6 entity object for mutable state with sparse history and an Engine for orchestrating
+    simulations using pluggable ModelBundles loaded by ModelProviders (package, file,
+    MLflow-friendly stubs). Supports non-uniform event times, event types, terminal events,
+    and no-update events.
+License: LGPL-3
+Encoding: UTF-8
+Imports: R6
+Suggests: future.apply, parallel, testthat (>= 3.0.0)
+Config/testthat/edition: 3
+RoxygenNote: 7.3.3
+Roxygen: list(markdown = TRUE)
+Built: R 4.5.2; ; 2026-05-02 15:01:45 UTC; unix

@@ -1,0 +1,40 @@
+Engine                  Engine
+Entity                  Entity
+FileProvider            FileProvider
+MLflowProvider          MLflowProvider (stub)
+PackageProvider         PackageProvider
+block_vars              Get variable names in a schema block
+check_derived           Register derived variables on an Entity
+combine_updates         Combine multiple update lists into one atomic
+                        update payload
+compose_bundles         Compose ModelBundles and transition components
+declare_variable        Target a variable for history-derived features
+derive                  Define a derived feature
+event                   Feature target: event type
+lag_of                  Define a lagged feature from variable history
+run_cohort              Run a cohort of entities (serial or parallel)
+                        with optional global parameter draws
+schema_assert_levels    Assert that levels are declared in the schema
+schema_assert_types     Assert that variables have allowed schema types
+schema_assert_vars      Assert that variables exist in a schema
+schema_blocks           List unique schema blocks
+schema_validate         Validate an entity schema
+schema_validator_integer
+                        Create an integer schema validator
+schema_validator_levels
+                        Create a levels-based schema validator
+schema_validator_numeric
+                        Create a numeric schema validator
+schema_var_info         Get schema metadata for variables
+set_schema              Build or extend a fluxCore schema with hybrid
+                        shorthand
+set_time_unit           Set time settings in ctx
+set_vars                Create a named list of updates from variable
+                        names and values
+set_vars_from_named     Create a named list of updates from a named
+                        vector
+time_from_model         Convert numeric model time to calendar time
+time_spec               Compile and validate canonical time settings
+time_to_model           Convert calendar time to numeric model time
+update_block            Block-oriented state updates for vectorized
+                        models
