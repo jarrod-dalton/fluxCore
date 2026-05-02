@@ -51,3 +51,6 @@ coverage.xml
 .Renviron
 .env
 .env.*
+# R CMD check output (double-dot variant)
+../*.Rcheck/
+..Rcheck/
