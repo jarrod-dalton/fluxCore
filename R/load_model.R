@@ -109,6 +109,7 @@ load_model <- function(schema,
         call. = FALSE
       )
     }
+    trajectory <- .normalize_trajectory_logger(trajectory)
   }
 
   # -- environment -----------------------------------------------------------
@@ -169,4 +170,34 @@ load_model <- function(schema,
       )
     }
   }
+}
+
+# Normalize trajectory logger configuration.
+# Supported fields:
+#   detail: "none" | "summary" | "full" (default: "none")
+#   summary_fn: function(entity, ...) -> named list (used when detail = "summary")
+.normalize_trajectory_logger <- function(trajectory) {
+  if (!is.list(trajectory)) {
+    stop("load_model(): `trajectory` must be a list or NULL.", call. = FALSE)
+  }
+
+  detail <- trajectory$detail
+  if (is.null(detail)) detail <- "none"
+  if (!is.character(detail) || length(detail) != 1L || !nzchar(detail)) {
+    stop("load_model(): `trajectory$detail` must be one of 'none', 'summary', or 'full'.", call. = FALSE)
+  }
+  if (!(detail %in% c("none", "summary", "full"))) {
+    stop("load_model(): `trajectory$detail` must be one of 'none', 'summary', or 'full'.", call. = FALSE)
+  }
+
+  summary_fn <- trajectory$summary_fn
+  if (is.null(summary_fn)) summary_fn <- state_summary_default
+  if (!is.function(summary_fn)) {
+    stop("load_model(): `trajectory$summary_fn` must be a function or NULL.", call. = FALSE)
+  }
+
+  list(
+    detail = detail,
+    summary_fn = summary_fn
+  )
 }
