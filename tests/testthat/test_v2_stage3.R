@@ -197,3 +197,63 @@ test_that("load_model: trajectory detail must be one of none/summary/full", {
     "trajectory\\$detail"
   )
 })
+
+test_that("run_cohort v2: trajectory records are deterministic across serial and mclapply", {
+  skip_if(.Platform$OS.type != "unix", "mclapply backend requires unix-like OS")
+
+  bundle <- .make_stage3_bundle()
+  schema <- .make_stage3_schema()
+  policy <- .make_stage3_policy()
+  engine <- suppressWarnings(load_model(
+    schema = schema,
+    bundle = bundle,
+    policy = policy,
+    trajectory = list(detail = "summary")
+  ))
+
+  entities <- list(
+    p1 = Entity$new(schema = schema$variables, id = "p1"),
+    p2 = Entity$new(schema = schema$variables, id = "p2")
+  )
+
+  serial <- run_cohort(
+    engine = engine,
+    entities = entities,
+    n_param_draws = 1,
+    n_sims = 2,
+    backend = "none",
+    seed = 20260503L
+  )
+  parallel <- run_cohort(
+    engine = engine,
+    entities = entities,
+    n_param_draws = 1,
+    n_sims = 2,
+    backend = "mclapply",
+    n_workers = 2,
+    seed = 20260503L
+  )
+
+  expect_equal(serial$index, parallel$index)
+  expect_equal(names(serial$runs), names(parallel$runs))
+
+  rec_signature <- function(rec) {
+    list(
+      dp = rec$decision_point_id,
+      t = rec$t,
+      evt = rec$realized_event$event_type,
+      act = if (!is.null(rec$selected_action)) rec$selected_action$action_type else NULL
+    )
+  }
+
+  for (rid in names(serial$runs)) {
+    s_tr <- serial$runs[[rid]]$trajectory_records
+    p_tr <- parallel$runs[[rid]]$trajectory_records
+
+    expect_equal(length(s_tr), length(p_tr), label = paste("trajectory length", rid))
+
+    s_sig <- lapply(s_tr, rec_signature)
+    p_sig <- lapply(p_tr, rec_signature)
+    expect_equal(s_sig, p_sig, label = paste("trajectory signature", rid))
+  }
+})
