@@ -30,6 +30,18 @@
 #' | 2     | `load_model(schema, bundle, ...)` + JSON schema export | JSON spec + language code |
 #' | 3     | All optional components supplied | Full stack |
 #'
+#' @section Trajectory output contract:
+#' When `trajectory` is configured, the Engine returned by `load_model()` emits
+#' `trajectory_records` in run outputs.
+#'
+#' - `Engine$run(...)` includes `trajectory_records` when trajectory logging is enabled.
+#' - `run_cohort(...)` run entries include per-run `trajectory_records` when enabled.
+#' - `trajectory_records` is a list of plain named lists (JSON-serializable).
+#' - `trajectory$detail` controls state capture:
+#'   - `none`: `state_before` and `state_after` are `NULL`.
+#'   - `summary`: both are outputs of `summary_fn` (default [state_summary_default()]).
+#'   - `full`: both are full snapshots of `entity$current`.
+#'
 #' @param schema A validated schema list (from [set_schema()] or equivalent),
 #'   **or** a schema-like named list. Must include at minimum a `$variables`
 #'   field and a `$time_spec` of class `"time_spec"`. See [set_schema()].

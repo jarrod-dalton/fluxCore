@@ -64,6 +64,23 @@ formals (warnings emitted for v1.x-style \code{ctx} formals).
 }
 }
 
+\section{Trajectory output contract}{
+
+When \code{trajectory} is configured, the Engine returned by \code{load_model()} emits
+\code{trajectory_records} in run outputs.
+\itemize{
+\item \code{Engine$run(...)} includes \code{trajectory_records} when trajectory logging is enabled.
+\item \code{run_cohort(...)} run entries include per-run \code{trajectory_records} when enabled.
+\item \code{trajectory_records} is a list of plain named lists (JSON-serializable).
+\item \code{trajectory$detail} controls state capture:
+\itemize{
+\item \code{none}: \code{state_before} and \code{state_after} are \code{NULL}.
+\item \code{summary}: both are outputs of \code{summary_fn} (default \code{\link[=state_summary_default]{state_summary_default()}}).
+\item \code{full}: both are full snapshots of \code{entity$current}.
+}
+}
+}
+
 \seealso{
 \code{\link[=SimContext]{SimContext()}}, \code{\link[=ParamContext]{ParamContext()}}, \code{\link[=RuntimeContext]{RuntimeContext()}},
 \code{\link[=EnvironmentContext]{EnvironmentContext()}}, \code{\link[=DecisionPoint]{DecisionPoint()}}, \code{\link[=TrajectoryRecord]{TrajectoryRecord()}}
