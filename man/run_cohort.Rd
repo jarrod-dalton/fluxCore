@@ -11,6 +11,7 @@ run_cohort(
   n_sims = 1,
   param_draws = NULL,
   ctx = NULL,
+  runtime = NULL,
   max_events = 1000,
   max_time = NULL,
   return_observations = TRUE,
@@ -32,8 +33,13 @@ run_cohort(
 the function will attempt to call engine$bundle$sample_params(D) or engine$provider$sample_param_draws(...)
 when available; otherwise it uses a single NULL draw.}
 
-\item{ctx}{Optional context. Either a single list merged into each run context, or a
-list of per-draw context lists of length n_param_draws.}
+\item{ctx}{Optional context (v1.x path). Either a single list merged into each run context, or a
+list of per-draw context lists of length n_param_draws. Not accepted when engine was built
+via \code{load_model()} (v2 mode); use \code{runtime} instead.}
+
+\item{runtime}{Optional \link{RuntimeContext}; carries seed, backend, and n_workers for v2-mode
+engines. Takes precedence over the individual \code{seed}, \code{backend}, and \code{n_workers} arguments
+when non-NULL.}
 
 \item{max_events}{Max events per run.}
 
@@ -41,11 +47,15 @@ list of per-draw context lists of length n_param_draws.}
 
 \item{return_observations}{Logical; whether to return observations (if bundle provides observe()).}
 
-\item{backend}{Backend used to parallelize across entities. One of "none", "cluster", "mclapply", or "future". Default is "none". "cluster" uses a PSOCK cluster (cross-platform). "mclapply" uses forking (macOS/Linux only). "future" uses future.apply::future_lapply() and respects the user's future plan.}
+\item{backend}{Backend used to parallelize across entities. One of "none", "cluster",
+"mclapply", or "future". Default is "none". Ignored when \code{runtime} is supplied.}
 
-\item{n_workers}{Integer; workers for parallel; default parallel::detectCores() - 1.}
+\item{n_workers}{Integer; workers for parallel; default parallel::detectCores() - 1.
+Ignored when \code{runtime} is supplied.}
 
-\item{seed}{Optional base seed for reproducibility.}
+\item{seed}{Optional base seed for reproducibility. Public contract:
+fixed \code{seed} + \code{draw_id} + \code{sim_id} + \code{entity_id} = reproducible output.
+Ignored when \code{runtime} is supplied.}
 }
 \value{
 A list with:

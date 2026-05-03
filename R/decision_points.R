@@ -150,6 +150,9 @@ ActionEvent <- function(action_type,
   structure(
     list(
       action_type       = action_type,
+      # Keep event_type aligned so ActionEvent can flow through the existing
+      # event arbitration pipeline without special-casing.
+      event_type        = action_type,
       time_next         = time_next,
       decision_point_id = decision_point_id,
       params            = params,

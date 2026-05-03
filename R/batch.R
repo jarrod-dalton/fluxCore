@@ -27,14 +27,22 @@
 #' @param param_draws Optional; a list of length D with per-draw parameter contexts. If NULL,
 #' the function will attempt to call engine$bundle$sample_params(D) or engine$provider$sample_param_draws(...)
 #' when available; otherwise it uses a single NULL draw.
-#' @param ctx Optional context. Either a single list merged into each run context, or a
-#' list of per-draw context lists of length n_param_draws.
+#' @param ctx Optional context (v1.x path). Either a single list merged into each run context, or a
+#' list of per-draw context lists of length n_param_draws. Not accepted when engine was built
+#' via `load_model()` (v2 mode); use `runtime` instead.
+#' @param runtime Optional [RuntimeContext]; carries seed, backend, and n_workers for v2-mode
+#' engines. Takes precedence over the individual `seed`, `backend`, and `n_workers` arguments
+#' when non-NULL.
 #' @param max_events Max events per run.
 #' @param max_time Optional max time per run.
 #' @param return_observations Logical; whether to return observations (if bundle provides observe()).
-#' @param backend Backend used to parallelize across entities. One of "none", "cluster", "mclapply", or "future". Default is "none". "cluster" uses a PSOCK cluster (cross-platform). "mclapply" uses forking (macOS/Linux only). "future" uses future.apply::future_lapply() and respects the user's future plan.
+#' @param backend Backend used to parallelize across entities. One of "none", "cluster",
+#' "mclapply", or "future". Default is "none". Ignored when `runtime` is supplied.
 #' @param n_workers Integer; workers for parallel; default parallel::detectCores() - 1.
-#' @param seed Optional base seed for reproducibility.
+#' Ignored when `runtime` is supplied.
+#' @param seed Optional base seed for reproducibility. Public contract:
+#' fixed `seed` + `draw_id` + `sim_id` + `entity_id` = reproducible output.
+#' Ignored when `runtime` is supplied.
 #'
 #' @return
 #' A list with:
@@ -48,12 +56,30 @@ run_cohort <- function(engine,
                        n_sims = 1,
                        param_draws = NULL,
                        ctx = NULL,
+                       runtime = NULL,
                        max_events = 1000,
                        max_time = NULL,
                        return_observations = TRUE,
                        backend = NULL,
                        n_workers = NULL,
                        seed = NULL) {
+
+  # v2 mode: RuntimeContext takes precedence; ctx= is forbidden
+  if (!is.null(runtime)) {
+    if (!inherits(runtime, "RuntimeContext")) {
+      stop("run_cohort(): `runtime` must be a RuntimeContext or NULL.", call. = FALSE)
+    }
+    seed      <- runtime$seed
+    backend   <- runtime$backend
+    n_workers <- runtime$n_workers
+  }
+  if (isTRUE(engine$.v2_mode) && !is.null(ctx)) {
+    stop(
+      "run_cohort(): `ctx` is not accepted when engine was built via load_model() (v2 mode). ",
+      "Use `runtime` (RuntimeContext) for seed/backend settings.",
+      call. = FALSE
+    )
+  }
 
   n_param_draws <- as.integer(n_param_draws)
   n_sims <- as.integer(n_sims)
@@ -302,7 +328,10 @@ run_cohort <- function(engine,
       max_events = max_events,
       max_time = max_time,
       return_observations = return_observations,
-      ctx = ctx_run
+      # v2 mode: pass ctx = NULL so Engine$run() builds its own time ctx internally.
+      # Seed is already set above. Typed context injection (ParamContext, SimContext)
+      # is a Stage 3/4 deliverable.
+      ctx = if (isTRUE(engine$.v2_mode)) NULL else ctx_run
     )
 
     out_list[[r]] <- out
@@ -335,10 +364,18 @@ run_cohort <- function(engine,
 }
 
 .seed_for <- function(base_seed, entity_id, param_draw_id, sim_id) {
-  # stable integer seed derived from identifiers
-  # (simple; if you want stronger guarantees, switch to L'Ecuyer streams)
-  h <- sum(utf8ToInt(as.character(entity_id))) %% 100000L
-  as.integer((base_seed + 100000L * param_draw_id + 1000L * sim_id + h) %% .Machine$integer.max)
+  # Deterministic stream seed derived from run coordinates.
+  # Formula: base_seed + draw_id * P1 + sim_id * P2 + entity_hash * P3 (mod max_int)
+  # P1/P2/P3 are distinct large primes chosen to minimise collisions across
+  # typical cohort sizes (<=1e4 entities, <=1e3 draws, <=100 sims).
+  # This is an INTERNAL detail. The public contract is:
+  #   fixed seed + draw_id + sim_id + entity_id => reproducible output.
+  # Stream allocation details must not appear in user-facing documentation.
+  P1 <- 99991L   # prime ~1e5
+  P2 <-  9973L   # prime ~1e4
+  P3 <-   997L   # prime ~1e3
+  h  <- sum(utf8ToInt(as.character(entity_id))) %% 100000L
+  as.integer((base_seed + P1 * param_draw_id + P2 * sim_id + P3 * h) %% .Machine$integer.max)
 }
 
 .ctx_is_per_draw <- function(ctx) {

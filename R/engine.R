@@ -111,6 +111,62 @@ if (is.null(ctx$params)) {
 
         entity$update(time = ev$time_next, event_type = ev$event_type, changes = changes)
 
+        # Stage 2B: policy dispatch at declared decision points.
+        # Only active in v2 mode with a policy and schema decision_points.
+        action_props <- list()
+        if (isTRUE(self$.v2_mode) &&
+            !is.null(self$.policy) &&
+            !is.null(self$.schema$decision_points) &&
+            length(self$.schema$decision_points) > 0L) {
+          sim_ctx <- SimContext(
+            run_id = if (!is.null(ctx$run_id)) as.character(ctx$run_id) else "run_1",
+            time_spec = self$time_spec,
+            model_id = NULL,
+            scenario_id = NULL,
+            horizon = max_time
+          )
+          param_ctx <- ParamContext(
+            draw_id = if (!is.null(ctx$param_draw_id)) ctx$param_draw_id else 1L,
+            params = if (!is.null(ctx$params)) ctx$params else list(),
+            provenance = NULL
+          )
+
+          for (dp in self$.schema$decision_points) {
+            if (dp_fires(dp, ev)) {
+              proposed_action <- .call_policy(self$.policy, dp, entity, sim_ctx = sim_ctx, param_ctx = param_ctx)
+              if (!is.null(proposed_action)) {
+                if (!inherits(proposed_action, "ActionEvent")) {
+                  warning(
+                    "policy$propose_action() returned a non-ActionEvent object; ignoring.",
+                    call. = FALSE
+                  )
+                } else {
+                  if (!is.null(dp$allowed_actions) && !(proposed_action$action_type %in% dp$allowed_actions)) {
+                    warning(
+                      sprintf(
+                        "policy returned action_type '%s' not in DecisionPoint('%s') allowed_actions; ignoring.",
+                        proposed_action$action_type,
+                        dp$id
+                      ),
+                      call. = FALSE
+                    )
+                    next
+                  }
+                  # Normalize ActionEvent into an event proposal shape expected by
+                  # arbitration: event_type drives validation/arbitration, while
+                  # action_type remains for policy provenance.
+                  if (is.null(proposed_action$event_type) || !nzchar(proposed_action$event_type)) {
+                    proposed_action$event_type <- proposed_action$action_type
+                  }
+                  # Insert as a candidate event proposal under a synthetic process id.
+                  pid <- paste0(".action.", dp$id)
+                  action_props[[pid]] <- proposed_action
+                }
+              }
+            }
+          }
+        }
+
         if (isTRUE(return_observations)) {
           o <- .call_observe(self$bundle, entity, ev, ctx = ctx)
           if (!is.null(o)) {
@@ -138,6 +194,10 @@ if (is.null(ctx$params)) {
               proposals[[pid]] <<- NULL
             }
           }
+        }
+
+        if (length(action_props) > 0L) {
+          proposals <<- utils::modifyList(proposals, action_props, keep.null = TRUE)
         }
 
         TRUE
@@ -206,6 +266,33 @@ if (is.null(ctx$params)) {
     )
   }
   out
+}
+
+# Stage 2B: internal policy dispatch helper.
+# Accepts either a bare function or a list/environment with a $propose_action method.
+# Signature: propose_action(decision_point, entity, ...) -> ActionEvent or NULL
+.call_policy <- function(policy, dp, entity, sim_ctx = NULL, param_ctx = NULL) {
+  if (is.function(policy)) {
+    f <- policy
+  } else if (is.list(policy) && is.function(policy$propose_action)) {
+    f <- policy$propose_action
+  } else {
+    warning("policy must be a function or a list with a $propose_action function; ignoring.", call. = FALSE)
+    return(NULL)
+  }
+
+  fml <- names(formals(f))
+  args <- list(decision_point = dp, entity = entity)
+  if ("sim_ctx" %in% fml) args$sim_ctx <- sim_ctx
+  if ("param_ctx" %in% fml) args$param_ctx <- param_ctx
+  tryCatch(
+    do.call(f, args),
+    error = function(e) {
+      warning(sprintf("policy$propose_action() errored for dp '%s': %s", dp$id, conditionMessage(e)),
+              call. = FALSE)
+      NULL
+    }
+  )
 }
 
 .pick_next_event <- function(proposals, event_catalog = NULL) {
