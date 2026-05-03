@@ -187,9 +187,9 @@ print.ActionEvent <- function(x, ...) {
 #'
 #' @export
 state_summary_default <- function(entity, ...) {
-  s <- entity$state
+  # entity$current is the live named list of current variable values.
+  s <- entity$current
   if (is.null(s) || !is.list(s)) return(list())
-  # Return a plain list snapshot: strip any reference semantics
   as.list(s)
 }
 
