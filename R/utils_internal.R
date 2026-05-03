@@ -367,34 +367,8 @@
   invisible(TRUE)
 }
 
-.ctx_time_spec <- function(ctx) {
-  if (is.null(ctx) || !is.list(ctx)) return(NULL)
-  if (!is.null(ctx$time_spec) && inherits(ctx$time_spec, "time_spec")) return(ctx$time_spec)
-  if (!is.null(ctx$time) && is.list(ctx$time)) {
-    out <- tryCatch(time_spec(ctx = list(time = ctx$time)), error = function(e) NULL)
-    return(out)
-  }
-  NULL
-}
-
-.assert_ctx_time_compatible <- function(ctx, canonical_time_spec, where = "ctx") {
-  if (is.null(ctx) || !is.list(ctx)) return(invisible(TRUE))
-  if (is.null(canonical_time_spec) || !inherits(canonical_time_spec, "time_spec")) {
-    stop("canonical_time_spec must be a fluxCore `time_spec`.", call. = FALSE)
-  }
-  supplied <- .ctx_time_spec(ctx)
-  if (!is.null(supplied) && !.time_spec_equal(supplied, canonical_time_spec)) {
-    stop(
-      sprintf(
-        "%s attempted to override canonical model time spec. Declare model time once in the bundle and do not override at runtime.",
-        where
-      ),
-      call. = FALSE
-    )
-  }
-  invisible(TRUE)
-}
-
+# NOTE: .ctx_time_spec() and .assert_ctx_time_compatible() were removed in v2.0.
+# Use formal time_spec from the Engine or specify time_spec() explicitly.
 
 .psim_internal_env <- new.env(parent = emptyenv())
 

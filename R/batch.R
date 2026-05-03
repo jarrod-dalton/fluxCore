@@ -25,8 +25,8 @@
 #' @param n_param_draws Integer; number of global parameter draws (D). Default 1.
 #' @param n_sims Integer; number of stochastic sims per entity per draw (S). Default 1.
 #' @param param_draws Optional; a list of length D with per-draw parameter contexts. If NULL,
-#' the function will attempt to call engine$bundle$sample_params(D) or engine$provider$sample_param_draws(...)
-#' when available; otherwise it uses a single NULL draw.
+#' the function will attempt to call engine$bundle$sample_params(D) when available;
+#' otherwise it uses a single NULL draw (no global parameter variation).
 #' @param ctx Optional context (v1.x path). Either a single list merged into each run context, or a
 #' list of per-draw context lists of length n_param_draws. Not accepted when engine was built
 #' via `load_model()` (v2 mode); use `runtime` instead.
@@ -293,7 +293,6 @@ run_cohort <- function(engine,
     }
 
     ctx_run <- list(
-      time = .time_ctx_from_spec(canonical_time_spec),
       time_spec = canonical_time_spec,
       entity_id = entity_id,
       param_draw_id = param_draw_id,
@@ -304,11 +303,7 @@ run_cohort <- function(engine,
     # Merge user-provided ctx (if any). Per-draw ctx overrides single ctx.
     if (!is.null(ctx_user)) {
       base_ctx <- if (ctx_is_per_draw) ctx_user[[param_draw_id]] else ctx_user
-      .assert_ctx_time_compatible(
-        ctx = base_ctx,
-        canonical_time_spec = canonical_time_spec,
-        where = sprintf("run_cohort() ctx for entity '%s', draw %d", entity_id, param_draw_id)
-      )
+      # v2.0: removed legacy ctx$time compatibility checks. Use time_spec directly.
       base_ctx$time <- NULL
       base_ctx$time_spec <- NULL
 
@@ -317,7 +312,6 @@ run_cohort <- function(engine,
       ctx_run$entity_id <- entity_id
       ctx_run$param_draw_id <- param_draw_id
       ctx_run$sim_id <- sim_id
-      ctx_run$time <- .time_ctx_from_spec(canonical_time_spec)
       ctx_run$time_spec <- canonical_time_spec
       # If base_ctx provides params, honor it; otherwise keep param_draws.
       if (!is.null(base_ctx$params)) ctx_run$params <- base_ctx$params
@@ -341,7 +335,8 @@ run_cohort <- function(engine,
 }
 
 .maybe_sample_param_draws <- function(engine, n_param_draws) {
-  # 1) Bundle can provide sample_params(D)
+  # v2.0: Use bundle$sample_params(D) to draw parameters.
+  # Removed fallback to engine$provider (v1.x pattern).
   if (!is.null(engine$bundle$sample_params) && is.function(engine$bundle$sample_params)) {
     draws <- engine$bundle$sample_params(n_param_draws)
     if (!is.list(draws) || length(draws) != n_param_draws) {
@@ -350,16 +345,7 @@ run_cohort <- function(engine,
     return(draws)
   }
 
-  # 2) Provider can provide sample_param_draws(model_spec, D)
-  if (!is.null(engine$provider) && !is.null(engine$provider$sample_param_draws) && is.function(engine$provider$sample_param_draws)) {
-    draws <- engine$provider$sample_param_draws(model_spec = engine$model_spec, n_param_draws = n_param_draws)
-    if (!is.list(draws) || length(draws) != n_param_draws) {
-      stop("provider$sample_param_draws(model_spec, D) must return a list of length D.")
-    }
-    return(draws)
-  }
-
-  # Fallback: one NULL draw repeated
+  # Fallback: one NULL draw repeated (no global parameter variation)
   rep(list(NULL), n_param_draws)
 }
 

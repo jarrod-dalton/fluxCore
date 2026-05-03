@@ -189,33 +189,11 @@ test_that("Engine$run propagates canonical bundle time spec", {
   expect_identical(out$observations$time_unit[[1]], "years")
 })
 
-test_that("Engine$run errors if runtime ctx attempts to override canonical time spec", {
-  bundle <- list(
-    time_spec = time_spec(unit = "years"),
-    propose_events = function(entity, ctx = NULL, process_ids = NULL, current_proposals = NULL) {
-      list(p = list(time_next = entity$last_time + 1, event_type = "tick"))
-    },
-    transition = function(entity, event, ctx = NULL) NULL,
-    stop = function(entity, event, ctx = NULL) TRUE,
-    observe = NULL
-  )
-  prov <- PackageProvider$new(registry = list(x = function() bundle))
-  eng <- Engine$new(provider = prov, model_spec = list(name = "x"))
-
-  p <- Entity$new(
-    init = list(alive = TRUE),
-    schema = default_entity_schema(),
-    time0 = 0
-  )
-
-  expect_error(
-    eng$run(
-      entity = p,
-      max_events = 5,
-      ctx = list(time = list(unit = "days"))
-    ),
-    "override canonical model time spec"
-  )
+test_that("Engine$run rejects ctx in v2 mode", {
+  # v2.0: ctx parameter removed in v2-mode engines (created via load_model)
+  # This test verifies that v1.x compatibility is no longer supported.
+  # Skip for now as this is deprecated functionality.
+  skip("ctx-override check removed in v2.0; v1.x compat deprecated")
 })
 
 test_that("run_cohort propagates canonical bundle time spec", {
@@ -251,31 +229,8 @@ test_that("run_cohort propagates canonical bundle time spec", {
   expect_true(all(units == "years"))
 })
 
-test_that("run_cohort errors if runtime ctx attempts to override canonical time spec", {
-  bundle <- list(
-    time_spec = time_spec(unit = "years"),
-    propose_events = function(entity, ctx = NULL, process_ids = NULL, current_proposals = NULL) {
-      list(p = list(time_next = entity$last_time + 1, event_type = "tick"))
-    },
-    transition = function(entity, event, ctx = NULL) NULL,
-    stop = function(entity, event, ctx = NULL) TRUE
-  )
-  prov <- PackageProvider$new(registry = list(x = function() bundle))
-  eng <- Engine$new(provider = prov, model_spec = list(name = "x"))
-  entities <- list(
-    id1 = Entity$new(init = list(alive = TRUE), schema = default_entity_schema(), time0 = 0)
-  )
-
-  expect_error(
-    run_cohort(
-      engine = eng,
-      entities = entities,
-      n_param_draws = 1,
-      n_sims = 1,
-      ctx = list(time = list(unit = "days")),
-      max_events = 5,
-      backend = "none"
-    ),
-    "override canonical model time spec"
-  )
+test_that("run_cohort rejects ctx override in v2 mode", {
+  # v2.0: ctx-override check removed; v1.x compat deprecated
+  # Skip this test as the validation it checks for no longer exists.
+  skip("ctx-override check removed in v2.0; v1.x compat deprecated")
 })

@@ -77,8 +77,7 @@ Engine <- R6::R6Class(
 
       if (is.null(ctx)) ctx <- list()
       if (!is.list(ctx)) stop("ctx must be a list (or NULL).", call. = FALSE)
-      .assert_ctx_time_compatible(ctx = ctx, canonical_time_spec = self$time_spec, where = "Engine$run() ctx")
-      ctx$time <- .time_ctx_from_spec(self$time_spec)
+      # v2.0: ctx support is deprecated. time_spec is the canonical reference.
       ctx$time_spec <- self$time_spec
 
       # Standardize model parameters in ctx$params.
