@@ -13,7 +13,7 @@ time_spec(unit = NULL, origin = NULL, zone = "UTC", ctx = NULL)
 
 \item{zone}{Time zone used for calendar-time conversion (default "UTC").}
 
-\item{ctx}{Optional compatibility path. A context list containing ctx$time$unit and optional ctx$time$origin/ctx$time$zone.}
+\item{ctx}{Optional legacy compatibility path. A context list containing ctx$time$unit and optional ctx$time$origin/ctx$time$zone.}
 }
 \value{
 An object of class time_spec with precomputed conversion constants.

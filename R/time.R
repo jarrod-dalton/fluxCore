@@ -6,7 +6,7 @@
 #
 # Key concepts:
 # - time_spec(unit=..., origin=..., zone=...) is the canonical declaration.
-# - ctx$time remains a compatibility transport path.
+# - ctx$time remains a legacy compatibility transport path.
 # - 'months' and 'years' are fixed approximations (30.4375 and 365.25 days).
 #
 # NOTE: time_origin is NOT baseline. Baseline/start-of-followup is model-defined.
@@ -37,7 +37,7 @@
 #' @param unit Required time unit when using explicit arguments. One of "seconds", "minutes", "hours", "days", "weeks", "months", "years".
 #' @param origin Optional Date or POSIXct/POSIXt origin used for calendar-time conversion. Defaults to Unix epoch.
 #' @param zone Time zone used for calendar-time conversion (default "UTC").
-#' @param ctx Optional compatibility path. A context list containing ctx$time$unit and optional ctx$time$origin/ctx$time$zone.
+#' @param ctx Optional legacy compatibility path. A context list containing ctx$time$unit and optional ctx$time$origin/ctx$time$zone.
 #'
 #' @return An object of class time_spec with precomputed conversion constants.
 #'
@@ -200,9 +200,10 @@ time_from_model <- function(t, time_spec, class = c("origin", "Date", "POSIXct")
   return(as.Date(out_posix, tz = time_spec$zone))
 }
 
-#' Set time settings in ctx
+#' Set time settings in ctx (legacy compatibility helper)
 #'
 #' Convenience helper to set ctx$time$unit and optionally ctx$time$origin and ctx$time$zone.
+#' Prefer `time_spec(unit = ..., origin = ..., zone = ...)` for new v2 code.
 #'
 #' @param ctx Context list (or NULL to create a new one).
 #' @param unit Time unit string. Must be one of: seconds, minutes, hours, days, weeks, months, years.

@@ -104,6 +104,15 @@ Engine <- R6::R6Class(
         "entity"
       }
 
+      # Stage 3 hardening: apply RuntimeContext seed in single-run v2 path.
+      # Contract: fixed seed + draw_id + replicate_id + entity_id => reproducible output.
+      if (isTRUE(self$.v2_mode) && !is.null(self$.runtime) && !is.null(self$.runtime$seed)) {
+        draw_id <- if (!is.null(ctx$param_draw_id)) as.integer(ctx$param_draw_id) else 1L
+        replicate_id <- if (!is.null(self$.runtime$replicate_id)) as.integer(self$.runtime$replicate_id) else 1L
+        local_seed <- .seed_for(as.integer(self$.runtime$seed), entity_id, draw_id, replicate_id)
+        set.seed(local_seed)
+      }
+
       resolve_trajectory_config <- function(trajectory) {
         if (is.null(trajectory)) return(NULL)
         if (!is.list(trajectory)) {

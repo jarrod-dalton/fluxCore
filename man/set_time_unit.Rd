@@ -2,7 +2,7 @@
 % Please edit documentation in R/time.R
 \name{set_time_unit}
 \alias{set_time_unit}
-\title{Set time settings in ctx}
+\title{Set time settings in ctx (legacy compatibility helper)}
 \usage{
 set_time_unit(ctx = NULL, unit, origin = NULL, zone = "UTC")
 }
@@ -20,4 +20,5 @@ Updated ctx list (validated).
 }
 \description{
 Convenience helper to set ctx$time$unit and optionally ctx$time$origin and ctx$time$zone.
+Prefer \code{time_spec(unit = ..., origin = ..., zone = ...)} for new v2 code.
 }

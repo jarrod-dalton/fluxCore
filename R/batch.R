@@ -46,7 +46,7 @@
 #'
 #' @return
 #' A list with:
-#' runs: list of per-run outputs (entity/events/observations) with labels
+#' runs: list of per-run outputs (entity/events/observations; plus trajectory_records when enabled) with labels
 #' index: data.frame mapping run_id -> entity_id/param_draw_id/sim_id
 #'
 #' @export
