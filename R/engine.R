@@ -13,6 +13,16 @@ Engine <- R6::R6Class(
     bundle = NULL,
     time_spec = NULL,
 
+    # v2.0.0 fields -- set by load_model(); NULL when using Engine$new() directly
+    .v2_mode     = FALSE,
+    .schema      = NULL,
+    .policy      = NULL,
+    .environment = NULL,
+    .trajectory  = NULL,
+    .runtime     = NULL,
+    .param_source = NULL,
+    .time_spec   = NULL,
+
     initialize = function(bundle = NULL,
                           provider = NULL,
                           model_spec = list(name = "default"),
@@ -55,8 +65,17 @@ Engine <- R6::R6Class(
                    return_observations = TRUE,
                    ctx = NULL) {
 
-      
-if (is.null(ctx)) ctx <- list()
+      # v2.0.0 hard error: Engines assembled via load_model() do not accept ctx.
+      # Use SimContext / ParamContext / RuntimeContext instead.
+      if (isTRUE(self$.v2_mode) && !is.null(ctx)) {
+        stop(
+          "Engine$run(): `ctx` is not accepted in v2.0.0 mode (engine was built via load_model()). ",
+          "Pass reproducibility settings via RuntimeContext and parameter values via ParamContext.",
+          call. = FALSE
+        )
+      }
+
+      if (is.null(ctx)) ctx <- list()
 if (!is.list(ctx)) stop("ctx must be a list (or NULL).", call. = FALSE)
 .assert_ctx_time_compatible(ctx = ctx, canonical_time_spec = self$time_spec, where = "Engine$run() ctx")
 ctx$time <- .time_ctx_from_spec(self$time_spec)
