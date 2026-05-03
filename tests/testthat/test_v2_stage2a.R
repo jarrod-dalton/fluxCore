@@ -94,6 +94,25 @@ test_that("run_cohort: fixed seed reproduces identical event counts (serial)", {
   }
 })
 
+test_that("run_cohort: fixed seed is reproducible across serial and mclapply backends", {
+  skip_if(.Platform$OS.type != "unix", "mclapply backend requires unix-like OS")
+
+  bundle   <- test_model_bundle()
+  engine   <- Engine$new(bundle = bundle)
+  entities <- list(
+    p1 = Entity$new(schema = default_entity_schema()),
+    p2 = Entity$new(schema = default_entity_schema()),
+    p3 = Entity$new(schema = default_entity_schema())
+  )
+
+  serial <- run_cohort(engine, entities, n_sims = 2, seed = 321L, backend = "none")
+  parallel <- run_cohort(engine, entities, n_sims = 2, seed = 321L, backend = "mclapply", n_workers = 2)
+
+  serial_counts <- vapply(serial$runs, function(x) nrow(x$events), integer(1))
+  parallel_counts <- vapply(parallel$runs, function(x) nrow(x$events), integer(1))
+  expect_equal(serial_counts, parallel_counts)
+})
+
 test_that("run_cohort: different seeds produce different outputs", {
   bundle   <- test_model_bundle()
   engine   <- Engine$new(bundle = bundle)
