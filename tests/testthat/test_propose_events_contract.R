@@ -8,8 +8,7 @@ test_that("propose_events must return a named list keyed by process_id", {
     stop = function(entity, event, ctx = NULL) FALSE
   )
 
-  prov <- PackageProvider$new(registry = list(x = function() bundle))
-  eng <- Engine$new(provider = prov, model_spec = list(name = "x"))
+  eng <- Engine$new(bundle = bundle)
   p <- Entity$new(init = list(alive = TRUE), schema = default_entity_schema(), time0 = 0)
 
   expect_error(
@@ -34,8 +33,7 @@ test_that("propose_events rejects duplicated process_id names", {
     stop = function(entity, event, ctx = NULL) FALSE
   )
 
-  prov <- PackageProvider$new(registry = list(x = function() bundle))
-  eng <- Engine$new(provider = prov, model_spec = list(name = "x"))
+  eng <- Engine$new(bundle = bundle)
   p <- Entity$new(init = list(alive = TRUE), schema = default_entity_schema(), time0 = 0)
 
   expect_error(
@@ -55,8 +53,7 @@ test_that("event_type must be declared in bundle event_catalog when provided", {
     stop = function(entity, event, ctx = NULL) FALSE
   )
 
-  prov <- PackageProvider$new(registry = list(x = function() bundle))
-  eng <- Engine$new(provider = prov, model_spec = list(name = "x"))
+  eng <- Engine$new(bundle = bundle)
   p <- Entity$new(init = list(alive = TRUE), schema = default_entity_schema(), time0 = 0)
 
   expect_error(
@@ -76,8 +73,7 @@ test_that("valid named proposals and event_catalog pass", {
     stop = function(entity, event, ctx = NULL) entity$last_time >= 1
   )
 
-  prov <- PackageProvider$new(registry = list(x = function() bundle))
-  eng <- Engine$new(provider = prov, model_spec = list(name = "x"))
+  eng <- Engine$new(bundle = bundle)
   p <- Entity$new(init = list(alive = TRUE), schema = default_entity_schema(), time0 = 0)
 
   expect_no_error(eng$run(entity = p, max_events = 3, return_observations = FALSE))

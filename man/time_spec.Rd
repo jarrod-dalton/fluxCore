@@ -4,20 +4,19 @@
 \alias{time_spec}
 \title{Compile and validate canonical time settings}
 \usage{
-time_spec(unit = NULL, origin = NULL, zone = "UTC", ctx = NULL)
+time_spec(unit = NULL, origin = NULL, zone = "UTC")
 }
 \arguments{
-\item{unit}{Required time unit when using explicit arguments. One of "seconds", "minutes", "hours", "days", "weeks", "months", "years".}
+\item{unit}{Required time unit. One of "seconds", "minutes", "hours", "days", "weeks", "months", "years".}
 
 \item{origin}{Optional Date or POSIXct/POSIXt origin used for calendar-time conversion. Defaults to Unix epoch.}
 
 \item{zone}{Time zone used for calendar-time conversion (default "UTC").}
-
-\item{ctx}{Optional legacy compatibility path. A context list containing ctx$time$unit and optional ctx$time$origin/ctx$time$zone.}
 }
 \value{
 An object of class time_spec with precomputed conversion constants.
 }
 \description{
-Compiles and validates calendar-to-model time settings from explicit arguments (preferred) or ctx$time (compatibility).
+Compiles and validates time settings from explicit unit, origin, and zone parameters.
+v2.0 only supports explicit time_spec() calls; ctx fallback was removed.
 }

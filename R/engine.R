@@ -8,8 +8,6 @@
 Engine <- R6::R6Class(
   classname = "Engine",
   public = list(
-    provider = NULL,
-    model_spec = NULL,
     bundle = NULL,
     time_spec = NULL,
 
@@ -23,38 +21,17 @@ Engine <- R6::R6Class(
     .param_source = NULL,
     .time_spec   = NULL,
 
-    initialize = function(bundle = NULL,
-                          provider = NULL,
-                          model_spec = list(name = "default"),
-                          ...) {
-      if (!is.null(bundle)) {
-        if (!is.null(provider)) {
-          stop("Engine$new(): supply either `bundle` or `provider`, not both.", call. = FALSE)
-        }
-        .validate_model_bundle(bundle)
-        self$provider <- NULL
-        self$model_spec <- NULL
-        self$bundle <- bundle
-        self$time_spec <- bundle$time_spec
-        return(invisible(self))
+    initialize = function(bundle = NULL, ...) {
+      if (is.null(bundle)) {
+        stop(
+          "Engine$new() requires a `bundle` argument. ",
+          "Supply a ModelBundle list directly, or use load_model() for the full v2 assembly path.",
+          call. = FALSE
+        )
       }
-
-      if (is.null(provider)) provider <- PackageProvider$new()
-
-      self$provider <- provider
-      self$model_spec <- model_spec
-
-      if (!is.list(provider) && is.null(provider$load)) {
-        stop("provider must be an object with a $load(model_spec, ...) method.")
-      }
-      if (!is.function(provider$load)) {
-        stop("provider$load must be a function.")
-      }
-
-      self$bundle <- provider$load(model_spec = model_spec, ...)
-      .validate_model_bundle(self$bundle)
-      self$time_spec <- self$bundle$time_spec
-
+      .validate_model_bundle(bundle)
+      self$bundle <- bundle
+      self$time_spec <- bundle$time_spec
       invisible(self)
     },
 

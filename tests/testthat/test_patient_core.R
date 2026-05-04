@@ -41,7 +41,7 @@ test_that("Engine run returns events and entity; time is non-decreasing", {
   schema <- default_entity_schema()
   schema$age <- list(type = "continuous", default = 40, coerce = as.numeric)
   schema$miles_to_work <- list(type = "continuous", default = 10, coerce = as.numeric)
-  eng <- Engine$new(provider = test_package_provider(), model_spec = list(name = "default"))
+  eng <- Engine$new(bundle = test_model_bundle())
 
   p <- Entity$new(
     init = list(age = 50, miles_to_work = 10),
@@ -89,7 +89,7 @@ test_that("run_cohort produces index with entity_id, param_draw_id, sim_id and c
   schema <- default_entity_schema()
   schema$age <- list(type = "continuous", default = 40, coerce = as.numeric)
   schema$miles_to_work <- list(type = "continuous", default = 10, coerce = as.numeric)
-  eng <- Engine$new(provider = test_package_provider(), model_spec = list(name = "default"))
+  eng <- Engine$new(bundle = test_model_bundle())
 
   entities <- lapply(1:3, function(i) {
     Entity$new(init = list(age = 40 + i, miles_to_work = 8),
@@ -142,8 +142,7 @@ test_that("Engine stops immediately when bundle stop() returns TRUE (no events a
     sample_params = function(D) rep(list(NULL), as.integer(D))
   )
 
-  prov <- PackageProvider$new(registry = list(x = function() bundle))
-  eng <- Engine$new(provider = prov, model_spec = list(name = "x"))
+  eng <- Engine$new(bundle = bundle)
 
   p <- Entity$new(init = list(age = 50, miles_to_work = 10),
                    schema = schema,
@@ -172,8 +171,7 @@ test_that("Engine$run propagates canonical bundle time spec", {
       data.frame(time_unit = as.character(ctx$time$unit), stringsAsFactors = FALSE)
     }
   )
-  prov <- PackageProvider$new(registry = list(x = function() bundle))
-  eng <- Engine$new(provider = prov, model_spec = list(name = "x"))
+  eng <- Engine$new(bundle = bundle)
 
   p <- Entity$new(
     init = list(alive = TRUE),
@@ -208,8 +206,7 @@ test_that("run_cohort propagates canonical bundle time spec", {
       data.frame(time_unit = as.character(ctx$time$unit), stringsAsFactors = FALSE)
     }
   )
-  prov <- PackageProvider$new(registry = list(x = function() bundle))
-  eng <- Engine$new(provider = prov, model_spec = list(name = "x"))
+  eng <- Engine$new(bundle = bundle)
 
   entities <- list(
     id1 = Entity$new(init = list(alive = TRUE), schema = default_entity_schema(), time0 = 0),

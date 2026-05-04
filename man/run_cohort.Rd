@@ -30,8 +30,8 @@ run_cohort(
 \item{n_sims}{Integer; number of stochastic sims per entity per draw (S). Default 1.}
 
 \item{param_draws}{Optional; a list of length D with per-draw parameter contexts. If NULL,
-the function will attempt to call engine$bundle$sample_params(D) or engine$provider$sample_param_draws(...)
-when available; otherwise it uses a single NULL draw.}
+the function will attempt to call engine$bundle$sample_params(D) when available;
+otherwise it uses a single NULL draw (no global parameter variation).}
 
 \item{ctx}{Optional context (v1.x path). Either a single list merged into each run context, or a
 list of per-draw context lists of length n_param_draws. Not accepted when engine was built

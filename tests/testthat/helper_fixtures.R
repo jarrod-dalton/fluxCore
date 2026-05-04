@@ -61,5 +61,7 @@ test_model_bundle <- function(terminal_event_type = "death") {
 }
 
 test_package_provider <- function() {
-  PackageProvider$new(registry = list(default = test_model_bundle))
+  # Deprecated in v2.0.0 — retained only for reference during transition.
+  # Use Engine$new(bundle = test_model_bundle()) instead.
+  NULL
 }

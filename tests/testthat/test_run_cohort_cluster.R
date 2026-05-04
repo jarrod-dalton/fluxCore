@@ -24,8 +24,7 @@ test_that("run_cohort backend='cluster' runs and preserves index/run alignment",
       data.frame(time_unit = as.character(ctx$time$unit), stringsAsFactors = FALSE)
     }
   )
-  prov <- PackageProvider$new(registry = list(x = function() bundle))
-  eng <- Engine$new(provider = prov, model_spec = list(name = "x"))
+  eng <- Engine$new(bundle = bundle)
 
   entities <- lapply(1:3, function(i) {
     Entity$new(init = list(age = 40 + i, miles_to_work = 8),

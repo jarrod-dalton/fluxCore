@@ -10,8 +10,7 @@ test_that("ModelBundle accepts valid event_catalog and terminal_events metadata"
     stop = function(entity, event, ctx = NULL) entity$last_time >= 1
   )
 
-  provider <- list(load = function(model_spec = NULL, ...) bundle)
-  expect_no_error(Engine$new(provider = provider))
+  expect_no_error(Engine$new(bundle = bundle))
 })
 
 test_that("ModelBundle rejects terminal_events labels not in event_catalog", {
@@ -26,9 +25,8 @@ test_that("ModelBundle rejects terminal_events labels not in event_catalog", {
     stop = function(entity, event, ctx = NULL) entity$last_time >= 1
   )
 
-  provider <- list(load = function(model_spec = NULL, ...) bundle)
   expect_error(
-    Engine$new(provider = provider),
+    Engine$new(bundle = bundle),
     "bundle\\$terminal_events contains labels not in bundle\\$event_catalog"
   )
 })

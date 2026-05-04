@@ -18,13 +18,12 @@ test_that("run_cohort index is ordered entity -> draw -> sim", {
     },
     stop = function(entity, event, ctx = NULL) TRUE
   )
-  minimal_provider <- list(load = function(model_spec = NULL, ...) minimal_bundle)
   # default_entity_schema() only defines core variables (alive, active_followup).
   # Use defaults for this ordering test; entity_id is supplied by the cohort runner.
   p1 <- Entity$new(init = list(), schema = schema)
   p2 <- Entity$new(init = list(), schema = schema)
 
-    eng <- Engine$new(provider = minimal_provider)
+  eng <- Engine$new(bundle = minimal_bundle)
 
   out <- run_cohort(
     engine = eng,
