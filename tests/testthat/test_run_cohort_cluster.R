@@ -15,13 +15,13 @@ test_that("run_cohort backend='cluster' runs and preserves index/run alignment",
   schema$miles_to_work <- list(type = "continuous", default = 10, coerce = as.numeric)
   bundle <- list(
     time_spec = time_spec(unit = "years"),
-    propose_events = function(entity, ctx = NULL, process_ids = NULL, current_proposals = NULL) {
+    propose_events = function(entity, process_ids = NULL, current_proposals = NULL) {
       list(p = list(time_next = entity$last_time + 1, event_type = "tick"))
     },
-    transition = function(entity, event, ctx = NULL) NULL,
-    stop = function(entity, event, ctx = NULL) TRUE,
-    observe = function(entity, event, ctx = NULL) {
-      data.frame(time_unit = as.character(ctx$time$unit), stringsAsFactors = FALSE)
+    transition = function(entity, event) NULL,
+    stop = function(entity, event) TRUE,
+    observe = function(entity, event) {
+      data.frame(time_unit = "years", stringsAsFactors = FALSE)
     }
   )
   eng <- Engine$new(bundle = bundle)

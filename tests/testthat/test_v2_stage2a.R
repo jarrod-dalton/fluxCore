@@ -2,7 +2,7 @@
 ##
 ## Coverage:
 ##   - run_cohort() accepts RuntimeContext for seed/backend/n_workers
-##   - run_cohort() hard errors on ctx= in v2 mode
+##   - run_cohort() rejects removed ctx= parameter
 ##   - Fixed seed + draw_id + sim_id + entity_id => identical output (serial)
 ##   - Different seeds => different output
 ##   - Different entity_ids with same seed => different seeds per entity
@@ -17,15 +17,15 @@ test_that("run_cohort: accepts RuntimeContext and uses its seed", {
     time_spec     = time_spec(unit = "years"),
     event_catalog = bundle$event_catalog
   )
-  engine <- suppressWarnings(load_model(schema = schema, bundle = bundle))
+  engine <- load_model(schema = schema, bundle = bundle)
   entities <- list(
     p1 = Entity$new(schema = default_entity_schema()),
     p2 = Entity$new(schema = default_entity_schema())
   )
 
   rc <- RuntimeContext(seed = 42L)
-  result1 <- suppressWarnings(run_cohort(engine, entities, runtime = rc))
-  result2 <- suppressWarnings(run_cohort(engine, entities, runtime = rc))
+  result1 <- run_cohort(engine, entities, runtime = rc)
+  result2 <- run_cohort(engine, entities, runtime = rc)
 
   # Same seed -> same number of events per entity
   n_events <- function(res, rid) nrow(res$runs[[rid]]$events)
@@ -33,28 +33,29 @@ test_that("run_cohort: accepts RuntimeContext and uses its seed", {
   expect_equal(n_events(result1, "run_2"), n_events(result2, "run_2"))
 })
 
-test_that("run_cohort: hard errors on ctx= in v2 mode", {
+test_that("run_cohort: ctx= parameter is removed", {
   bundle  <- test_model_bundle()
   schema  <- list(
     variables     = default_entity_schema(),
     time_spec     = time_spec(unit = "years"),
     event_catalog = bundle$event_catalog
   )
-  engine   <- suppressWarnings(load_model(schema = schema, bundle = bundle))
+  engine   <- load_model(schema = schema, bundle = bundle)
   entities <- list(p1 = Entity$new(schema = default_entity_schema()))
   expect_error(
-    suppressWarnings(run_cohort(engine, entities, ctx = list())),
-    "v2 mode"
+    run_cohort(engine, entities, ctx = list()),
+    "unused argument"
   )
 })
 
-test_that("run_cohort: ctx= still works on v1 engines", {
+test_that("run_cohort: v1 engines also no longer accept ctx=", {
   bundle  <- test_model_bundle()
   engine  <- Engine$new(bundle = bundle)
   entities <- list(p1 = Entity$new(schema = default_entity_schema()))
-  # Should not error
-  result <- run_cohort(engine, entities, ctx = list())
-  expect_equal(length(result$runs), 1L)
+  expect_error(
+    run_cohort(engine, entities, ctx = list()),
+    "unused argument"
+  )
 })
 
 test_that("run_cohort: RuntimeContext backend field is respected (none path)", {
@@ -64,10 +65,10 @@ test_that("run_cohort: RuntimeContext backend field is respected (none path)", {
     time_spec     = time_spec(unit = "years"),
     event_catalog = bundle$event_catalog
   )
-  engine   <- suppressWarnings(load_model(schema = schema, bundle = bundle))
+  engine   <- load_model(schema = schema, bundle = bundle)
   entities <- list(p1 = Entity$new(schema = default_entity_schema()))
   rc <- RuntimeContext(seed = 1L, backend = "none")
-  result <- suppressWarnings(run_cohort(engine, entities, runtime = rc))
+  result <- run_cohort(engine, entities, runtime = rc)
   expect_equal(length(result$runs), 1L)
 })
 

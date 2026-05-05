@@ -1,19 +1,19 @@
 ## Stage 3 tests: trajectory logging emission and shape
 
 .make_stage3_bundle <- function() {
-  propose_events <- function(entity, ctx = NULL, process_ids = NULL, current_proposals = NULL) {
+  propose_events <- function(entity, process_ids = NULL, current_proposals = NULL) {
     pid <- "default"
     if (!is.null(process_ids) && !(pid %in% process_ids)) return(list())
     t0 <- entity$last_time
     list(default = list(time_next = t0 + 1, event_type = "VISIT", process_id = pid))
   }
 
-  transition <- function(entity, event, ctx = NULL) {
+  transition <- function(entity, event) {
     if (identical(event$event_type, "ACT")) return(list(acted = TRUE))
     list()
   }
 
-  stop <- function(entity, event, ctx = NULL) {
+  stop <- function(entity, event) {
     isTRUE(identical(event$event_type, "ACT"))
   }
 
@@ -25,7 +25,7 @@
     transition = transition,
     stop = stop,
     observe = NULL,
-    refresh_rules = function(entity, last_event, changes, ctx = NULL) "ALL"
+    refresh_rules = function(entity, last_event, changes) "ALL"
   )
 }
 
@@ -74,12 +74,12 @@ test_that("Engine v2: returns trajectory_records when trajectory logger is confi
   schema <- .make_stage3_schema()
   policy <- .make_stage3_policy()
 
-  engine <- suppressWarnings(load_model(
+  engine <- load_model(
     schema = schema,
     bundle = bundle,
     policy = policy,
     trajectory = list(detail = "summary")
-  ))
+  )
   entity <- Entity$new(schema = schema$variables, id = "p1")
 
   out <- engine$run(entity = entity, max_events = 10)
@@ -95,7 +95,7 @@ test_that("Engine v2: no trajectory_records field when trajectory logger is not 
   schema <- .make_stage3_schema()
   policy <- .make_stage3_policy()
 
-  engine <- suppressWarnings(load_model(schema = schema, bundle = bundle, policy = policy))
+  engine <- load_model(schema = schema, bundle = bundle, policy = policy)
   entity <- Entity$new(schema = schema$variables)
 
   out <- engine$run(entity = entity, max_events = 10)
@@ -107,12 +107,12 @@ test_that("Engine v2 trajectory detail=summary captures state_before/state_after
   schema <- .make_stage3_schema()
   policy <- .make_stage3_policy()
 
-  engine <- suppressWarnings(load_model(
+  engine <- load_model(
     schema = schema,
     bundle = bundle,
     policy = policy,
     trajectory = list(detail = "summary")
-  ))
+  )
   entity <- Entity$new(schema = schema$variables)
 
   out <- engine$run(entity = entity, max_events = 10)
@@ -127,12 +127,12 @@ test_that("Engine v2 trajectory detail=none leaves state_before/state_after as N
   schema <- .make_stage3_schema()
   policy <- .make_stage3_policy()
 
-  engine <- suppressWarnings(load_model(
+  engine <- load_model(
     schema = schema,
     bundle = bundle,
     policy = policy,
     trajectory = list(detail = "none")
-  ))
+  )
   entity <- Entity$new(schema = schema$variables)
 
   out <- engine$run(entity = entity, max_events = 10)
@@ -147,12 +147,12 @@ test_that("Engine v2 trajectory uses DecisionPoint observation_fn when provided"
   schema <- .make_stage3_schema(custom_observation = TRUE)
   policy <- .make_stage3_policy()
 
-  engine <- suppressWarnings(load_model(
+  engine <- load_model(
     schema = schema,
     bundle = bundle,
     policy = policy,
     trajectory = list(detail = "summary")
-  ))
+  )
   entity <- Entity$new(schema = schema$variables)
 
   out <- engine$run(entity = entity, max_events = 10)
@@ -169,12 +169,12 @@ test_that("Engine v2 trajectory records are JSON-compatible", {
   schema <- .make_stage3_schema()
   policy <- .make_stage3_policy()
 
-  engine <- suppressWarnings(load_model(
+  engine <- load_model(
     schema = schema,
     bundle = bundle,
     policy = policy,
     trajectory = list(detail = "summary")
-  ))
+  )
   entity <- Entity$new(schema = schema$variables, id = "p-json")
 
   out <- engine$run(entity = entity, max_events = 10)
@@ -189,11 +189,11 @@ test_that("load_model: trajectory detail must be one of none/summary/full", {
   schema <- .make_stage3_schema()
 
   expect_error(
-    suppressWarnings(load_model(
+    load_model(
       schema = schema,
       bundle = bundle,
       trajectory = list(detail = "verbose")
-    )),
+    ),
     "trajectory\\$detail"
   )
 })
@@ -204,12 +204,12 @@ test_that("run_cohort v2: trajectory records are deterministic across serial and
   bundle <- .make_stage3_bundle()
   schema <- .make_stage3_schema()
   policy <- .make_stage3_policy()
-  engine <- suppressWarnings(load_model(
+  engine <- load_model(
     schema = schema,
     bundle = bundle,
     policy = policy,
     trajectory = list(detail = "summary")
-  ))
+  )
 
   entities <- list(
     p1 = Entity$new(schema = schema$variables, id = "p1"),
@@ -265,12 +265,12 @@ test_that("run_cohort v2: trajectory records are deterministic across serial and
   bundle <- .make_stage3_bundle()
   schema <- .make_stage3_schema()
   policy <- .make_stage3_policy()
-  engine <- suppressWarnings(load_model(
+  engine <- load_model(
     schema = schema,
     bundle = bundle,
     policy = policy,
     trajectory = list(detail = "summary")
-  ))
+  )
 
   entities <- list(
     p1 = Entity$new(schema = schema$variables, id = "p1"),

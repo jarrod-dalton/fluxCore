@@ -2,7 +2,7 @@ make_refresh_bundle <- function(refresh_rules = NULL) {
   calls <- list()
   bundle <- list(
     time_spec = time_spec(unit = "days"),
-    propose_events = function(entity, ctx = NULL, process_ids = NULL, current_proposals = NULL) {
+    propose_events = function(entity, process_ids = NULL, current_proposals = NULL) {
       calls <<- append(calls, list(process_ids))
       pids <- if (is.null(process_ids)) c("p1", "p2") else process_ids
       out <- vector("list", length(pids))
@@ -16,8 +16,8 @@ make_refresh_bundle <- function(refresh_rules = NULL) {
       }
       out
     },
-    transition = function(entity, event, ctx = NULL) NULL,
-    stop = function(entity, event, ctx = NULL) entity$j >= 3L
+    transition = function(entity, event) NULL,
+    stop = function(entity, event) entity$j >= 3L
   )
   if (!is.null(refresh_rules)) bundle$refresh_rules <- refresh_rules
   list(
@@ -37,7 +37,7 @@ test_that("missing refresh_rules defaults to ALL refresh behavior", {
 })
 test_that("refresh_rules rejects non-character return types", {
   x <- make_refresh_bundle(
-    refresh_rules = function(entity, last_event, changes, ctx = NULL) TRUE
+    refresh_rules = function(entity, last_event, changes) TRUE
   )
   eng <- Engine$new(bundle = x$bundle)
   p <- Entity$new(init = list(alive = TRUE), schema = default_entity_schema(), time0 = 0)
@@ -48,7 +48,7 @@ test_that("refresh_rules rejects non-character return types", {
 })
 test_that("refresh_rules rejects ALL mixed with other process ids", {
   x <- make_refresh_bundle(
-    refresh_rules = function(entity, last_event, changes, ctx = NULL) c("ALL", "p1")
+    refresh_rules = function(entity, last_event, changes) c("ALL", "p1")
   )
   eng <- Engine$new(bundle = x$bundle)
   p <- Entity$new(init = list(alive = TRUE), schema = default_entity_schema(), time0 = 0)
@@ -59,7 +59,7 @@ test_that("refresh_rules rejects ALL mixed with other process ids", {
 })
 test_that("refresh_rules rejects empty and duplicate process ids", {
   x1 <- make_refresh_bundle(
-    refresh_rules = function(entity, last_event, changes, ctx = NULL) c("p1", "")
+    refresh_rules = function(entity, last_event, changes) c("p1", "")
   )
   eng1 <- Engine$new(bundle = x1$bundle)
   p1 <- Entity$new(init = list(alive = TRUE), schema = default_entity_schema(), time0 = 0)
@@ -68,7 +68,7 @@ test_that("refresh_rules rejects empty and duplicate process ids", {
     "empty or missing process_id values"
   )
   x2 <- make_refresh_bundle(
-    refresh_rules = function(entity, last_event, changes, ctx = NULL) c("p1", "p1")
+    refresh_rules = function(entity, last_event, changes) c("p1", "p1")
   )
   eng2 <- Engine$new(bundle = x2$bundle)
   p2 <- Entity$new(init = list(alive = TRUE), schema = default_entity_schema(), time0 = 0)
@@ -79,7 +79,7 @@ test_that("refresh_rules rejects empty and duplicate process ids", {
 })
 test_that("refresh_rules accepts character vector of process ids", {
   x <- make_refresh_bundle(
-    refresh_rules = function(entity, last_event, changes, ctx = NULL) "p1"
+    refresh_rules = function(entity, last_event, changes) "p1"
   )
   eng <- Engine$new(bundle = x$bundle)
   p <- Entity$new(init = list(alive = TRUE), schema = default_entity_schema(), time0 = 0)

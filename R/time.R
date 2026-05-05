@@ -182,6 +182,45 @@ time_from_model <- function(t, time_spec, class = c("origin", "Date", "POSIXct")
 
 # NOTE: set_time_unit() was removed in v2.0. Use time_spec(unit = ..., origin = ..., zone = ...) instead.
 
+#' Coerce to time_spec
+#'
+#' Coerces various inputs into a validated time_spec object. Accepts:
+#' - A `time_spec` object (pass-through)
+#' - A named list with `unit` (required) and optionally `origin`, `zone`
+#'
+#' @param x Object to coerce.
+#' @param ... Additional arguments (unused).
+#'
+#' @return A validated `time_spec` object.
+#'
+#' @export
+as_time_spec <- function(x, ...) {
+  UseMethod("as_time_spec")
+}
+
+#' @export
+as_time_spec.time_spec <- function(x, ...) {
+
+  x
+}
+
+#' @export
+as_time_spec.list <- function(x, ...) {
+  if (is.null(x$unit)) {
+    stop("as_time_spec(): list must contain at least `unit`.", call. = FALSE)
+  }
+  do.call(time_spec, x)
+}
+
+#' @export
+as_time_spec.default <- function(x, ...) {
+  stop(
+    "as_time_spec(): cannot coerce object of class '", paste(class(x), collapse = "/"),
+    "' to time_spec. Supply a time_spec object or a named list with `unit`.",
+    call. = FALSE
+  )
+}
+
 .time_spec_equal <- function(a, b) {
   if (is.null(a) || is.null(b)) return(FALSE)
   if (!inherits(a, "time_spec") || !inherits(b, "time_spec")) return(FALSE)

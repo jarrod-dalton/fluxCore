@@ -1,7 +1,7 @@
 ## Stage 2B tests: policy dispatch through Engine event loop
 
 .make_stage2b_bundle <- function() {
-  propose_events <- function(entity, ctx = NULL, process_ids = NULL, current_proposals = NULL) {
+  propose_events <- function(entity, process_ids = NULL, current_proposals = NULL) {
     pid <- "default"
     if (!is.null(process_ids) && !(pid %in% process_ids)) return(list())
 
@@ -10,12 +10,12 @@
     list(default = list(time_next = t0 + 1, event_type = "VISIT", process_id = pid))
   }
 
-  transition <- function(entity, event, ctx = NULL) {
+  transition <- function(entity, event) {
     if (identical(event$event_type, "ACT")) return(list(acted = TRUE))
     list()
   }
 
-  stop <- function(entity, event, ctx = NULL) {
+  stop <- function(entity, event) {
     # End run once the action is applied.
     isTRUE(identical(event$event_type, "ACT"))
   }
@@ -28,7 +28,7 @@
     transition = transition,
     stop = stop,
     observe = NULL,
-    refresh_rules = function(entity, last_event, changes, ctx = NULL) "ALL"
+    refresh_rules = function(entity, last_event, changes) "ALL"
   )
 }
 
@@ -73,7 +73,7 @@ test_that("Engine v2: policy action is enqueued and realized after decision poin
     }
   )
 
-  engine <- suppressWarnings(load_model(schema = schema, bundle = bundle, policy = policy))
+  engine <- load_model(schema = schema, bundle = bundle, policy = policy)
   entity <- Entity$new(schema = schema$variables)
 
   out <- engine$run(entity = entity, max_events = 10)
@@ -99,7 +99,7 @@ test_that("Engine v2: no declared decision points means policy is never called",
     }
   )
 
-  engine <- suppressWarnings(load_model(schema = schema, bundle = bundle, policy = policy))
+  engine <- load_model(schema = schema, bundle = bundle, policy = policy)
   entity <- Entity$new(schema = schema$variables)
 
   engine$run(entity = entity, max_events = 2)
@@ -120,7 +120,7 @@ test_that("Engine v2: policy action outside allowed_actions is ignored with warn
     }
   )
 
-  engine <- suppressWarnings(load_model(schema = schema, bundle = bundle, policy = policy))
+  engine <- load_model(schema = schema, bundle = bundle, policy = policy)
   entity <- Entity$new(schema = schema$variables)
 
   expect_warning(
@@ -150,7 +150,7 @@ test_that("Engine v2: policy receives sim_ctx and param_ctx when declared", {
     }
   )
 
-  engine <- suppressWarnings(load_model(schema = schema, bundle = bundle, policy = policy))
+  engine <- load_model(schema = schema, bundle = bundle, policy = policy)
   entity <- Entity$new(schema = schema$variables)
 
   engine$run(entity = entity, max_events = 3)

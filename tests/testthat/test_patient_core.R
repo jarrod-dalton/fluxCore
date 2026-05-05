@@ -121,7 +121,7 @@ test_that("Engine stops immediately when bundle stop() returns TRUE (no events a
   # Create a tiny bundle that stops when it emits event_type == "STOP"
   bundle <- list(
     time_spec = time_spec(unit = "years"),
-    propose_events = function(entity, ctx = NULL, process_ids = NULL, current_proposals = NULL) {
+    propose_events = function(entity, process_ids = NULL, current_proposals = NULL) {
       pid <- "default"
       if (!is.null(process_ids) && !(pid %in% process_ids)) return(list())
       t0 <- entity$last_time
@@ -132,10 +132,10 @@ test_that("Engine stops immediately when bundle stop() returns TRUE (no events a
       }
       list(default = ev)
     },
-    transition = function(entity, event, ctx = NULL) {
+    transition = function(entity, event) {
       NULL
     },
-    stop = function(entity, event, ctx = NULL) {
+    stop = function(entity, event) {
       identical(event$event_type, "STOP")
     },
     observe = NULL,
@@ -162,13 +162,13 @@ test_that("Engine stops immediately when bundle stop() returns TRUE (no events a
 test_that("Engine$run propagates canonical bundle time spec", {
   bundle <- list(
     time_spec = time_spec(unit = "years"),
-    propose_events = function(entity, ctx = NULL, process_ids = NULL, current_proposals = NULL) {
+    propose_events = function(entity, process_ids = NULL, current_proposals = NULL) {
       list(p = list(time_next = entity$last_time + 1, event_type = "tick"))
     },
-    transition = function(entity, event, ctx = NULL) NULL,
-    stop = function(entity, event, ctx = NULL) TRUE,
-    observe = function(entity, event, ctx = NULL) {
-      data.frame(time_unit = as.character(ctx$time$unit), stringsAsFactors = FALSE)
+    transition = function(entity, event) NULL,
+    stop = function(entity, event) TRUE,
+    observe = function(entity, event) {
+      data.frame(time_unit = "years", stringsAsFactors = FALSE)
     }
   )
   eng <- Engine$new(bundle = bundle)
@@ -197,13 +197,13 @@ test_that("Engine$run rejects ctx in v2 mode", {
 test_that("run_cohort propagates canonical bundle time spec", {
   bundle <- list(
     time_spec = time_spec(unit = "years"),
-    propose_events = function(entity, ctx = NULL, process_ids = NULL, current_proposals = NULL) {
+    propose_events = function(entity, process_ids = NULL, current_proposals = NULL) {
       list(p = list(time_next = entity$last_time + 1, event_type = "tick"))
     },
-    transition = function(entity, event, ctx = NULL) NULL,
-    stop = function(entity, event, ctx = NULL) TRUE,
-    observe = function(entity, event, ctx = NULL) {
-      data.frame(time_unit = as.character(ctx$time$unit), stringsAsFactors = FALSE)
+    transition = function(entity, event) NULL,
+    stop = function(entity, event) TRUE,
+    observe = function(entity, event) {
+      data.frame(time_unit = "years", stringsAsFactors = FALSE)
     }
   )
   eng <- Engine$new(bundle = bundle)

@@ -1,11 +1,11 @@
 test_that("propose_events must return a named list keyed by process_id", {
   bundle <- list(
     time_spec = time_spec(unit = "days"),
-    propose_events = function(entity, ctx = NULL, ...) {
+    propose_events = function(entity, ...) {
       list(list(time_next = entity$last_time + 1, event_type = "visit"))
     },
-    transition = function(entity, event, ctx = NULL) NULL,
-    stop = function(entity, event, ctx = NULL) FALSE
+    transition = function(entity, event) NULL,
+    stop = function(entity, event) FALSE
   )
 
   eng <- Engine$new(bundle = bundle)
@@ -20,7 +20,7 @@ test_that("propose_events must return a named list keyed by process_id", {
 test_that("propose_events rejects duplicated process_id names", {
   bundle <- list(
     time_spec = time_spec(unit = "days"),
-    propose_events = function(entity, ctx = NULL, ...) {
+    propose_events = function(entity, ...) {
       setNames(
         list(
           list(time_next = entity$last_time + 1, event_type = "visit"),
@@ -29,8 +29,8 @@ test_that("propose_events rejects duplicated process_id names", {
         c("stream", "stream")
       )
     },
-    transition = function(entity, event, ctx = NULL) NULL,
-    stop = function(entity, event, ctx = NULL) FALSE
+    transition = function(entity, event) NULL,
+    stop = function(entity, event) FALSE
   )
 
   eng <- Engine$new(bundle = bundle)
@@ -46,11 +46,11 @@ test_that("event_type must be declared in bundle event_catalog when provided", {
   bundle <- list(
     time_spec = time_spec(unit = "days"),
     event_catalog = c("visit"),
-    propose_events = function(entity, ctx = NULL, ...) {
+    propose_events = function(entity, ...) {
       list(default = list(time_next = entity$last_time + 1, event_type = "unknown"))
     },
-    transition = function(entity, event, ctx = NULL) NULL,
-    stop = function(entity, event, ctx = NULL) FALSE
+    transition = function(entity, event) NULL,
+    stop = function(entity, event) FALSE
   )
 
   eng <- Engine$new(bundle = bundle)
@@ -66,11 +66,11 @@ test_that("valid named proposals and event_catalog pass", {
   bundle <- list(
     time_spec = time_spec(unit = "days"),
     event_catalog = c("visit"),
-    propose_events = function(entity, ctx = NULL, ...) {
+    propose_events = function(entity, ...) {
       list(default = list(time_next = entity$last_time + 1, event_type = "visit"))
     },
-    transition = function(entity, event, ctx = NULL) NULL,
-    stop = function(entity, event, ctx = NULL) entity$last_time >= 1
+    transition = function(entity, event) NULL,
+    stop = function(entity, event) entity$last_time >= 1
   )
 
   eng <- Engine$new(bundle = bundle)

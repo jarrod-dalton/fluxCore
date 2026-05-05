@@ -7,7 +7,7 @@
 #
 # Time semantics:
 #   - The canonical model time spec is declared once in bundle$time_spec.
-#   - Runtime ctx may not override time metadata.
+#   - Runtime settings may not override time metadata.
 #
 # Returns:
 #   A list containing run index metadata and results (entities, events, observations).
@@ -55,7 +55,6 @@ run_cohort <- function(engine,
                        n_param_draws = 1,
                        n_sims = 1,
                        param_draws = NULL,
-                       ctx = NULL,
                        runtime = NULL,
                        max_events = 1000,
                        max_time = NULL,
@@ -64,7 +63,7 @@ run_cohort <- function(engine,
                        n_workers = NULL,
                        seed = NULL) {
 
-  # v2 mode: RuntimeContext takes precedence; ctx= is forbidden
+  # v2 mode: RuntimeContext takes precedence
   if (!is.null(runtime)) {
     if (!inherits(runtime, "RuntimeContext")) {
       stop("run_cohort(): `runtime` must be a RuntimeContext or NULL.", call. = FALSE)
@@ -72,13 +71,6 @@ run_cohort <- function(engine,
     seed      <- runtime$seed
     backend   <- runtime$backend
     n_workers <- runtime$n_workers
-  }
-  if (isTRUE(engine$.v2_mode) && !is.null(ctx)) {
-    stop(
-      "run_cohort(): `ctx` is not accepted when engine was built via load_model() (v2 mode). ",
-      "Use `runtime` (RuntimeContext) for seed/backend settings.",
-      call. = FALSE
-    )
   }
 
   n_param_draws <- as.integer(n_param_draws)
@@ -108,19 +100,6 @@ run_cohort <- function(engine,
       stop("max_time must be a single finite numeric value or NULL.", call. = FALSE)
     }
   }
-
-  # ctx can be:
-  # - NULL
-  # - a single list of context fields (merged into each run ctx)
-  # - a list of per-draw ctx lists of length n_param_draws
-  if (!is.null(ctx)) {
-    if (!is.list(ctx)) stop("ctx must be a list, a list of lists, or NULL.", call. = FALSE)
-    is_per_draw_ctx <- .ctx_is_per_draw(ctx)
-    if (is_per_draw_ctx && length(ctx) != n_param_draws) {
-      stop("If ctx is a list of lists, it must have length n_param_draws.", call. = FALSE)
-    }
-  }
-  ctx_user <- ctx
 
   # Entity IDs (stable)
   entity_ids <- names(entities)
@@ -175,9 +154,7 @@ run_cohort <- function(engine,
       max_events = max_events,
       max_time = max_time,
       return_observations = return_observations,
-      seed = seed,
-      ctx_user = ctx_user,
-      ctx_is_per_draw = .ctx_is_per_draw(ctx_user)
+      seed = seed
     )
   }
 
@@ -221,9 +198,7 @@ run_cohort <- function(engine,
       max_events = max_events,
       max_time = max_time,
       return_observations = return_observations,
-      seed = seed,
-      ctx_user = ctx_user,
-      ctx_is_per_draw = .ctx_is_per_draw(ctx_user)
+      seed = seed
     )
     runs <- do.call(c, entity_out)
 
@@ -270,9 +245,7 @@ run_cohort <- function(engine,
                                    max_events,
                                    max_time,
                                    return_observations,
-                                   seed,
-                                   ctx_user,
-                                   ctx_is_per_draw) {
+                                   seed) {
   p0 <- entities[[entity_id]]
   if (is.null(p0)) stop("Unknown entity_id in entities list: ", entity_id)
 
@@ -292,7 +265,7 @@ run_cohort <- function(engine,
       set.seed(local_seed)
     }
 
-    ctx_run <- list(
+    run_meta <- list(
       time_spec = canonical_time_spec,
       entity_id = entity_id,
       param_draw_id = param_draw_id,
@@ -300,32 +273,12 @@ run_cohort <- function(engine,
       params = param_draws[[param_draw_id]]
     )
 
-    # Merge user-provided ctx (if any). Per-draw ctx overrides single ctx.
-    if (!is.null(ctx_user)) {
-      base_ctx <- if (ctx_is_per_draw) ctx_user[[param_draw_id]] else ctx_user
-      # v2.0: removed legacy ctx$time compatibility checks. Use time_spec directly.
-      base_ctx$time <- NULL
-      base_ctx$time_spec <- NULL
-
-      # Do not allow user ctx to overwrite identifiers; params are allowed.
-      ctx_run <- utils::modifyList(ctx_run, base_ctx, keep.null = TRUE)
-      ctx_run$entity_id <- entity_id
-      ctx_run$param_draw_id <- param_draw_id
-      ctx_run$sim_id <- sim_id
-      ctx_run$time_spec <- canonical_time_spec
-      # If base_ctx provides params, honor it; otherwise keep param_draws.
-      if (!is.null(base_ctx$params)) ctx_run$params <- base_ctx$params
-    }
-
     out <- engine$run(
       entity = p,
       max_events = max_events,
       max_time = max_time,
       return_observations = return_observations,
-      # v2 mode: pass ctx = NULL so Engine$run() builds its own time ctx internally.
-      # Seed is already set above. Typed context injection (ParamContext, SimContext)
-      # is a Stage 3/4 deliverable.
-      ctx = if (isTRUE(engine$.v2_mode)) NULL else ctx_run
+      .internal_ctx = run_meta
     )
 
     out_list[[r]] <- out
@@ -364,13 +317,3 @@ run_cohort <- function(engine,
   as.integer((base_seed + P1 * param_draw_id + P2 * sim_id + P3 * h) %% .Machine$integer.max)
 }
 
-.ctx_is_per_draw <- function(ctx) {
-  if (is.null(ctx) || !is.list(ctx) || length(ctx) == 0L) return(FALSE)
-  if (!all(vapply(ctx, is.list, logical(1)))) return(FALSE)
-  nms <- names(ctx)
-  if (!is.null(nms)) {
-    reserved <- c("time", "time_spec", "params", "entity_id", "param_draw_id", "sim_id")
-    if (any(nzchar(nms) & nms %in% reserved)) return(FALSE)
-  }
-  TRUE
-}

@@ -108,9 +108,8 @@ load_model <- function(schema,
     )
   }
 
-  # Warn on v1.x-style `ctx` formals in bundle callbacks (not an error yet;
-  # Stage 4 will convert downstream packages)
-  .warn_ctx_formals(bundle)
+  # v2.0.0: hard error on bundle callbacks that still declare `ctx`
+  .reject_ctx_formals(bundle)
 
   # -- trajectory + decision_points check ------------------------------------
   if (!is.null(trajectory)) {
@@ -161,10 +160,8 @@ load_model <- function(schema,
 
 # Internal helpers ----------------------------------------------------------
 
-# Warn when bundle callbacks still use the v1.x `ctx` formal name.
-# This is advisory in Stage 2; hard errors will be introduced in Stage 4
-# when downstream packages are migrated.
-.warn_ctx_formals <- function(bundle) {
+# Hard error when bundle callbacks use the removed v1.x `ctx` formal name.
+.reject_ctx_formals <- function(bundle) {
   ctx_callbacks <- c("propose_events", "transition", "stop", "observe",
                      "refresh_rules", "init_entity")
   for (cb in ctx_callbacks) {
@@ -172,12 +169,12 @@ load_model <- function(schema,
     if (!is.function(f)) next
     fml <- names(formals(f))
     if ("ctx" %in% fml) {
-      warning(
+      stop(
         sprintf(
-          "load_model(): bundle$%s() uses a `ctx` formal argument (v1.x convention). ",
-          cb
+          "load_model(): bundle$%s() declares `ctx` as a formal parameter. ", cb
         ),
-        "Update to `sim_ctx` and `param_ctx` before Stage 4.",
+        "`ctx` is removed in fluxCore v2.0.0. ",
+        "Use the (entity, event) signature; access time via entity$time_spec.",
         call. = FALSE
       )
     }

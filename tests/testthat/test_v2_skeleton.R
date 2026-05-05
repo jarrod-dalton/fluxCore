@@ -301,31 +301,32 @@ test_that("load_model: returns Engine in v2 mode", {
     time_spec     = time_spec(unit = "years"),
     event_catalog = bundle$event_catalog
   )
-  engine <- suppressWarnings(load_model(schema = schema, bundle = bundle))
+  engine <- load_model(schema = schema, bundle = bundle)
   expect_true(inherits(engine, "Engine"))
   expect_true(engine$.v2_mode)
 })
 
-test_that("load_model: hard errors if ctx= passed to Engine$run()", {
+test_that("load_model: ctx= parameter is removed from Engine$run()", {
   bundle <- test_model_bundle()
   schema <- list(
     variables     = default_entity_schema(),
     time_spec     = time_spec(unit = "years"),
     event_catalog = bundle$event_catalog
   )
-  engine <- suppressWarnings(load_model(schema = schema, bundle = bundle))
+  engine <- load_model(schema = schema, bundle = bundle)
   e <- Entity$new(schema = default_entity_schema())
-  expect_error(engine$run(e, ctx = list()), "v2.0.0 mode")
+  # ctx= is no longer a valid parameter; should error
+
+  expect_error(engine$run(e, ctx = list()), "unused argument")
 })
 
-test_that("load_model: ctx= still works on engines built with Engine$new()", {
+test_that("load_model: Engine$new() direct path also rejects ctx= formal", {
   bundle <- test_model_bundle()
   engine <- Engine$new(bundle = bundle)
   expect_false(engine$.v2_mode)
   e <- Entity$new(schema = default_entity_schema())
-  # should not error — v1 path unchanged
-  result <- engine$run(e, ctx = list())
-  expect_true(!is.null(result$entity))
+  # ctx= is no longer a valid parameter anywhere
+  expect_error(engine$run(e, ctx = list()), "unused argument")
 })
 
 test_that("load_model: errors if schema missing", {
@@ -347,7 +348,7 @@ test_that("load_model: errors if trajectory supplied without decision_points", {
     # no decision_points
   )
   expect_error(
-    suppressWarnings(load_model(schema = schema, bundle = bundle, trajectory = list(detail = "summary"))),
+    load_model(schema = schema, bundle = bundle, trajectory = list(detail = "summary")),
     "decision_points"
   )
 })
@@ -361,7 +362,7 @@ test_that("load_model: accepts trajectory when decision_points declared", {
     event_catalog    = bundle$event_catalog,
     decision_points  = list(dp)
   )
-  engine <- suppressWarnings(load_model(schema = schema, bundle = bundle, trajectory = list(detail = "summary")))
+  engine <- load_model(schema = schema, bundle = bundle, trajectory = list(detail = "summary"))
   expect_true(engine$.v2_mode)
   expect_false(is.null(engine$.trajectory))
 })
@@ -374,7 +375,7 @@ test_that("load_model: errors if environment is not EnvironmentContext", {
     event_catalog = bundle$event_catalog
   )
   expect_error(
-    suppressWarnings(load_model(schema = schema, bundle = bundle, environment = list(signals = list()))),
+    load_model(schema = schema, bundle = bundle, environment = list(signals = list())),
     "EnvironmentContext"
   )
 })
@@ -387,18 +388,22 @@ test_that("load_model: accepts valid RuntimeContext", {
     event_catalog = bundle$event_catalog
   )
   rc <- RuntimeContext(seed = 42L)
-  engine <- suppressWarnings(load_model(schema = schema, bundle = bundle, runtime = rc))
+  engine <- load_model(schema = schema, bundle = bundle, runtime = rc)
   expect_equal(engine$.runtime$seed, 42L)
 })
 
-test_that("load_model: warns on v1.x ctx formals in bundle callbacks", {
-  bundle <- test_model_bundle()  # uses ctx= formals
+test_that("load_model: errors on v1.x ctx formals in bundle callbacks", {
+  # Create a bundle that still uses ctx= formals (should hard error)
+  bundle <- test_model_bundle()
+  bundle$observe <- function(entity, event, ctx = NULL) {
+    data.frame(time = entity$last_time, stringsAsFactors = FALSE)
+  }
   schema <- list(
     variables     = default_entity_schema(),
     time_spec     = time_spec(unit = "years"),
     event_catalog = bundle$event_catalog
   )
-  expect_warning(
+  expect_error(
     load_model(schema = schema, bundle = bundle),
     "ctx"
   )

@@ -40,50 +40,33 @@ Engine <- R6::R6Class(
                    max_events = 1000,
                    max_time = NULL,
                    return_observations = TRUE,
-                   ctx = NULL) {
+                   .internal_ctx = NULL) {
 
-      # v2.0.0 hard error: Engines assembled via load_model() do not accept ctx.
-      # Use SimContext / ParamContext / RuntimeContext instead.
-      if (isTRUE(self$.v2_mode) && !is.null(ctx)) {
-        stop(
-          "Engine$run(): `ctx` is not accepted in v2.0.0 mode (engine was built via load_model()). ",
-          "Pass reproducibility settings via RuntimeContext and parameter values via ParamContext.",
-          call. = FALSE
-        )
-      }
+      # .internal_ctx is used only by run_cohort() to pass run metadata
+      # (run_id, entity_id, param_draw_id, params). NOT a user-facing parameter.
+      if (is.null(.internal_ctx)) .internal_ctx <- list()
 
-      if (is.null(ctx)) ctx <- list()
-      if (!is.list(ctx)) stop("ctx must be a list (or NULL).", call. = FALSE)
-      # v2.0: ctx support is deprecated. time_spec is the canonical reference.
-      ctx$time_spec <- self$time_spec
-
-      # Standardize model parameters in ctx$params.
-      # - Users may provide ctx$params to override defaults for a run.
-      # - Model bundles may provide bundle$params as a default.
-      if (is.null(ctx$params)) {
-        if (!is.null(self$bundle$params)) {
-          if (!is.list(self$bundle$params)) stop("bundle$params must be a list if provided.", call. = FALSE)
-          ctx$params <- self$bundle$params
-        } else {
-          ctx$params <- list()
-        }
-      } else {
-        if (!is.list(ctx$params)) stop("ctx$params must be a list if provided.", call. = FALSE)
-      }
-
-      run_id <- if (!is.null(ctx$run_id)) as.character(ctx$run_id) else "run_1"
+      run_id <- if (!is.null(.internal_ctx$run_id)) as.character(.internal_ctx$run_id) else "run_1"
       entity_id <- if (!is.null(entity$id) && nzchar(as.character(entity$id))) {
         as.character(entity$id)
-      } else if (!is.null(ctx$entity_id) && nzchar(as.character(ctx$entity_id))) {
-        as.character(ctx$entity_id)
+      } else if (!is.null(.internal_ctx$entity_id) && nzchar(as.character(.internal_ctx$entity_id))) {
+        as.character(.internal_ctx$entity_id)
       } else {
         "entity"
       }
 
+      # Resolve params: from .internal_ctx (cohort), from bundle$params, or empty.
+      params <- if (!is.null(.internal_ctx$params)) {
+        .internal_ctx$params
+      } else if (!is.null(self$bundle$params) && is.list(self$bundle$params)) {
+        self$bundle$params
+      } else {
+        list()
+      }
+
       # Stage 3 hardening: apply RuntimeContext seed in single-run v2 path.
-      # Contract: fixed seed + draw_id + replicate_id + entity_id => reproducible output.
       if (isTRUE(self$.v2_mode) && !is.null(self$.runtime) && !is.null(self$.runtime$seed)) {
-        draw_id <- if (!is.null(ctx$param_draw_id)) as.integer(ctx$param_draw_id) else 1L
+        draw_id <- if (!is.null(.internal_ctx$param_draw_id)) as.integer(.internal_ctx$param_draw_id) else 1L
         replicate_id <- if (!is.null(self$.runtime$replicate_id)) as.integer(self$.runtime$replicate_id) else 1L
         local_seed <- .seed_for(as.integer(self$.runtime$seed), entity_id, draw_id, replicate_id)
         set.seed(local_seed)
@@ -164,32 +147,27 @@ Engine <- R6::R6Class(
 
       traj_cfg <- resolve_trajectory_config(self$.trajectory)
 
-      sim_ctx <- NULL
-      param_ctx <- NULL
-      if (isTRUE(self$.v2_mode)) {
-        sim_ctx <- SimContext(
-          run_id = run_id,
-          time_spec = self$time_spec,
-          model_id = NULL,
-          scenario_id = NULL,
-          horizon = max_time
-        )
-        param_ctx <- ParamContext(
-          draw_id = if (!is.null(ctx$param_draw_id)) ctx$param_draw_id else 1L,
-          params = if (!is.null(ctx$params)) ctx$params else list(),
-          provenance = NULL
-        )
-      }
+      sim_ctx <- SimContext(
+        run_id = run_id,
+        time_spec = self$time_spec,
+        model_id = NULL,
+        scenario_id = NULL,
+        horizon = max_time
+      )
+      param_ctx <- ParamContext(
+        draw_id = if (!is.null(.internal_ctx$param_draw_id)) .internal_ctx$param_draw_id else 1L,
+        params = params,
+        provenance = NULL
+      )
 
       # One-time initialization hook (optional).
-      # Models can use this to register derived variables and perform setup.
-      .call_init_entity(self$bundle, entity, ctx = ctx)
+      .call_init_entity(self$bundle, entity)
 
       obs_accum <- NULL
       trajectory_accum <- list()
       model_event_catalog <- .validate_bundle_event_set(self$bundle$event_catalog, "event_catalog")
 
-      proposals <- .call_propose_events(self$bundle, entity, ctx = ctx)
+      proposals <- .call_propose_events(self$bundle, entity, sim_ctx = sim_ctx, param_ctx = param_ctx)
 
       step_once <- function() {
         ev <- .pick_next_event(proposals, event_catalog = model_event_catalog)
@@ -197,7 +175,7 @@ Engine <- R6::R6Class(
         fired_dps <- fired_decision_points(self$.schema, ev, self$.v2_mode)
         state_before <- if (length(fired_dps) > 0L) capture_trajectory_state(entity, traj_cfg, when = "before") else NULL
 
-        changes <- .call_transition(self$bundle, entity, ev, ctx = ctx)
+        changes <- .call_transition(self$bundle, entity, ev, sim_ctx = sim_ctx, param_ctx = param_ctx)
 
         entity$update(time = ev$time_next, event_type = ev$event_type, changes = changes)
 
@@ -266,24 +244,26 @@ Engine <- R6::R6Class(
         }
 
         if (isTRUE(return_observations)) {
-          o <- .call_observe(self$bundle, entity, ev, ctx = ctx)
+          o <- .call_observe(self$bundle, entity, ev)
           if (!is.null(o)) {
             obs_accum <<- if (is.null(obs_accum)) o else rbind(obs_accum, o)
           }
         }
 
-        if (.call_stop(self$bundle, entity, ev, ctx = ctx)) return(FALSE)
+        if (.call_stop(self$bundle, entity, ev, sim_ctx = sim_ctx, param_ctx = param_ctx)) return(FALSE)
         if (!is.null(max_time) && entity$last_time >= max_time) return(FALSE)
 
-        refresh_ids <- .call_refresh_rules(self$bundle, entity, ev, changes, ctx = ctx)
+        refresh_ids <- .call_refresh_rules(self$bundle, entity, ev, changes)
 
         if (identical(refresh_ids, "ALL")) {
-          proposals <<- .call_propose_events(self$bundle, entity, ctx = ctx)
+          proposals <<- .call_propose_events(self$bundle, entity, sim_ctx = sim_ctx, param_ctx = param_ctx)
         } else if (length(refresh_ids) > 0) {
           new_props <- .call_propose_events(
-            self$bundle, entity, ctx = ctx,
+            self$bundle, entity,
             process_ids = refresh_ids,
-            current_proposals = proposals
+            current_proposals = proposals,
+            sim_ctx = sim_ctx,
+            param_ctx = param_ctx
           )
           for (pid in refresh_ids) {
             if (!is.null(new_props[[pid]])) {
@@ -316,31 +296,86 @@ Engine <- R6::R6Class(
       )
       if (!is.null(traj_cfg)) out$trajectory_records <- trajectory_accum
       out
+    },
+
+    #' Run a single entity with explicit parameter injection.
+    #'
+    #' Public entry point for downstream packages (e.g., fluxForecast streaming
+    #' functions) that need per-run parameter control without coupling to the
+    #' internal .internal_ctx structure used by run_cohort().
+    #'
+    #' @param entity An Entity object to simulate.
+    #' @param params Named list of parameter values for this run.
+    #' @param draw_id Integer identifying the parameter draw (default 1L).
+    #' @param sim_id Integer identifying the stochastic replicate (default 1L).
+    #' @param max_events Maximum number of events before stopping.
+    #' @param max_time Maximum simulation time.
+    #' @param return_observations Whether to return observations.
+    #' @return Same structure as Engine$run().
+    run_draw = function(entity,
+                        params = list(),
+                        draw_id = 1L,
+                        sim_id = 1L,
+                        max_events = 1000,
+                        max_time = NULL,
+                        return_observations = TRUE) {
+      entity_id <- if (!is.null(entity$id) && nzchar(as.character(entity$id))) {
+        as.character(entity$id)
+      } else {
+        "entity"
+      }
+      run_meta <- list(
+        time_spec     = self$time_spec,
+        entity_id     = entity_id,
+        param_draw_id = as.integer(draw_id),
+        sim_id        = as.integer(sim_id),
+        params        = params
+      )
+      self$run(
+        entity = entity,
+        max_events = max_events,
+        max_time = max_time,
+        return_observations = return_observations,
+        .internal_ctx = run_meta
+      )
     }
   )
 )
 
-.call_init_entity <- function(bundle, entity, ctx = NULL) {
+# v2.0.0: hard error if any bundle callback declares `ctx` as a formal.
+.reject_ctx_formal <- function(f, fn_name) {
+  if ("ctx" %in% names(formals(f))) {
+    stop(
+      sprintf("bundle$%s() declares `ctx` as a formal parameter. ", fn_name),
+      "`ctx` is removed in fluxCore v2.0.0. ",
+      "Use the (entity, event) signature; access time via entity$time_spec.",
+      call. = FALSE
+    )
+  }
+  invisible(NULL)
+}
+
+.call_init_entity <- function(bundle, entity) {
   f <- bundle$init_entity
   if (is.null(f)) return(invisible(NULL))
   if (!is.function(f)) stop("init_entity must be a function if provided.", call. = FALSE)
-
-  fml <- names(formals(f))
+  .reject_ctx_formal(f, "init_entity")
   args <- list(entity = entity)
-  if ("ctx" %in% fml) args$ctx <- ctx
   invisible(do.call(f, args))
 }
 
-.call_propose_events <- function(bundle, entity, ctx = NULL, process_ids = NULL, current_proposals = NULL) {
+.call_propose_events <- function(bundle, entity, process_ids = NULL, current_proposals = NULL, sim_ctx = NULL, param_ctx = NULL) {
   if (is.null(bundle$propose_events) || !is.function(bundle$propose_events)) {
-    stop("ModelBundle must provide propose_events(entity, ctx, ...).")
+    stop("ModelBundle must provide propose_events(entity, ...).")
   }
+  .reject_ctx_formal(bundle$propose_events, "propose_events")
 
   fml <- names(formals(bundle$propose_events))
   args <- list(entity = entity)
-  if ("ctx" %in% fml) args$ctx <- ctx
   if ("process_ids" %in% fml) args$process_ids <- process_ids
   if ("current_proposals" %in% fml) args$current_proposals <- current_proposals
+  if ("sim_ctx" %in% fml) args$sim_ctx <- sim_ctx
+  if ("param_ctx" %in% fml) args$param_ctx <- param_ctx
 
   out <- do.call(bundle$propose_events, args)
   if (is.null(out)) return(list())
@@ -438,9 +473,10 @@ Engine <- R6::R6Class(
 }
 
 
-.call_transition <- function(bundle, entity, ev, ctx = NULL) {
+.call_transition <- function(bundle, entity, ev, sim_ctx = NULL, param_ctx = NULL) {
   f <- bundle$transition
   if (is.null(f) || !is.function(f)) stop("ModelBundle must provide transition().")
+  .reject_ctx_formal(f, "transition")
   fml <- names(formals(f))
 
   if (!("event" %in% fml)) {
@@ -448,14 +484,16 @@ Engine <- R6::R6Class(
   }
 
   args <- list(entity = entity, event = ev)
-  if ("ctx" %in% fml) args$ctx <- ctx
+  if ("sim_ctx" %in% fml) args$sim_ctx <- sim_ctx
+  if ("param_ctx" %in% fml) args$param_ctx <- param_ctx
   do.call(f, args)
 }
 
 
-.call_stop <- function(bundle, entity, ev, ctx = NULL) {
+.call_stop <- function(bundle, entity, ev, sim_ctx = NULL, param_ctx = NULL) {
   f <- bundle$stop
   if (is.null(f) || !is.function(f)) stop("ModelBundle must provide stop().")
+  .reject_ctx_formal(f, "stop")
   fml <- names(formals(f))
 
   if (!("event" %in% fml)) {
@@ -463,14 +501,16 @@ Engine <- R6::R6Class(
   }
 
   args <- list(entity = entity, event = ev)
-  if ("ctx" %in% fml) args$ctx <- ctx
+  if ("sim_ctx" %in% fml) args$sim_ctx <- sim_ctx
+  if ("param_ctx" %in% fml) args$param_ctx <- param_ctx
   isTRUE(do.call(f, args))
 }
 
 
-.call_observe <- function(bundle, entity, ev, ctx = NULL) {
+.call_observe <- function(bundle, entity, ev) {
   f <- bundle$observe
   if (is.null(f) || !is.function(f)) return(NULL)
+  .reject_ctx_formal(f, "observe")
   fml <- names(formals(f))
 
   if (!("event" %in% fml)) {
@@ -478,16 +518,15 @@ Engine <- R6::R6Class(
   }
 
   args <- list(entity = entity, event = ev)
-  if ("ctx" %in% fml) args$ctx <- ctx
   do.call(f, args)
 }
 
-.call_refresh_rules <- function(bundle, entity, ev, changes, ctx = NULL) {
+.call_refresh_rules <- function(bundle, entity, ev, changes) {
   f <- bundle$refresh_rules
   if (is.null(f) || !is.function(f)) return("ALL")
+  .reject_ctx_formal(f, "refresh_rules")
   fml <- names(formals(f))
   args <- list(entity = entity, last_event = ev, changes = changes)
-  if ("ctx" %in% fml) args$ctx <- ctx
   out <- do.call(f, args)
   if (!is.character(out)) {
     stop(
