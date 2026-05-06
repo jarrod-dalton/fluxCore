@@ -25,6 +25,12 @@
 #'   yet updated at this point.
 #' @param allowed_actions Optional character vector of named action types. If
 #'   `NULL`, the policy is unconstrained.
+#' @param action_handlers Optional named list of functions, keyed by action type.
+#'   Each function has signature `function(entity, event)` (with optional
+#'   `param_ctx`) and returns a named list of state updates, or `NULL` for no
+#'   change. When present, the engine calls the matching handler directly when an
+#'   ActionEvent of that type fires — bypassing `bundle$transition()`. Names must
+#'   be a subset of `allowed_actions`.
 #' @param condition Optional function `function(entity)` evaluated
 #'   **post-transition** on the updated entity. If it returns `FALSE`, the
 #'   policy is not consulted for this event cycle. Use `condition` to gate on
@@ -45,6 +51,7 @@
 DecisionPoint <- function(id,
                           trigger,
                           allowed_actions = NULL,
+                          action_handlers = NULL,
                           condition       = NULL,
                           audit           = FALSE,
                           observation_fn  = NULL,
@@ -66,6 +73,29 @@ DecisionPoint <- function(id,
       stop("DecisionPoint: `allowed_actions` must be a non-empty character vector or NULL.", call. = FALSE)
     }
   }
+  if (!is.null(action_handlers)) {
+    if (!is.list(action_handlers) || length(action_handlers) == 0L) {
+      stop("DecisionPoint: `action_handlers` must be a non-empty named list of functions or NULL.", call. = FALSE)
+    }
+    handler_names <- names(action_handlers)
+    if (is.null(handler_names) || any(!nzchar(handler_names))) {
+      stop("DecisionPoint: `action_handlers` must be a named list (names are action types).", call. = FALSE)
+    }
+    for (nm in handler_names) {
+      if (!is.function(action_handlers[[nm]])) {
+        stop(sprintf("DecisionPoint: action_handlers[['%s']] must be a function.", nm), call. = FALSE)
+      }
+    }
+    if (!is.null(allowed_actions)) {
+      bad <- setdiff(handler_names, allowed_actions)
+      if (length(bad) > 0L) {
+        stop(sprintf(
+          "DecisionPoint: action_handlers names {%s} are not in allowed_actions {%s}.",
+          paste(bad, collapse = ", "), paste(allowed_actions, collapse = ", ")
+        ), call. = FALSE)
+      }
+    }
+  }
   if (!is.null(condition) && !is.function(condition)) {
     stop("DecisionPoint: `condition` must be a function `function(entity)` or NULL.", call. = FALSE)
   }
@@ -84,6 +114,7 @@ DecisionPoint <- function(id,
       id              = id,
       trigger         = trigger,
       allowed_actions = allowed_actions,
+      action_handlers = action_handlers,
       condition       = condition,
       audit           = audit,
       observation_fn  = observation_fn,

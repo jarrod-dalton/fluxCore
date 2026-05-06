@@ -167,15 +167,49 @@ Engine <- R6::R6Class(
       trajectory_accum <- list()
       model_event_catalog <- .validate_bundle_event_set(self$bundle$event_catalog, "event_catalog")
 
+      # Build action_handler lookup from DPs and auto-register action event types.
+      # action_handler_map: list keyed by "<dp_id>::<action_type>" -> handler function
+      # Also maps dp_id -> DecisionPoint for reverse lookup from synthetic process_ids.
+      action_handler_map <- list()
+      dp_map <- list()
+      if (isTRUE(self$.v2_mode) && !is.null(self$.schema$decision_points)) {
+        for (dp in self$.schema$decision_points) {
+          dp_map[[dp$id]] <- dp
+          if (!is.null(dp$action_handlers)) {
+            for (atype in names(dp$action_handlers)) {
+              action_handler_map[[paste0(dp$id, "::", atype)]] <- dp$action_handlers[[atype]]
+              # Auto-register action event types into the engine's catalog
+              if (!(atype %in% model_event_catalog)) {
+                model_event_catalog <- c(model_event_catalog, atype)
+              }
+            }
+          }
+        }
+      }
+
       proposals <- .call_propose_events(self$bundle, entity, sim_ctx = sim_ctx, param_ctx = param_ctx)
 
       step_once <- function() {
         ev <- .pick_next_event(proposals, event_catalog = model_event_catalog)
 
+        # Check if this event is an ActionEvent from a DP with an action_handler.
+        # If so, call the handler directly instead of bundle$transition().
+        action_handler <- NULL
+        ev_pid <- ev$process_id
+        if (!is.null(ev_pid) && grepl("^\\.action\\.", ev_pid)) {
+          origin_dp_id <- sub("^\\.action\\.", "", ev_pid)
+          key <- paste0(origin_dp_id, "::", ev$event_type)
+          action_handler <- action_handler_map[[key]]
+        }
+
         fired_dps <- fired_decision_points(self$.schema, ev, self$.v2_mode)
         state_before <- if (length(fired_dps) > 0L) capture_trajectory_state(entity, traj_cfg, when = "before") else NULL
 
-        changes <- .call_transition(self$bundle, entity, ev, sim_ctx = sim_ctx, param_ctx = param_ctx)
+        if (!is.null(action_handler)) {
+          changes <- .call_action_handler(action_handler, entity, ev, param_ctx = param_ctx)
+        } else {
+          changes <- .call_transition(self$bundle, entity, ev, sim_ctx = sim_ctx, param_ctx = param_ctx)
+        }
 
         entity$update(time = ev$time_next, event_type = ev$event_type, changes = changes)
 
@@ -480,6 +514,23 @@ Engine <- R6::R6Class(
     result$decision_point_id <- dp$id
   }
   result
+}
+
+# Dispatch an action_handler from a DecisionPoint.
+# Signature: handler(entity, event) -> named list of state updates or NULL
+# Optionally accepts param_ctx (auto-detected from formals).
+.call_action_handler <- function(handler, entity, event, param_ctx = NULL) {
+  fml <- names(formals(handler))
+  args <- list(entity = entity, event = event)
+  if ("param_ctx" %in% fml) args$param_ctx <- param_ctx
+  tryCatch(
+    do.call(handler, args),
+    error = function(e) {
+      warning(sprintf("action_handler errored for event_type '%s': %s",
+                      event$event_type, conditionMessage(e)), call. = FALSE)
+      NULL
+    }
+  )
 }
 
 .pick_next_event <- function(proposals, event_catalog = NULL) {
