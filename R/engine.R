@@ -467,7 +467,7 @@ Engine <- R6::R6Class(
   args <- list(decision_point = dp, entity = entity)
   if ("sim_ctx" %in% fml) args$sim_ctx <- sim_ctx
   if ("param_ctx" %in% fml) args$param_ctx <- param_ctx
-  tryCatch(
+  result <- tryCatch(
     do.call(f, args),
     error = function(e) {
       warning(sprintf("policy$propose_action() errored for dp '%s': %s", dp$id, conditionMessage(e)),
@@ -475,6 +475,11 @@ Engine <- R6::R6Class(
       NULL
     }
   )
+  # Fill in decision_point_id from the firing DP if the policy omitted it.
+  if (inherits(result, "ActionEvent") && is.null(result$decision_point_id)) {
+    result$decision_point_id <- dp$id
+  }
+  result
 }
 
 .pick_next_event <- function(proposals, event_catalog = NULL) {

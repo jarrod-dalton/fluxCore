@@ -141,7 +141,10 @@ print.DecisionPoint <- function(x, ...) {
 #'   the decision point declared any.
 #' @param time_next Numeric scalar; realization time on the canonical timeline.
 #' @param decision_point_id Character scalar; which decision point produced this
-#'   action.
+#'   action. If `NULL` (the default), the engine fills this in automatically
+#'   from the firing decision point's `id`. Only supply it explicitly if you
+#'   need to override or if you are constructing an `ActionEvent` outside of a
+#'   policy call.
 #' @param params Optional named list of action-specific parameters.
 #' @param metadata Optional named list for policy provenance or audit fields.
 #'
@@ -150,7 +153,7 @@ print.DecisionPoint <- function(x, ...) {
 #' @export
 ActionEvent <- function(action_type,
                         time_next,
-                        decision_point_id,
+                        decision_point_id = NULL,
                         params   = NULL,
                         metadata = NULL) {
   if (missing(action_type) || !is.character(action_type) || length(action_type) != 1L || !nzchar(action_type)) {
@@ -160,8 +163,9 @@ ActionEvent <- function(action_type,
   if (length(time_next) != 1L || !is.finite(time_next)) {
     stop("ActionEvent: `time_next` must be a finite numeric scalar.", call. = FALSE)
   }
-  if (missing(decision_point_id) || !is.character(decision_point_id) || length(decision_point_id) != 1L || !nzchar(decision_point_id)) {
-    stop("ActionEvent: `decision_point_id` must be a non-empty character scalar.", call. = FALSE)
+  if (!is.null(decision_point_id) &&
+      (!is.character(decision_point_id) || length(decision_point_id) != 1L || !nzchar(decision_point_id))) {
+    stop("ActionEvent: `decision_point_id` must be a non-empty character scalar or NULL.", call. = FALSE)
   }
   if (!is.null(params) && !is.list(params)) {
     stop("ActionEvent: `params` must be a named list or NULL.", call. = FALSE)
