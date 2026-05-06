@@ -9,8 +9,8 @@
 #'   `state_before` are included.
 #'
 #' @return A data.frame with columns: `t`, `decision_point_id`, `trigger_event`,
-#'   `action_taken`, plus `<var>_before` and `<var>_after` for each requested
-#'   variable.
+#'   `action_taken`, `condition_met`, plus `<var>_before` and `<var>_after` for
+#'   each requested variable.
 #'
 #' @export
 trajectory_table <- function(records, vars = NULL) {
@@ -33,7 +33,8 @@ trajectory_table <- function(records, vars = NULL) {
       t                 = tr$t,
       decision_point_id = tr$decision_point_id,
       trigger_event     = if (!is.null(tr$realized_event)) tr$realized_event$event_type else NA_character_,
-      action_taken      = action
+      action_taken      = action,
+      condition_met     = if (is.null(tr$condition_met)) NA else tr$condition_met
     )
 
     # Extract before/after state
