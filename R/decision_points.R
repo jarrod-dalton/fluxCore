@@ -21,8 +21,19 @@
 #' @param id Character scalar; unique identifier (e.g., `"post_dropoff"`).
 #' @param trigger Character vector of event types and/or a predicate function
 #'   `function(event)` that returns `TRUE` when the decision point fires.
+#'   Evaluated **pre-transition** on the raw event object; entity state is not
+#'   yet updated at this point.
 #' @param allowed_actions Optional character vector of named action types. If
 #'   `NULL`, the policy is unconstrained.
+#' @param condition Optional function `function(entity)` evaluated
+#'   **post-transition** on the updated entity. If it returns `FALSE`, the
+#'   policy is not consulted for this event cycle. Use `condition` to gate on
+#'   entity state (e.g., `function(entity) entity$current$battery_pct < 25`).
+#'   When `NULL` (default), the policy is always consulted when `trigger` fires.
+#' @param audit Logical scalar (default `FALSE`). When `TRUE`, a
+#'   `TrajectoryRecord` with `condition_met = FALSE` is emitted even for cycles
+#'   where `condition` vetoed the policy call. Useful for auditing why a
+#'   decision point did not fire.
 #' @param observation_fn Optional function `function(entity)` that computes the
 #'   observable state presented to the policy. Defaults to a full entity
 #'   snapshot when `NULL`.
@@ -34,6 +45,8 @@
 DecisionPoint <- function(id,
                           trigger,
                           allowed_actions = NULL,
+                          condition       = NULL,
+                          audit           = FALSE,
                           observation_fn  = NULL,
                           label           = NULL) {
   if (missing(id) || !is.character(id) || length(id) != 1L || !nzchar(id)) {
@@ -53,6 +66,12 @@ DecisionPoint <- function(id,
       stop("DecisionPoint: `allowed_actions` must be a non-empty character vector or NULL.", call. = FALSE)
     }
   }
+  if (!is.null(condition) && !is.function(condition)) {
+    stop("DecisionPoint: `condition` must be a function `function(entity)` or NULL.", call. = FALSE)
+  }
+  if (!is.logical(audit) || length(audit) != 1L || is.na(audit)) {
+    stop("DecisionPoint: `audit` must be TRUE or FALSE.", call. = FALSE)
+  }
   if (!is.null(observation_fn) && !is.function(observation_fn)) {
     stop("DecisionPoint: `observation_fn` must be a function or NULL.", call. = FALSE)
   }
@@ -65,6 +84,8 @@ DecisionPoint <- function(id,
       id              = id,
       trigger         = trigger,
       allowed_actions = allowed_actions,
+      condition       = condition,
+      audit           = audit,
       observation_fn  = observation_fn,
       label           = label
     ),
@@ -100,6 +121,8 @@ print.DecisionPoint <- function(x, ...) {
   } else {
     cat("  trigger        : (predicate function)\n")
   }
+  cat("  condition      :", if (is.null(x$condition)) "(none)" else "(function)", "\n")
+  cat("  audit          :", x$audit, "\n")
   cat("  allowed_actions:", if (is.null(x$allowed_actions)) "(unconstrained)" else paste(x$allowed_actions, collapse = ", "), "\n")
   cat("  label          :", if (is.null(x$label)) "(none)" else x$label, "\n")
   invisible(x)
@@ -225,6 +248,9 @@ state_summary_default <- function(entity, ...) {
 #'   `NULL` unless the TrajectoryLogger is configured to capture it.
 #' @param state_after Optional named list; entity state after the transition.
 #'   `NULL` unless the TrajectoryLogger is configured to capture it.
+#' @param condition_met Logical scalar or `NULL`; whether the `condition`
+#'   predicate was satisfied. `TRUE` when condition passed or was absent,
+#'   `FALSE` for audit records emitted when condition vetoed the policy call.
 #' @param reward Optional numeric or named list; reward signal(s).
 #'
 #' @return A list of class `"TrajectoryRecord"`.
@@ -241,6 +267,7 @@ TrajectoryRecord <- function(run_id,
                              selected_action   = NULL,
                              state_before      = NULL,
                              state_after       = NULL,
+                             condition_met     = NULL,
                              reward            = NULL) {
   if (!is.character(run_id) || length(run_id) != 1L || !nzchar(run_id)) {
     stop("TrajectoryRecord: `run_id` must be a non-empty character scalar.", call. = FALSE)
@@ -278,6 +305,7 @@ TrajectoryRecord <- function(run_id,
       selected_action   = selected_action,
       state_before      = state_before,
       state_after       = state_after,
+      condition_met     = condition_met,
       reward            = reward
     ),
     class = "TrajectoryRecord"
@@ -291,6 +319,7 @@ print.TrajectoryRecord <- function(x, ...) {
   cat("  entity_id         :", x$entity_id, "\n")
   cat("  t                 :", x$t, "\n")
   cat("  decision_point_id :", x$decision_point_id, "\n")
+  cat("  condition_met     :", if (is.null(x$condition_met)) "(no condition)" else x$condition_met, "\n")
   cat("  observation fields:", length(x$observation), "\n")
   cat("  selected_action   :", if (is.null(x$selected_action)) "(none)" else x$selected_action$action_type, "\n")
   invisible(x)

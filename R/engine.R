@@ -181,12 +181,37 @@ Engine <- R6::R6Class(
 
         state_after <- if (length(fired_dps) > 0L) capture_trajectory_state(entity, traj_cfg, when = "after") else NULL
 
+        # Evaluate condition (post-transition) for each fired DP.
+        # active_dps: condition met (or absent) -> policy is consulted.
+        # vetoed_dps: condition false AND audit=TRUE -> audit record only.
+        active_dps <- list()
+        vetoed_dps <- list()
+        for (dp in fired_dps) {
+          cond_met <- is.null(dp$condition) || isTRUE(
+            tryCatch(
+              dp$condition(entity),
+              error = function(e) {
+                warning(
+                  sprintf("DecisionPoint('%s') condition errored: %s", dp$id, conditionMessage(e)),
+                  call. = FALSE
+                )
+                FALSE
+              }
+            )
+          )
+          if (cond_met) {
+            active_dps[[length(active_dps) + 1L]] <- dp
+          } else if (isTRUE(dp$audit)) {
+            vetoed_dps[[length(vetoed_dps) + 1L]] <- dp
+          }
+        }
+
         # Stage 2B: policy dispatch at declared decision points.
-        # Only active in v2 mode with a policy and schema decision_points.
+        # Only active in v2 mode with a policy and active decision points.
         action_props <- list()
         selected_actions <- list()
-        if (isTRUE(self$.v2_mode) && !is.null(self$.policy) && length(fired_dps) > 0L) {
-          for (dp in fired_dps) {
+        if (isTRUE(self$.v2_mode) && !is.null(self$.policy) && length(active_dps) > 0L) {
+          for (dp in active_dps) {
             proposed_action <- .call_policy(self$.policy, dp, entity, sim_ctx = sim_ctx, param_ctx = param_ctx)
             if (!is.null(proposed_action)) {
               if (!inherits(proposed_action, "ActionEvent")) {
@@ -222,8 +247,9 @@ Engine <- R6::R6Class(
         }
 
         # Stage 3: emit trajectory records at declared decision points when configured.
-        if (!is.null(traj_cfg) && length(fired_dps) > 0L) {
-          for (dp in fired_dps) {
+        if (!is.null(traj_cfg)) {
+          # Active DPs: condition was met (or absent); record with condition_met = TRUE.
+          for (dp in active_dps) {
             observation <- decision_observation(dp, entity)
             tr <- TrajectoryRecord(
               run_id = run_id,
@@ -237,6 +263,27 @@ Engine <- R6::R6Class(
               selected_action = selected_actions[[dp$id]],
               state_before = state_before,
               state_after = state_after,
+              condition_met = if (is.null(dp$condition)) NULL else TRUE,
+              reward = NULL
+            )
+            trajectory_accum[[length(trajectory_accum) + 1L]] <<- as_plain_trajectory_record(tr)
+          }
+          # Vetoed DPs: condition was FALSE and audit=TRUE; no policy call, no action.
+          for (dp in vetoed_dps) {
+            observation <- decision_observation(dp, entity)
+            tr <- TrajectoryRecord(
+              run_id = run_id,
+              entity_id = entity_id,
+              t = entity$last_time,
+              decision_point_id = dp$id,
+              observation = observation,
+              realized_event = ev,
+              candidate_actions = dp$allowed_actions,
+              proposed_actions = list(),
+              selected_action = NULL,
+              state_before = state_before,
+              state_after = state_after,
+              condition_met = FALSE,
               reward = NULL
             )
             trajectory_accum[[length(trajectory_accum) + 1L]] <<- as_plain_trajectory_record(tr)
