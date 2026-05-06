@@ -256,23 +256,39 @@ schema_validator_levels <- function(levels, allow_na = FALSE) {
 #' Optionally merges onto an existing `schema`, with explicit `overwrite` and
 #' `remove` controls.
 #'
+#' When `time_spec` or `decision_points` is supplied, `set_schema()` returns a
+#' **full schema list** (with `$variables`, `$time_spec`, and
+#' `$decision_points`) suitable for direct use with [load_model()]. When
+#' neither is supplied, it returns just the validated variables spec (backward-
+#' compatible with prior usage and with `Entity$new(schema = ...)`).
+#'
 #' @param vars Named list (or character vector) of variable specs. Each element
 #'   is either a single type-name string or a list containing `type` plus any
 #'   recognized schema fields (`min`, `max`, `levels`, `default`, `coerce`,
 #'   `validate`, `allow_na`, `required`, `blocks`).
 #' @param schema Optional existing schema to extend. If `NULL`, a new schema is
-#'   created.
+#'   created. May be either a plain variables list or a full schema list (with a
+#'   `$variables` field) — both forms are accepted.
 #' @param remove Optional character vector of variable names to remove from
 #'   `schema` before merging `vars`. Errors if any name is not present.
 #' @param overwrite Logical scalar. If `FALSE` (default), adding a variable
 #'   already present in `schema` is an error. If `TRUE`, existing entries are
 #'   replaced.
+#' @param time_spec Optional [time_spec()] object. When provided, the returned
+#'   value is a full schema list with `$variables`, `$time_spec`, and
+#'   `$decision_points`, ready to pass directly to [load_model()].
+#' @param decision_points Optional list of [DecisionPoint()] objects to attach
+#'   to the schema. Requires `time_spec` to also be provided. When supplied, the
+#'   returned value is a full schema list (see `time_spec` above).
 #'
-#' @return A validated fluxCore schema (named list).
+#' @return A validated fluxCore variables spec (named list), or — when
+#'   `time_spec` or `decision_points` is supplied — a full schema list with
+#'   `$variables`, `$time_spec`, and `$decision_points`.
 #'
 #' @examples
 #' \dontrun{
-#'   s <- set_schema(vars = list(
+#'   # Variables only (backward-compatible):
+#'   vars <- set_schema(vars = list(
 #'     route_zone  = list(type = "categorical",
 #'                        levels = c("urban", "suburban", "rural")),
 #'     battery_pct = "percent",
@@ -280,10 +296,55 @@ schema_validator_levels <- function(levels, allow_na = FALSE) {
 #'     deliveries  = "count",
 #'     prob_rain   = "probability"
 #'   ))
+#'
+#'   # Full schema for load_model():
+#'   dp <- DecisionPoint(id = "dp1", trigger = "event_A",
+#'                       allowed_actions = c("accept", "decline"))
+#'   schema <- set_schema(
+#'     vars             = list(battery_pct = "percent"),
+#'     time_spec        = time_spec(unit = "hours"),
+#'     decision_points  = list(dp)
+#'   )
+#'   # schema$variables, schema$time_spec, schema$decision_points are all set.
 #' }
 #'
 #' @export
-set_schema <- function(vars = NULL, schema = NULL, remove = NULL, overwrite = FALSE) {
+set_schema <- function(vars            = NULL,
+                       schema          = NULL,
+                       remove          = NULL,
+                       overwrite       = FALSE,
+                       time_spec       = NULL,
+                       decision_points = NULL) {
+  # decision_points requires time_spec
+  if (!is.null(decision_points) && is.null(time_spec)) {
+    stop("set_schema(): `time_spec` is required when `decision_points` is supplied.", call. = FALSE)
+  }
+
+  # Validate time_spec
+  if (!is.null(time_spec) && !inherits(time_spec, "time_spec")) {
+    stop("set_schema(): `time_spec` must be a time_spec object (from time_spec()).", call. = FALSE)
+  }
+
+  # Validate decision_points
+  if (!is.null(decision_points)) {
+    if (!is.list(decision_points) || length(decision_points) == 0L) {
+      stop("set_schema(): `decision_points` must be a non-empty list of DecisionPoint objects.", call. = FALSE)
+    }
+    for (i in seq_along(decision_points)) {
+      if (!inherits(decision_points[[i]], "DecisionPoint")) {
+        stop(
+          sprintf("set_schema(): `decision_points[[%d]]` is not a DecisionPoint object.", i),
+          call. = FALSE
+        )
+      }
+    }
+  }
+
+  # Accept a full schema list (with $variables) as the `schema` argument.
+  if (!is.null(schema) && is.list(schema) && !is.null(schema$variables)) {
+    schema <- schema$variables
+  }
+
   if (!is.null(schema)) {
     if (!is.list(schema) || is.null(names(schema)) || any(names(schema) == "")) {
       stop("schema must be a named list.", call. = FALSE)
@@ -311,7 +372,15 @@ set_schema <- function(vars = NULL, schema = NULL, remove = NULL, overwrite = FA
   }
 
   if (is.null(vars)) {
-    return(.validate_schema(schema))
+    vars_schema <- .validate_schema(schema)
+    if (!is.null(time_spec) || !is.null(decision_points)) {
+      return(list(
+        variables       = vars_schema,
+        time_spec       = time_spec,
+        decision_points = decision_points
+      ))
+    }
+    return(vars_schema)
   }
 
   # Accept either a named character vector (legacy/shorthand) or a named list
@@ -353,5 +422,16 @@ set_schema <- function(vars = NULL, schema = NULL, remove = NULL, overwrite = FA
     schema[[nm]] <- spec
   }
 
-  .validate_schema(schema)
+  vars_schema <- .validate_schema(schema)
+
+  # Return full schema list when time_spec or decision_points were supplied.
+  if (!is.null(time_spec) || !is.null(decision_points)) {
+    return(list(
+      variables       = vars_schema,
+      time_spec       = time_spec,
+      decision_points = decision_points
+    ))
+  }
+
+  vars_schema
 }

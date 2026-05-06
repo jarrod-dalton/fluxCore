@@ -260,3 +260,65 @@ test_that("set_schema remove drops vars and errors on unknown name", {
   expect_equal(names(s1), "y")
   expect_error(set_schema(schema = s0, remove = "nope"), "not found in schema")
 })
+
+# ---- set_schema time_spec + decision_points ---------------------------------
+
+test_that("set_schema with time_spec returns full schema list", {
+  ts <- time_spec(unit = "hours")
+  s <- set_schema(vars = list(x = "count"), time_spec = ts)
+  expect_true(is.list(s))
+  expect_true(!is.null(s$variables))
+  expect_true(!is.null(s$time_spec))
+  expect_null(s$decision_points)
+  expect_s3_class(s$time_spec, "time_spec")
+})
+
+test_that("set_schema with decision_points returns full schema list", {
+  ts <- time_spec(unit = "hours")
+  dp <- DecisionPoint("dp1", "ev", allowed_actions = "act")
+  s <- set_schema(vars = list(x = "count"), time_spec = ts, decision_points = list(dp))
+  expect_true(!is.null(s$variables))
+  expect_true(!is.null(s$time_spec))
+  expect_length(s$decision_points, 1L)
+  expect_s3_class(s$decision_points[[1]], "DecisionPoint")
+})
+
+test_that("set_schema: decision_points without time_spec errors", {
+  dp <- DecisionPoint("dp1", "ev")
+  expect_error(
+    set_schema(vars = list(x = "count"), decision_points = list(dp)),
+    "time_spec"
+  )
+})
+
+test_that("set_schema: non-DecisionPoint in decision_points errors", {
+  ts <- time_spec(unit = "hours")
+  expect_error(
+    set_schema(vars = list(x = "count"), time_spec = ts, decision_points = list("oops")),
+    "DecisionPoint"
+  )
+})
+
+test_that("set_schema: bad time_spec type errors", {
+  expect_error(
+    set_schema(vars = list(x = "count"), time_spec = list(unit = "hours")),
+    "time_spec"
+  )
+})
+
+test_that("set_schema: accepts full schema as schema= argument (round-trip)", {
+  ts <- time_spec(unit = "hours")
+  s1 <- set_schema(vars = list(x = "count"), time_spec = ts)
+  # Pass full schema back in as schema= and add another variable
+  s2 <- set_schema(vars = list(y = "probability"), schema = s1, time_spec = ts)
+  expect_true(!is.null(s2$variables$x))
+  expect_true(!is.null(s2$variables$y))
+})
+
+test_that("set_schema: vars-only form still backward compatible", {
+  s <- set_schema(vars = list(x = "count", y = "probability"))
+  expect_true(is.list(s))
+  expect_true(!is.null(s$x))
+  expect_null(s$time_spec)
+  expect_null(s$decision_points)
+})
