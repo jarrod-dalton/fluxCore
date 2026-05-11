@@ -8,43 +8,30 @@
 Engine <- R6::R6Class(
   classname = "Engine",
   public = list(
-    provider = NULL,
-    model_spec = NULL,
     bundle = NULL,
     time_spec = NULL,
 
-    initialize = function(bundle = NULL,
-                          provider = NULL,
-                          model_spec = list(name = "default"),
-                          ...) {
-      if (!is.null(bundle)) {
-        if (!is.null(provider)) {
-          stop("Engine$new(): supply either `bundle` or `provider`, not both.", call. = FALSE)
-        }
-        .validate_model_bundle(bundle)
-        self$provider <- NULL
-        self$model_spec <- NULL
-        self$bundle <- bundle
-        self$time_spec <- bundle$time_spec
-        return(invisible(self))
+    # v2.0.0 fields -- set by load_model(); NULL when using Engine$new() directly
+    .v2_mode     = FALSE,
+    .schema      = NULL,
+    .policy      = NULL,
+    .environment = NULL,
+    .trajectory  = NULL,
+    .runtime     = NULL,
+    .param_source = NULL,
+    .time_spec   = NULL,
+
+    initialize = function(bundle = NULL, ...) {
+      if (is.null(bundle)) {
+        stop(
+          "Engine$new() requires a `bundle` argument. ",
+          "Supply a ModelBundle list directly, or use load_model() for the full v2 assembly path.",
+          call. = FALSE
+        )
       }
-
-      if (is.null(provider)) provider <- PackageProvider$new()
-
-      self$provider <- provider
-      self$model_spec <- model_spec
-
-      if (!is.list(provider) && is.null(provider$load)) {
-        stop("provider must be an object with a $load(model_spec, ...) method.")
-      }
-      if (!is.function(provider$load)) {
-        stop("provider$load must be a function.")
-      }
-
-      self$bundle <- provider$load(model_spec = model_spec, ...)
-      .validate_model_bundle(self$bundle)
-      self$time_spec <- self$bundle$time_spec
-
+      .validate_model_bundle(bundle)
+      self$bundle <- bundle
+      self$time_spec <- bundle$time_spec
       invisible(self)
     },
 
@@ -53,64 +40,311 @@ Engine <- R6::R6Class(
                    max_events = 1000,
                    max_time = NULL,
                    return_observations = TRUE,
-                   ctx = NULL) {
+                   .internal_ctx = NULL) {
 
-      
-if (is.null(ctx)) ctx <- list()
-if (!is.list(ctx)) stop("ctx must be a list (or NULL).", call. = FALSE)
-.assert_ctx_time_compatible(ctx = ctx, canonical_time_spec = self$time_spec, where = "Engine$run() ctx")
-ctx$time <- .time_ctx_from_spec(self$time_spec)
-ctx$time_spec <- self$time_spec
+      # .internal_ctx is used only by run_cohort() to pass run metadata
+      # (run_id, entity_id, param_draw_id, params). NOT a user-facing parameter.
+      if (is.null(.internal_ctx)) .internal_ctx <- list()
 
-# Standardize model parameters in ctx$params.
-# - Users may provide ctx$params to override defaults for a run.
-# - Model bundles may provide bundle$params as a default.
-if (is.null(ctx$params)) {
-  if (!is.null(self$bundle$params)) {
-    if (!is.list(self$bundle$params)) stop("bundle$params must be a list if provided.", call. = FALSE)
-    ctx$params <- self$bundle$params
-  } else {
-    ctx$params <- list()
-  }
-} else {
-  if (!is.list(ctx$params)) stop("ctx$params must be a list if provided.", call. = FALSE)
-}
+      run_id <- if (!is.null(.internal_ctx$run_id)) as.character(.internal_ctx$run_id) else "run_1"
+      entity_id <- if (!is.null(entity$id) && nzchar(as.character(entity$id))) {
+        as.character(entity$id)
+      } else if (!is.null(.internal_ctx$entity_id) && nzchar(as.character(.internal_ctx$entity_id))) {
+        as.character(.internal_ctx$entity_id)
+      } else {
+        "entity"
+      }
 
-# One-time initialization hook (optional).
-# Models can use this to register derived variables and perform setup.
-.call_init_entity(self$bundle, entity, ctx = ctx)
+      # Resolve params: from .internal_ctx (cohort), from bundle$params, or empty.
+      params <- if (!is.null(.internal_ctx$params)) {
+        .internal_ctx$params
+      } else if (!is.null(self$bundle$params) && is.list(self$bundle$params)) {
+        self$bundle$params
+      } else {
+        list()
+      }
+
+      # Stage 3 hardening: apply RuntimeContext seed in single-run v2 path.
+      if (isTRUE(self$.v2_mode) && !is.null(self$.runtime) && !is.null(self$.runtime$seed)) {
+        draw_id <- if (!is.null(.internal_ctx$param_draw_id)) as.integer(.internal_ctx$param_draw_id) else 1L
+        replicate_id <- if (!is.null(self$.runtime$replicate_id)) as.integer(self$.runtime$replicate_id) else 1L
+        local_seed <- .seed_for(as.integer(self$.runtime$seed), entity_id, draw_id, replicate_id)
+        set.seed(local_seed)
+      }
+
+      resolve_trajectory_config <- function(trajectory) {
+        if (is.null(trajectory)) return(NULL)
+        if (!is.list(trajectory)) {
+          stop("Engine$run(): `.trajectory` must be a list or NULL.", call. = FALSE)
+        }
+
+        detail <- trajectory$detail
+        if (is.null(detail)) detail <- "none"
+        if (!is.character(detail) || length(detail) != 1L || !(detail %in% c("none", "summary", "full"))) {
+          stop("Engine$run(): trajectory detail must be one of 'none', 'summary', or 'full'.", call. = FALSE)
+        }
+
+        summary_fn <- trajectory$summary_fn
+        if (is.null(summary_fn)) summary_fn <- state_summary_default
+        if (!is.function(summary_fn)) {
+          stop("Engine$run(): trajectory summary_fn must be a function when provided.", call. = FALSE)
+        }
+
+        list(detail = detail, summary_fn = summary_fn)
+      }
+
+      fired_decision_points <- function(schema, event, v2_mode = FALSE) {
+        if (!isTRUE(v2_mode)) return(list())
+        if (is.null(schema) || is.null(schema$decision_points) || length(schema$decision_points) == 0L) return(list())
+        out <- list()
+        for (dp in schema$decision_points) {
+          if (dp_fires(dp, event)) out[[length(out) + 1L]] <- dp
+        }
+        out
+      }
+
+      decision_observation <- function(dp, entity) {
+        if (!is.null(dp$observation_fn)) {
+          out <- dp$observation_fn(entity)
+        } else {
+          out <- state_summary_default(entity)
+        }
+        if (!is.list(out)) {
+          warning(sprintf("DecisionPoint('%s') observation_fn did not return a list; coercing via as.list().", dp$id),
+                  call. = FALSE)
+          out <- as.list(out)
+        }
+        out
+      }
+
+      capture_trajectory_state <- function(entity, traj_cfg, when = c("before", "after")) {
+        if (is.null(traj_cfg)) return(NULL)
+        when <- match.arg(when)
+        detail <- traj_cfg$detail
+        if (identical(detail, "none")) return(NULL)
+        if (identical(detail, "full")) return(as.list(entity$current))
+
+        out <- traj_cfg$summary_fn(entity)
+        if (!is.list(out)) {
+          stop(sprintf("Trajectory summary_fn must return a list for state_%s.", when), call. = FALSE)
+        }
+        out
+      }
+
+      as_plain_trajectory_record <- function(x) {
+        if (!inherits(x, "TrajectoryRecord")) return(x)
+        out <- unclass(x)
+        if (!is.null(out$selected_action) && inherits(out$selected_action, "ActionEvent")) {
+          out$selected_action <- unclass(out$selected_action)
+        }
+        if (!is.null(out$proposed_actions) && is.list(out$proposed_actions) && length(out$proposed_actions) > 0L) {
+          out$proposed_actions <- lapply(out$proposed_actions, function(a) {
+            if (inherits(a, "ActionEvent")) unclass(a) else a
+          })
+        }
+        out
+      }
+
+      traj_cfg <- resolve_trajectory_config(self$.trajectory)
+
+      sim_ctx <- SimContext(
+        run_id = run_id,
+        time_spec = self$time_spec,
+        model_id = NULL,
+        scenario_id = NULL,
+        horizon = max_time
+      )
+      param_ctx <- ParamContext(
+        draw_id = if (!is.null(.internal_ctx$param_draw_id)) .internal_ctx$param_draw_id else 1L,
+        params = params,
+        provenance = NULL
+      )
+
+      # One-time initialization hook (optional).
+      .call_init_entity(self$bundle, entity)
 
       obs_accum <- NULL
+      trajectory_accum <- list()
       model_event_catalog <- .validate_bundle_event_set(self$bundle$event_catalog, "event_catalog")
 
-      proposals <- .call_propose_events(self$bundle, entity, ctx = ctx)
+      # Build action_handler lookup from DPs and auto-register action event types.
+      # action_handler_map: list keyed by "<dp_id>::<action_type>" -> handler function
+      # Also maps dp_id -> DecisionPoint for reverse lookup from synthetic process_ids.
+      action_handler_map <- list()
+      dp_map <- list()
+      if (isTRUE(self$.v2_mode) && !is.null(self$.schema$decision_points)) {
+        for (dp in self$.schema$decision_points) {
+          dp_map[[dp$id]] <- dp
+          if (!is.null(dp$action_handlers)) {
+            for (atype in names(dp$action_handlers)) {
+              action_handler_map[[paste0(dp$id, "::", atype)]] <- dp$action_handlers[[atype]]
+              # Auto-register action event types into the engine's catalog
+              if (!(atype %in% model_event_catalog)) {
+                model_event_catalog <- c(model_event_catalog, atype)
+              }
+            }
+          }
+        }
+      }
+
+      proposals <- .call_propose_events(self$bundle, entity, sim_ctx = sim_ctx, param_ctx = param_ctx)
 
       step_once <- function() {
         ev <- .pick_next_event(proposals, event_catalog = model_event_catalog)
 
-        changes <- .call_transition(self$bundle, entity, ev, ctx = ctx)
+        # Check if this event is an ActionEvent from a DP with an action_handler.
+        # If so, call the handler directly instead of bundle$transition().
+        action_handler <- NULL
+        ev_pid <- ev$process_id
+        if (!is.null(ev_pid) && grepl("^\\.action\\.", ev_pid)) {
+          origin_dp_id <- sub("^\\.action\\.", "", ev_pid)
+          key <- paste0(origin_dp_id, "::", ev$event_type)
+          action_handler <- action_handler_map[[key]]
+        }
+
+        fired_dps <- fired_decision_points(self$.schema, ev, self$.v2_mode)
+        state_before <- if (length(fired_dps) > 0L) capture_trajectory_state(entity, traj_cfg, when = "before") else NULL
+
+        if (!is.null(action_handler)) {
+          changes <- .call_action_handler(action_handler, entity, ev, param_ctx = param_ctx)
+        } else {
+          changes <- .call_transition(self$bundle, entity, ev, sim_ctx = sim_ctx, param_ctx = param_ctx)
+        }
 
         entity$update(time = ev$time_next, event_type = ev$event_type, changes = changes)
 
+        state_after <- if (length(fired_dps) > 0L) capture_trajectory_state(entity, traj_cfg, when = "after") else NULL
+
+        # Evaluate condition (post-transition) for each fired DP.
+        # active_dps: condition met (or absent) -> policy is consulted.
+        # vetoed_dps: condition false AND audit=TRUE -> audit record only.
+        active_dps <- list()
+        vetoed_dps <- list()
+        for (dp in fired_dps) {
+          cond_met <- is.null(dp$condition) || isTRUE(
+            tryCatch(
+              dp$condition(entity),
+              error = function(e) {
+                warning(
+                  sprintf("DecisionPoint('%s') condition errored: %s", dp$id, conditionMessage(e)),
+                  call. = FALSE
+                )
+                FALSE
+              }
+            )
+          )
+          if (cond_met) {
+            active_dps[[length(active_dps) + 1L]] <- dp
+          } else if (isTRUE(dp$audit)) {
+            vetoed_dps[[length(vetoed_dps) + 1L]] <- dp
+          }
+        }
+
+        # Stage 2B: policy dispatch at declared decision points.
+        # Only active in v2 mode with a policy and active decision points.
+        action_props <- list()
+        selected_actions <- list()
+        if (isTRUE(self$.v2_mode) && !is.null(self$.policy) && length(active_dps) > 0L) {
+          for (dp in active_dps) {
+            proposed_action <- .call_policy(self$.policy, dp, entity, sim_ctx = sim_ctx, param_ctx = param_ctx)
+            if (!is.null(proposed_action)) {
+              if (!inherits(proposed_action, "ActionEvent")) {
+                warning(
+                  "policy$propose_action() returned a non-ActionEvent object; ignoring.",
+                  call. = FALSE
+                )
+              } else {
+                if (!is.null(dp$allowed_actions) && !(proposed_action$action_type %in% dp$allowed_actions)) {
+                  warning(
+                    sprintf(
+                      "policy returned action_type '%s' not in DecisionPoint('%s') allowed_actions; ignoring.",
+                      proposed_action$action_type,
+                      dp$id
+                    ),
+                    call. = FALSE
+                  )
+                  next
+                }
+                # Normalize ActionEvent into an event proposal shape expected by
+                # arbitration: event_type drives validation/arbitration, while
+                # action_type remains for policy provenance.
+                if (is.null(proposed_action$event_type) || !nzchar(proposed_action$event_type)) {
+                  proposed_action$event_type <- proposed_action$action_type
+                }
+                # Insert as a candidate event proposal under a synthetic process id.
+                pid <- paste0(".action.", dp$id)
+                action_props[[pid]] <- proposed_action
+                selected_actions[[dp$id]] <- proposed_action
+              }
+            }
+          }
+        }
+
+        # Stage 3: emit trajectory records at declared decision points when configured.
+        if (!is.null(traj_cfg)) {
+          # Active DPs: condition was met (or absent); record with condition_met = TRUE.
+          for (dp in active_dps) {
+            observation <- decision_observation(dp, entity)
+            tr <- TrajectoryRecord(
+              run_id = run_id,
+              entity_id = entity_id,
+              t = entity$last_time,
+              decision_point_id = dp$id,
+              observation = observation,
+              realized_event = ev,
+              candidate_actions = dp$allowed_actions,
+              proposed_actions = if (!is.null(selected_actions[[dp$id]])) list(selected_actions[[dp$id]]) else list(),
+              selected_action = selected_actions[[dp$id]],
+              state_before = state_before,
+              state_after = state_after,
+              condition_met = if (is.null(dp$condition)) NULL else TRUE,
+              reward = NULL
+            )
+            trajectory_accum[[length(trajectory_accum) + 1L]] <<- as_plain_trajectory_record(tr)
+          }
+          # Vetoed DPs: condition was FALSE and audit=TRUE; no policy call, no action.
+          for (dp in vetoed_dps) {
+            observation <- decision_observation(dp, entity)
+            tr <- TrajectoryRecord(
+              run_id = run_id,
+              entity_id = entity_id,
+              t = entity$last_time,
+              decision_point_id = dp$id,
+              observation = observation,
+              realized_event = ev,
+              candidate_actions = dp$allowed_actions,
+              proposed_actions = list(),
+              selected_action = NULL,
+              state_before = state_before,
+              state_after = state_after,
+              condition_met = FALSE,
+              reward = NULL
+            )
+            trajectory_accum[[length(trajectory_accum) + 1L]] <<- as_plain_trajectory_record(tr)
+          }
+        }
+
         if (isTRUE(return_observations)) {
-          o <- .call_observe(self$bundle, entity, ev, ctx = ctx)
+          o <- .call_observe(self$bundle, entity, ev)
           if (!is.null(o)) {
             obs_accum <<- if (is.null(obs_accum)) o else rbind(obs_accum, o)
           }
         }
 
-        if (.call_stop(self$bundle, entity, ev, ctx = ctx)) return(FALSE)
+        if (.call_stop(self$bundle, entity, ev, sim_ctx = sim_ctx, param_ctx = param_ctx)) return(FALSE)
         if (!is.null(max_time) && entity$last_time >= max_time) return(FALSE)
 
-        refresh_ids <- .call_refresh_rules(self$bundle, entity, ev, changes, ctx = ctx)
+        refresh_ids <- .call_refresh_rules(self$bundle, entity, ev, changes)
 
         if (identical(refresh_ids, "ALL")) {
-          proposals <<- .call_propose_events(self$bundle, entity, ctx = ctx)
+          proposals <<- .call_propose_events(self$bundle, entity, sim_ctx = sim_ctx, param_ctx = param_ctx)
         } else if (length(refresh_ids) > 0) {
           new_props <- .call_propose_events(
-            self$bundle, entity, ctx = ctx,
+            self$bundle, entity,
             process_ids = refresh_ids,
-            current_proposals = proposals
+            current_proposals = proposals,
+            sim_ctx = sim_ctx,
+            param_ctx = param_ctx
           )
           for (pid in refresh_ids) {
             if (!is.null(new_props[[pid]])) {
@@ -119,6 +353,10 @@ if (is.null(ctx$params)) {
               proposals[[pid]] <<- NULL
             }
           }
+        }
+
+        if (length(action_props) > 0L) {
+          proposals <<- utils::modifyList(proposals, action_props, keep.null = TRUE)
         }
 
         TRUE
@@ -132,36 +370,93 @@ if (is.null(ctx$params)) {
         if (length(proposals) == 0L) break
       }
 
-      list(
+      out <- list(
         entity = entity,
         events = entity$events,
         observations = if (isTRUE(return_observations)) obs_accum else NULL
+      )
+      if (!is.null(traj_cfg)) out$trajectory_records <- trajectory_accum
+      out
+    },
+
+    #' Run a single entity with explicit parameter injection.
+    #'
+    #' Public entry point for downstream packages (e.g., fluxForecast streaming
+    #' functions) that need per-run parameter control without coupling to the
+    #' internal .internal_ctx structure used by run_cohort().
+    #'
+    #' @param entity An Entity object to simulate.
+    #' @param params Named list of parameter values for this run.
+    #' @param draw_id Integer identifying the parameter draw (default 1L).
+    #' @param sim_id Integer identifying the stochastic replicate (default 1L).
+    #' @param max_events Maximum number of events before stopping.
+    #' @param max_time Maximum simulation time.
+    #' @param return_observations Whether to return observations.
+    #' @return Same structure as Engine$run().
+    run_draw = function(entity,
+                        params = list(),
+                        draw_id = 1L,
+                        sim_id = 1L,
+                        max_events = 1000,
+                        max_time = NULL,
+                        return_observations = TRUE) {
+      entity_id <- if (!is.null(entity$id) && nzchar(as.character(entity$id))) {
+        as.character(entity$id)
+      } else {
+        "entity"
+      }
+      run_meta <- list(
+        time_spec     = self$time_spec,
+        entity_id     = entity_id,
+        param_draw_id = as.integer(draw_id),
+        sim_id        = as.integer(sim_id),
+        params        = params
+      )
+      self$run(
+        entity = entity,
+        max_events = max_events,
+        max_time = max_time,
+        return_observations = return_observations,
+        .internal_ctx = run_meta
       )
     }
   )
 )
 
-.call_init_entity <- function(bundle, entity, ctx = NULL) {
+# v2.0.0: hard error if any bundle callback declares `ctx` as a formal.
+.reject_ctx_formal <- function(f, fn_name) {
+  if ("ctx" %in% names(formals(f))) {
+    stop(
+      sprintf("bundle$%s() declares `ctx` as a formal parameter. ", fn_name),
+      "`ctx` is removed in fluxCore v2.0.0. ",
+      "Use the (entity, event) signature; access time via entity$time_spec.",
+      call. = FALSE
+    )
+  }
+  invisible(NULL)
+}
+
+.call_init_entity <- function(bundle, entity) {
   f <- bundle$init_entity
   if (is.null(f)) return(invisible(NULL))
   if (!is.function(f)) stop("init_entity must be a function if provided.", call. = FALSE)
-
-  fml <- names(formals(f))
+  .reject_ctx_formal(f, "init_entity")
   args <- list(entity = entity)
-  if ("ctx" %in% fml) args$ctx <- ctx
   invisible(do.call(f, args))
 }
 
-.call_propose_events <- function(bundle, entity, ctx = NULL, process_ids = NULL, current_proposals = NULL) {
+.call_propose_events <- function(bundle, entity, process_ids = NULL, current_proposals = NULL, sim_ctx = NULL, param_ctx = NULL) {
   if (is.null(bundle$propose_events) || !is.function(bundle$propose_events)) {
-    stop("ModelBundle must provide propose_events(entity, ctx, ...).")
+    stop("ModelBundle must provide propose_events(entity, ...).")
   }
+  .reject_ctx_formal(bundle$propose_events, "propose_events")
 
   fml <- names(formals(bundle$propose_events))
   args <- list(entity = entity)
-  if ("ctx" %in% fml) args$ctx <- ctx
   if ("process_ids" %in% fml) args$process_ids <- process_ids
   if ("current_proposals" %in% fml) args$current_proposals <- current_proposals
+  if ("sim_ctx" %in% fml) args$sim_ctx <- sim_ctx
+  if ("param_ctx" %in% fml) args$param_ctx <- param_ctx
 
   out <- do.call(bundle$propose_events, args)
   if (is.null(out)) return(list())
@@ -187,6 +482,55 @@ if (is.null(ctx$params)) {
     )
   }
   out
+}
+
+# Stage 2B: internal policy dispatch helper.
+# Accepts either a bare function or a list/environment with a $propose_action method.
+# Signature: propose_action(decision_point, entity, ...) -> ActionEvent or NULL
+.call_policy <- function(policy, dp, entity, sim_ctx = NULL, param_ctx = NULL) {
+  if (is.function(policy)) {
+    f <- policy
+  } else if (is.list(policy) && is.function(policy$propose_action)) {
+    f <- policy$propose_action
+  } else {
+    warning("policy must be a function or a list with a $propose_action function; ignoring.", call. = FALSE)
+    return(NULL)
+  }
+
+  fml <- names(formals(f))
+  args <- list(decision_point = dp, entity = entity)
+  if ("sim_ctx" %in% fml) args$sim_ctx <- sim_ctx
+  if ("param_ctx" %in% fml) args$param_ctx <- param_ctx
+  result <- tryCatch(
+    do.call(f, args),
+    error = function(e) {
+      warning(sprintf("policy$propose_action() errored for dp '%s': %s", dp$id, conditionMessage(e)),
+              call. = FALSE)
+      NULL
+    }
+  )
+  # Fill in decision_point_id from the firing DP if the policy omitted it.
+  if (inherits(result, "ActionEvent") && is.null(result$decision_point_id)) {
+    result$decision_point_id <- dp$id
+  }
+  result
+}
+
+# Dispatch an action_handler from a DecisionPoint.
+# Signature: handler(entity, event) -> named list of state updates or NULL
+# Optionally accepts param_ctx (auto-detected from formals).
+.call_action_handler <- function(handler, entity, event, param_ctx = NULL) {
+  fml <- names(formals(handler))
+  args <- list(entity = entity, event = event)
+  if ("param_ctx" %in% fml) args$param_ctx <- param_ctx
+  tryCatch(
+    do.call(handler, args),
+    error = function(e) {
+      warning(sprintf("action_handler errored for event_type '%s': %s",
+                      event$event_type, conditionMessage(e)), call. = FALSE)
+      NULL
+    }
+  )
 }
 
 .pick_next_event <- function(proposals, event_catalog = NULL) {
@@ -232,9 +576,10 @@ if (is.null(ctx$params)) {
 }
 
 
-.call_transition <- function(bundle, entity, ev, ctx = NULL) {
+.call_transition <- function(bundle, entity, ev, sim_ctx = NULL, param_ctx = NULL) {
   f <- bundle$transition
   if (is.null(f) || !is.function(f)) stop("ModelBundle must provide transition().")
+  .reject_ctx_formal(f, "transition")
   fml <- names(formals(f))
 
   if (!("event" %in% fml)) {
@@ -242,14 +587,16 @@ if (is.null(ctx$params)) {
   }
 
   args <- list(entity = entity, event = ev)
-  if ("ctx" %in% fml) args$ctx <- ctx
+  if ("sim_ctx" %in% fml) args$sim_ctx <- sim_ctx
+  if ("param_ctx" %in% fml) args$param_ctx <- param_ctx
   do.call(f, args)
 }
 
 
-.call_stop <- function(bundle, entity, ev, ctx = NULL) {
+.call_stop <- function(bundle, entity, ev, sim_ctx = NULL, param_ctx = NULL) {
   f <- bundle$stop
   if (is.null(f) || !is.function(f)) stop("ModelBundle must provide stop().")
+  .reject_ctx_formal(f, "stop")
   fml <- names(formals(f))
 
   if (!("event" %in% fml)) {
@@ -257,14 +604,16 @@ if (is.null(ctx$params)) {
   }
 
   args <- list(entity = entity, event = ev)
-  if ("ctx" %in% fml) args$ctx <- ctx
+  if ("sim_ctx" %in% fml) args$sim_ctx <- sim_ctx
+  if ("param_ctx" %in% fml) args$param_ctx <- param_ctx
   isTRUE(do.call(f, args))
 }
 
 
-.call_observe <- function(bundle, entity, ev, ctx = NULL) {
+.call_observe <- function(bundle, entity, ev) {
   f <- bundle$observe
   if (is.null(f) || !is.function(f)) return(NULL)
+  .reject_ctx_formal(f, "observe")
   fml <- names(formals(f))
 
   if (!("event" %in% fml)) {
@@ -272,16 +621,15 @@ if (is.null(ctx$params)) {
   }
 
   args <- list(entity = entity, event = ev)
-  if ("ctx" %in% fml) args$ctx <- ctx
   do.call(f, args)
 }
 
-.call_refresh_rules <- function(bundle, entity, ev, changes, ctx = NULL) {
+.call_refresh_rules <- function(bundle, entity, ev, changes) {
   f <- bundle$refresh_rules
   if (is.null(f) || !is.function(f)) return("ALL")
+  .reject_ctx_formal(f, "refresh_rules")
   fml <- names(formals(f))
   args <- list(entity = entity, last_event = ev, changes = changes)
-  if ("ctx" %in% fml) args$ctx <- ctx
   out <- do.call(f, args)
   if (!is.character(out)) {
     stop(

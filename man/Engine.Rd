@@ -21,12 +21,7 @@ patch, recording the event on a Entity, and stopping when bundle$stop() returns 
 \if{latex}{\out{\hypertarget{method-Engine-new}{}}}
 \subsection{Method \code{new()}}{
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Engine$new(
-  bundle = NULL,
-  provider = NULL,
-  model_spec = list(name = "default"),
-  ...
-)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{Engine$new(bundle = NULL, ...)}\if{html}{\out{</div>}}
 }
 
 }

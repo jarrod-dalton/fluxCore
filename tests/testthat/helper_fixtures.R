@@ -20,7 +20,7 @@ default_entity_schema <- function() {
 test_model_bundle <- function(terminal_event_type = "death") {
   terminal_event_type <- as.character(terminal_event_type)
 
-  propose_events <- function(entity, ctx = NULL, process_ids = NULL, current_proposals = NULL) {
+  propose_events <- function(entity, process_ids = NULL, current_proposals = NULL) {
     pid <- "default"
     if (!is.null(process_ids) && !(pid %in% process_ids)) return(list())
     t0 <- entity$last_time
@@ -29,7 +29,7 @@ test_model_bundle <- function(terminal_event_type = "death") {
     list(default = list(time_next = t0 + dt, event_type = event_type, process_id = pid))
   }
 
-  transition <- function(entity, event, ctx = NULL) {
+  transition <- function(entity, event) {
     if (!identical(event$event_type, terminal_event_type)) return(list())
     updates <- list()
     if ("alive" %in% names(entity$current)) updates$alive <- FALSE
@@ -37,11 +37,11 @@ test_model_bundle <- function(terminal_event_type = "death") {
     updates
   }
 
-  stop <- function(entity, event, ctx = NULL) {
+  stop <- function(entity, event) {
     identical(event$event_type, terminal_event_type)
   }
 
-  observe <- function(entity, event, ctx = NULL) {
+  observe <- function(entity, event) {
     out <- list(time = entity$last_time, event_type = event$event_type)
     if ("alive" %in% names(entity$current)) out$alive <- entity$current$alive
     if ("active_followup" %in% names(entity$current)) out$active_followup <- entity$current$active_followup
@@ -56,10 +56,12 @@ test_model_bundle <- function(terminal_event_type = "death") {
     transition = transition,
     stop = stop,
     observe = observe,
-    refresh_rules = function(entity, last_event, changes, ctx = NULL) "ALL"
+    refresh_rules = function(entity, last_event, changes) "ALL"
   )
 }
 
 test_package_provider <- function() {
-  PackageProvider$new(registry = list(default = test_model_bundle))
+  # Deprecated in v2.0.0 — retained only for reference during transition.
+  # Use Engine$new(bundle = test_model_bundle()) instead.
+  NULL
 }

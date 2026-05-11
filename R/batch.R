@@ -7,7 +7,7 @@
 #
 # Time semantics:
 #   - The canonical model time spec is declared once in bundle$time_spec.
-#   - Runtime ctx may not override time metadata.
+#   - Runtime settings may not override time metadata.
 #
 # Returns:
 #   A list containing run index metadata and results (entities, events, observations).
@@ -25,20 +25,28 @@
 #' @param n_param_draws Integer; number of global parameter draws (D). Default 1.
 #' @param n_sims Integer; number of stochastic sims per entity per draw (S). Default 1.
 #' @param param_draws Optional; a list of length D with per-draw parameter contexts. If NULL,
-#' the function will attempt to call engine$bundle$sample_params(D) or engine$provider$sample_param_draws(...)
-#' when available; otherwise it uses a single NULL draw.
-#' @param ctx Optional context. Either a single list merged into each run context, or a
-#' list of per-draw context lists of length n_param_draws.
+#' the function will attempt to call engine$bundle$sample_params(D) when available;
+#' otherwise it uses a single NULL draw (no global parameter variation).
+#' @param ctx Optional context (v1.x path). Either a single list merged into each run context, or a
+#' list of per-draw context lists of length n_param_draws. Not accepted when engine was built
+#' via `load_model()` (v2 mode); use `runtime` instead.
+#' @param runtime Optional [RuntimeContext]; carries seed, backend, and n_workers for v2-mode
+#' engines. Takes precedence over the individual `seed`, `backend`, and `n_workers` arguments
+#' when non-NULL.
 #' @param max_events Max events per run.
 #' @param max_time Optional max time per run.
 #' @param return_observations Logical; whether to return observations (if bundle provides observe()).
-#' @param backend Backend used to parallelize across entities. One of "none", "cluster", "mclapply", or "future". Default is "none". "cluster" uses a PSOCK cluster (cross-platform). "mclapply" uses forking (macOS/Linux only). "future" uses future.apply::future_lapply() and respects the user's future plan.
+#' @param backend Backend used to parallelize across entities. One of "none", "cluster",
+#' "mclapply", or "future". Default is "none". Ignored when `runtime` is supplied.
 #' @param n_workers Integer; workers for parallel; default parallel::detectCores() - 1.
-#' @param seed Optional base seed for reproducibility.
+#' Ignored when `runtime` is supplied.
+#' @param seed Optional base seed for reproducibility. Public contract:
+#' fixed `seed` + `draw_id` + `sim_id` + `entity_id` = reproducible output.
+#' Ignored when `runtime` is supplied.
 #'
 #' @return
 #' A list with:
-#' runs: list of per-run outputs (entity/events/observations) with labels
+#' runs: list of per-run outputs (entity/events/observations; plus trajectory_records when enabled) with labels
 #' index: data.frame mapping run_id -> entity_id/param_draw_id/sim_id
 #'
 #' @export
@@ -47,13 +55,23 @@ run_cohort <- function(engine,
                        n_param_draws = 1,
                        n_sims = 1,
                        param_draws = NULL,
-                       ctx = NULL,
+                       runtime = NULL,
                        max_events = 1000,
                        max_time = NULL,
                        return_observations = TRUE,
                        backend = NULL,
                        n_workers = NULL,
                        seed = NULL) {
+
+  # v2 mode: RuntimeContext takes precedence
+  if (!is.null(runtime)) {
+    if (!inherits(runtime, "RuntimeContext")) {
+      stop("run_cohort(): `runtime` must be a RuntimeContext or NULL.", call. = FALSE)
+    }
+    seed      <- runtime$seed
+    backend   <- runtime$backend
+    n_workers <- runtime$n_workers
+  }
 
   n_param_draws <- as.integer(n_param_draws)
   n_sims <- as.integer(n_sims)
@@ -82,19 +100,6 @@ run_cohort <- function(engine,
       stop("max_time must be a single finite numeric value or NULL.", call. = FALSE)
     }
   }
-
-  # ctx can be:
-  # - NULL
-  # - a single list of context fields (merged into each run ctx)
-  # - a list of per-draw ctx lists of length n_param_draws
-  if (!is.null(ctx)) {
-    if (!is.list(ctx)) stop("ctx must be a list, a list of lists, or NULL.", call. = FALSE)
-    is_per_draw_ctx <- .ctx_is_per_draw(ctx)
-    if (is_per_draw_ctx && length(ctx) != n_param_draws) {
-      stop("If ctx is a list of lists, it must have length n_param_draws.", call. = FALSE)
-    }
-  }
-  ctx_user <- ctx
 
   # Entity IDs (stable)
   entity_ids <- names(entities)
@@ -149,9 +154,7 @@ run_cohort <- function(engine,
       max_events = max_events,
       max_time = max_time,
       return_observations = return_observations,
-      seed = seed,
-      ctx_user = ctx_user,
-      ctx_is_per_draw = .ctx_is_per_draw(ctx_user)
+      seed = seed
     )
   }
 
@@ -195,9 +198,7 @@ run_cohort <- function(engine,
       max_events = max_events,
       max_time = max_time,
       return_observations = return_observations,
-      seed = seed,
-      ctx_user = ctx_user,
-      ctx_is_per_draw = .ctx_is_per_draw(ctx_user)
+      seed = seed
     )
     runs <- do.call(c, entity_out)
 
@@ -244,9 +245,7 @@ run_cohort <- function(engine,
                                    max_events,
                                    max_time,
                                    return_observations,
-                                   seed,
-                                   ctx_user,
-                                   ctx_is_per_draw) {
+                                   seed) {
   p0 <- entities[[entity_id]]
   if (is.null(p0)) stop("Unknown entity_id in entities list: ", entity_id)
 
@@ -266,8 +265,7 @@ run_cohort <- function(engine,
       set.seed(local_seed)
     }
 
-    ctx_run <- list(
-      time = .time_ctx_from_spec(canonical_time_spec),
+    run_meta <- list(
       time_spec = canonical_time_spec,
       entity_id = entity_id,
       param_draw_id = param_draw_id,
@@ -275,34 +273,12 @@ run_cohort <- function(engine,
       params = param_draws[[param_draw_id]]
     )
 
-    # Merge user-provided ctx (if any). Per-draw ctx overrides single ctx.
-    if (!is.null(ctx_user)) {
-      base_ctx <- if (ctx_is_per_draw) ctx_user[[param_draw_id]] else ctx_user
-      .assert_ctx_time_compatible(
-        ctx = base_ctx,
-        canonical_time_spec = canonical_time_spec,
-        where = sprintf("run_cohort() ctx for entity '%s', draw %d", entity_id, param_draw_id)
-      )
-      base_ctx$time <- NULL
-      base_ctx$time_spec <- NULL
-
-      # Do not allow user ctx to overwrite identifiers; params are allowed.
-      ctx_run <- utils::modifyList(ctx_run, base_ctx, keep.null = TRUE)
-      ctx_run$entity_id <- entity_id
-      ctx_run$param_draw_id <- param_draw_id
-      ctx_run$sim_id <- sim_id
-      ctx_run$time <- .time_ctx_from_spec(canonical_time_spec)
-      ctx_run$time_spec <- canonical_time_spec
-      # If base_ctx provides params, honor it; otherwise keep param_draws.
-      if (!is.null(base_ctx$params)) ctx_run$params <- base_ctx$params
-    }
-
     out <- engine$run(
       entity = p,
       max_events = max_events,
       max_time = max_time,
       return_observations = return_observations,
-      ctx = ctx_run
+      .internal_ctx = run_meta
     )
 
     out_list[[r]] <- out
@@ -312,7 +288,8 @@ run_cohort <- function(engine,
 }
 
 .maybe_sample_param_draws <- function(engine, n_param_draws) {
-  # 1) Bundle can provide sample_params(D)
+  # v2.0: Use bundle$sample_params(D) to draw parameters.
+  # Removed fallback to engine$provider (v1.x pattern).
   if (!is.null(engine$bundle$sample_params) && is.function(engine$bundle$sample_params)) {
     draws <- engine$bundle$sample_params(n_param_draws)
     if (!is.list(draws) || length(draws) != n_param_draws) {
@@ -321,33 +298,22 @@ run_cohort <- function(engine,
     return(draws)
   }
 
-  # 2) Provider can provide sample_param_draws(model_spec, D)
-  if (!is.null(engine$provider) && !is.null(engine$provider$sample_param_draws) && is.function(engine$provider$sample_param_draws)) {
-    draws <- engine$provider$sample_param_draws(model_spec = engine$model_spec, n_param_draws = n_param_draws)
-    if (!is.list(draws) || length(draws) != n_param_draws) {
-      stop("provider$sample_param_draws(model_spec, D) must return a list of length D.")
-    }
-    return(draws)
-  }
-
-  # Fallback: one NULL draw repeated
+  # Fallback: one NULL draw repeated (no global parameter variation)
   rep(list(NULL), n_param_draws)
 }
 
 .seed_for <- function(base_seed, entity_id, param_draw_id, sim_id) {
-  # stable integer seed derived from identifiers
-  # (simple; if you want stronger guarantees, switch to L'Ecuyer streams)
-  h <- sum(utf8ToInt(as.character(entity_id))) %% 100000L
-  as.integer((base_seed + 100000L * param_draw_id + 1000L * sim_id + h) %% .Machine$integer.max)
+  # Deterministic stream seed derived from run coordinates.
+  # Formula: base_seed + draw_id * P1 + sim_id * P2 + entity_hash * P3 (mod max_int)
+  # P1/P2/P3 are distinct large primes chosen to minimise collisions across
+  # typical cohort sizes (<=1e4 entities, <=1e3 draws, <=100 sims).
+  # This is an INTERNAL detail. The public contract is:
+  #   fixed seed + draw_id + sim_id + entity_id => reproducible output.
+  # Stream allocation details must not appear in user-facing documentation.
+  P1 <- 99991L   # prime ~1e5
+  P2 <-  9973L   # prime ~1e4
+  P3 <-   997L   # prime ~1e3
+  h  <- sum(utf8ToInt(as.character(entity_id))) %% 100000L
+  as.integer((base_seed + P1 * param_draw_id + P2 * sim_id + P3 * h) %% .Machine$integer.max)
 }
 
-.ctx_is_per_draw <- function(ctx) {
-  if (is.null(ctx) || !is.list(ctx) || length(ctx) == 0L) return(FALSE)
-  if (!all(vapply(ctx, is.list, logical(1)))) return(FALSE)
-  nms <- names(ctx)
-  if (!is.null(nms)) {
-    reserved <- c("time", "time_spec", "params", "entity_id", "param_draw_id", "sim_id")
-    if (any(nzchar(nms) & nms %in% reserved)) return(FALSE)
-  }
-  TRUE
-}

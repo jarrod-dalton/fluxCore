@@ -2,11 +2,15 @@
 % Please edit documentation in R/providers.R
 \name{MLflowProvider}
 \alias{MLflowProvider}
-\title{MLflowProvider (stub)}
+\title{MLflowProvider (internal stub)}
 \description{
 Scaffold for MLflow-based workflows. model_spec should include at least
 model_uri and optionally references to artifacts needed to build a bundle.
 }
+\details{
+Deprecated in v2.0.0. Use \code{\link[=load_model]{load_model()}} or \code{Engine$new(bundle = ...)} instead.
+}
+\keyword{internal}
 \section{Methods}{
 \subsection{Public methods}{
 \itemize{

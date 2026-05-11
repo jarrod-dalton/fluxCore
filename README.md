@@ -185,6 +185,28 @@ tail(out$events, 5)
 out$entity$state(c("route_zone", "battery_pct", "payload_kg"))
 ```
 
+### Trajectory output contract (v2 trajectory logger)
+
+When using v2 assembly (`load_model(..., trajectory = ...)`), `Engine$run()` adds
+`trajectory_records` to the returned list.
+
+Current contract for `trajectory_records`:
+- It is a list of plain named lists (JSON-serializable by default).
+- One record is emitted per fired decision point.
+- `state_before`/`state_after` follow `trajectory$detail`:
+  - `none`: both are `NULL`
+  - `summary`: both are summary lists from `summary_fn` (default `state_summary_default`)
+  - `full`: both are full `entity$current` snapshots
+
+Each trajectory record contains:
+- `run_id`, `entity_id`, `t`, `decision_point_id`
+- `observation`, `realized_event`
+- `candidate_actions`, `proposed_actions`, `selected_action`
+- `state_before`, `state_after`, `reward`
+
+This output shape is the portability-facing surface for Stage 3 and is designed to
+round-trip through JSON cleanly.
+
 
 
 ---

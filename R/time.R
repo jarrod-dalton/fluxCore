@@ -5,8 +5,7 @@
 # (Date / POSIXct) and numeric model time under a declared time spec.
 #
 # Key concepts:
-# - time_spec(unit=..., origin=..., zone=...) is the canonical declaration.
-# - ctx$time remains a compatibility transport path.
+# - time_spec(unit=..., origin=..., zone=...) is the canonical v2.0 declaration.
 # - 'months' and 'years' are fixed approximations (30.4375 and 365.25 days).
 #
 # NOTE: time_origin is NOT baseline. Baseline/start-of-followup is model-defined.
@@ -32,36 +31,17 @@
 
 #' Compile and validate canonical time settings
 #'
-#' Compiles and validates calendar-to-model time settings from explicit arguments (preferred) or ctx$time (compatibility).
+#' Compiles and validates time settings from explicit unit, origin, and zone parameters.
+#' v2.0 only supports explicit time_spec() calls; ctx fallback was removed.
 #'
-#' @param unit Required time unit when using explicit arguments. One of "seconds", "minutes", "hours", "days", "weeks", "months", "years".
+#' @param unit Required time unit. One of "seconds", "minutes", "hours", "days", "weeks", "months", "years".
 #' @param origin Optional Date or POSIXct/POSIXt origin used for calendar-time conversion. Defaults to Unix epoch.
 #' @param zone Time zone used for calendar-time conversion (default "UTC").
-#' @param ctx Optional compatibility path. A context list containing ctx$time$unit and optional ctx$time$origin/ctx$time$zone.
 #'
 #' @return An object of class time_spec with precomputed conversion constants.
 #'
 #' @export
-time_spec <- function(unit = NULL, origin = NULL, zone = "UTC", ctx = NULL) {
-  # Backward-compatibility path: time_spec(ctx)
-  if (is.list(unit) && is.null(ctx) && is.null(origin) && identical(zone, "UTC")) {
-    ctx <- unit
-    unit <- NULL
-  }
-
-  if (!is.null(ctx)) {
-    if (!is.list(ctx)) stop("ctx must be a list.", call. = FALSE)
-    if (is.null(ctx$time) || !is.list(ctx$time)) {
-      stop("ctx$time must be a list with fields unit/origin/zone.", call. = FALSE)
-    }
-    if (!is.null(unit)) {
-      stop("Specify either `unit`/`origin`/`zone` or `ctx`, not both.", call. = FALSE)
-    }
-    unit <- ctx$time$unit
-    origin <- ctx$time$origin
-    if (!is.null(ctx$time$zone)) zone <- ctx$time$zone
-  }
-
+time_spec <- function(unit = NULL, origin = NULL, zone = "UTC") {
   if (is.null(unit) || !is.character(unit) || length(unit) != 1L || !nzchar(unit)) {
     stop("unit must be a non-empty single string.", call. = FALSE)
   }
@@ -200,40 +180,44 @@ time_from_model <- function(t, time_spec, class = c("origin", "Date", "POSIXct")
   return(as.Date(out_posix, tz = time_spec$zone))
 }
 
-#' Set time settings in ctx
+# NOTE: set_time_unit() was removed in v2.0. Use time_spec(unit = ..., origin = ..., zone = ...) instead.
+
+#' Coerce to time_spec
 #'
-#' Convenience helper to set ctx$time$unit and optionally ctx$time$origin and ctx$time$zone.
+#' Coerces various inputs into a validated time_spec object. Accepts:
+#' - A `time_spec` object (pass-through)
+#' - A named list with `unit` (required) and optionally `origin`, `zone`
 #'
-#' @param ctx Context list (or NULL to create a new one).
-#' @param unit Time unit string. Must be one of: seconds, minutes, hours, days, weeks, months, years.
-#' @param origin Optional Date or POSIXct origin used as a mapping reference. Default is system epoch.
-#' @param zone Optional IANA/Olson time zone string. Default is 'UTC'.
+#' @param x Object to coerce.
+#' @param ... Additional arguments (unused).
 #'
-#' @return Updated ctx list (validated).
+#' @return A validated `time_spec` object.
 #'
 #' @export
-set_time_unit <- function(ctx = NULL, unit, origin = NULL, zone = "UTC") {
-  if (is.null(ctx)) ctx <- list()
-  if (!is.list(ctx)) stop("ctx must be a list.", call. = FALSE)
-  if (is.null(ctx$time) || !is.list(ctx$time)) ctx$time <- list()
-
-  ctx$time$unit <- unit
-  if (!is.null(origin)) ctx$time$origin <- origin
-  if (!is.null(zone)) ctx$time$zone <- zone
-
-  # Validate once; then return.
-  time_spec(ctx = ctx)
-  ctx
+as_time_spec <- function(x, ...) {
+  UseMethod("as_time_spec")
 }
 
-.time_ctx_from_spec <- function(spec) {
-  if (is.null(spec) || !inherits(spec, "time_spec")) {
-    stop("spec must be a 'time_spec'.", call. = FALSE)
+#' @export
+as_time_spec.time_spec <- function(x, ...) {
+
+  x
+}
+
+#' @export
+as_time_spec.list <- function(x, ...) {
+  if (is.null(x$unit)) {
+    stop("as_time_spec(): list must contain at least `unit`.", call. = FALSE)
   }
-  list(
-    unit = spec$unit,
-    origin = spec$origin,
-    zone = spec$zone
+  do.call(time_spec, x)
+}
+
+#' @export
+as_time_spec.default <- function(x, ...) {
+  stop(
+    "as_time_spec(): cannot coerce object of class '", paste(class(x), collapse = "/"),
+    "' to time_spec. Supply a time_spec object or a named list with `unit`.",
+    call. = FALSE
   )
 }
 

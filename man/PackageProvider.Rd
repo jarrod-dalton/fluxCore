@@ -2,11 +2,15 @@
 % Please edit documentation in R/providers.R
 \name{PackageProvider}
 \alias{PackageProvider}
-\title{PackageProvider}
+\title{PackageProvider (internal)}
 \description{
 Loads a bundle from in-package functions/objects. Use model_spec$name to select
 among multiple bundle builders.
 }
+\details{
+Deprecated in v2.0.0. Use \code{\link[=load_model]{load_model()}} or \code{Engine$new(bundle = ...)} instead.
+}
+\keyword{internal}
 \section{Methods}{
 \subsection{Public methods}{
 \itemize{

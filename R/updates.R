@@ -6,7 +6,7 @@
 #   for a single atomic entity state update (one event index j, many variables).
 #
 # Usage:
-#   - Intended for use inside ModelBundle$transition(entity, event, ctx)
+#   - Intended for use inside ModelBundle$transition(entity, event)
 #   - 'values' must be named (vector or list); mixed types are supported.
 #
 # Key behaviors:

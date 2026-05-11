@@ -3,7 +3,7 @@ test_that("run_cohort index is ordered entity -> draw -> sim", {
   # Use a minimal bundle that does not assume any non-core state vars.
   minimal_bundle <- list(
     time_spec = time_spec(unit = "days"),
-    propose_events = function(entity, ctx = NULL, process_ids = NULL, current_proposals = NULL) {
+    propose_events = function(entity, process_ids = NULL, current_proposals = NULL) {
       # Propose a single no-op event strictly after the current engine time.
       # This avoids triggering the engine error path "No proposals available"
       # while keeping the run behavior trivial for an ordering-only test.
@@ -12,19 +12,18 @@ test_that("run_cohort index is ordered entity -> draw -> sim", {
         "000|noop" = list(time_next = t0 + 1, event_type = "noop")
       )
     },
-    transition = function(entity, event, ctx = NULL) {
+    transition = function(entity, event) {
       # No state changes.
       list()
     },
-    stop = function(entity, event, ctx = NULL) TRUE
+    stop = function(entity, event) TRUE
   )
-  minimal_provider <- list(load = function(model_spec = NULL, ...) minimal_bundle)
   # default_entity_schema() only defines core variables (alive, active_followup).
   # Use defaults for this ordering test; entity_id is supplied by the cohort runner.
   p1 <- Entity$new(init = list(), schema = schema)
   p2 <- Entity$new(init = list(), schema = schema)
 
-    eng <- Engine$new(provider = minimal_provider)
+  eng <- Engine$new(bundle = minimal_bundle)
 
   out <- run_cohort(
     engine = eng,

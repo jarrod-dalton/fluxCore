@@ -2,10 +2,14 @@
 % Please edit documentation in R/providers.R
 \name{FileProvider}
 \alias{FileProvider}
-\title{FileProvider}
+\title{FileProvider (internal)}
 \description{
 Loads a bundle from an .rds file. Expects model_spec$path.
 }
+\details{
+Deprecated in v2.0.0. Use \code{\link[=load_model]{load_model()}} or \code{Engine$new(bundle = ...)} instead.
+}
+\keyword{internal}
 \section{Methods}{
 \subsection{Public methods}{
 \itemize{
