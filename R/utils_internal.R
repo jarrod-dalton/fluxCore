@@ -1,3 +1,18 @@
+# Returns a list(min, max, strict_min, strict_max) of the implied numeric bounds
+# for a schema type, or NULL if the type has no implied bounds.
+.type_implied_bounds <- function(type) {
+  switch(type,
+    count               = list(min = 0,  max = Inf,   strict_min = FALSE, strict_max = FALSE),
+    nonnegative_integer = list(min = 0,  max = Inf,   strict_min = FALSE, strict_max = FALSE),
+    positive_integer    = list(min = 0,  max = Inf,   strict_min = TRUE,  strict_max = FALSE),
+    nonnegative_numeric = list(min = 0,  max = Inf,   strict_min = FALSE, strict_max = FALSE),
+    positive_numeric    = list(min = 0,  max = Inf,   strict_min = TRUE,  strict_max = FALSE),
+    probability         = list(min = 0,  max = 1,     strict_min = FALSE, strict_max = FALSE),
+    percent             = list(min = 0,  max = 100,   strict_min = FALSE, strict_max = FALSE),
+    NULL
+  )
+}
+
 .validate_event_time <- function(time, last_time) {
   time <- as.numeric(time)
   if (!is.finite(time) || length(time) != 1L) stop("time must be a finite numeric scalar.")
@@ -120,6 +135,37 @@
       if (!t %in% numeric_types) {
         stop(sprintf("schema[['%s']] $min/$max are only supported for numeric types.", k))
       }
+    }
+
+    # Cross-check default, min, max against type-implied bounds
+    tb <- .type_implied_bounds(t)
+    if (!is.null(tb)) {
+      tb_min <- tb$min; tb_max <- tb$max
+      tb_smin <- tb$strict_min; tb_smax <- tb$strict_max
+      # Build human-readable range string for error messages
+      lo_str <- if (tb_smin) sprintf("(%s", tb_min) else sprintf("[%s", tb_min)
+      hi_str <- if (tb_smax) sprintf("%s)", tb_max) else sprintf("%s]", if (is.infinite(tb_max)) "Inf" else tb_max)
+      range_str <- paste0(lo_str, ", ", hi_str)
+
+      .check_num_in_bounds <- function(val, field) {
+        v <- suppressWarnings(as.numeric(val))
+        if (is.na(v)) return()  # non-numeric default; coerce will catch it later
+        lo_ok <- if (tb_smin) v > tb_min else v >= tb_min
+        hi_ok <- if (tb_smax) v < tb_max else v <= tb_max
+        if (!lo_ok || !hi_ok) {
+          stop(sprintf(
+            "schema[['%s']] $%s (%s) is outside the range implied by type='%s': %s.",
+            k, field, val, t, range_str
+          ), call. = FALSE)
+        }
+      }
+
+      if (!is.null(spec$default) && length(spec$default) == 1L && !is.na(spec$default))
+        .check_num_in_bounds(spec$default, "default")
+      if (!is.null(spec$min))
+        .check_num_in_bounds(spec$min, "min")
+      if (!is.null(spec$max))
+        .check_num_in_bounds(spec$max, "max")
     }
 
     # Support / level metadata
