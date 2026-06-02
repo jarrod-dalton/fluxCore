@@ -1,3 +1,72 @@
+## fluxCore 2.0.0
+
+This is a major release. The core engine is unchanged; v2.0.0 layers a formalized
+decision/policy/action architecture on top of it and replaces the old catch-all
+`ctx` argument with explicit typed context objects.
+
+### Decision points, actions, and trajectory logging
+
+- **`DecisionPoint()`**: declares a named checkpoint in the event timeline where
+  a policy can propose an action. Declared on the schema, not buried in transition
+  logic. Supports `trigger` (which event types fire it), `allowed_actions`,
+  `action_handlers` (per-action state-change functions), an optional `condition`
+  predicate, and `audit` flag.
+- **`ActionEvent`**: an action proposed by a policy enters the normal event
+  timeline and is realized by the same `transition()` / `stop()` path as any
+  other event. Actions do not mutate state directly.
+- **`TrajectoryRecord`**: logged at every decision point firing. Records the time,
+  decision point id, what state the policy observed, what it proposed, what was
+  realized, and state before/after. Captures the full decision audit trail.
+- **`trajectory_table()`**: convenience helper to flatten a list of
+  `TrajectoryRecord` objects into a tidy data frame.
+- **`load_model()`**: validated assembly function. Accepts `schema`, `bundle`,
+  `policy`, `trajectory`, `runtime`, and `param_source`; validates that all
+  components are mutually consistent and returns a configured `Engine`. This is
+  now the recommended entry point for models with policies or runtime config.
+
+### Typed context objects replacing `ctx`
+
+`ctx` is removed as a first-class interface. Bundle callbacks that declared `ctx`
+as a formal now receive a hard error on engine construction. Replace with the
+following typed objects (all optional in callback signatures):
+
+- **`SimContext`**: per-run metadata (`run_id`, `time_spec`, `model_id`,
+  `scenario_id`, `horizon`).
+- **`ParamContext`**: one parameter realization (`draw_id`, `params` named list,
+  optional `provenance`). Constructed by `ParamContext()`.
+- **`RuntimeContext`**: reproducibility and backend settings (`seed`,
+  `replicate_id`, `backend`, `n_workers`). Constructed by `RuntimeContext()`.
+- **`EnvironmentContext`**: external signals for ABM/RL hooks (`signals`,
+  `step_fn`, `reset_fn`, `info`). Reserved for future use.
+
+### Parameter uncertainty
+
+- **`sample_params(n)` bundle hook**: when present, `run_cohort()` calls it to
+  draw `n` `ParamContext` objects and runs every entity under every draw, fully
+  crossing entities × parameter draws × stochastic replicates.
+- **`run_cohort()` `param_draws` argument**: alternatively, pass a pre-built list
+  of `ParamContext` objects directly.
+- **`batch$param_draws`**: drawn contexts are returned alongside results for
+  reproducibility.
+
+### Other engine improvements
+
+- **`refresh_rules(entity, last_event, changes)`**: bundle hook controlling which
+  processes re-propose after each event. Returns `"ALL"` (default) or a character
+  vector of `process_id`s. `entity` is the full post-transition state;
+  `changes` is only the delta from the last `transition()` call.
+- **`derive()`** / derived variables: schema variables can declare a `f` function
+  of `(entity, j, t)` computed on read rather than stored. Supports time-aware
+  lookups via `snapshot_at_time()`.
+- **`schema_validate()` type-implied bounds**: default, min, and max values are
+  now cross-checked against the range implied by the declared type (e.g.,
+  `nonnegative_integer` must have default ≥ 0; `probability` must be in [0, 1]).
+- **`set_schema()` gains `time_spec` and `decision_points` arguments**: assemble
+  a complete schema including clock spec and decision points in one call.
+- **`ModelProvider` / `PackageProvider` / `FileProvider` / `MLflowProvider`**:
+  unexported. `Engine$new(provider=)` removed. `Engine$new(bundle=)` and
+  `load_model()` are the only Engine construction paths.
+
 ## fluxCore 1.11.0
 
 - Migrated documentation from manual `.Rd` files to inline roxygen2 comments.
