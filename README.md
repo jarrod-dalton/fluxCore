@@ -1,6 +1,5 @@
 # fluxCore
 [![Release](https://img.shields.io/github/v/release/jarrod-dalton/fluxCore?display_name=tag)](https://github.com/jarrod-dalton/fluxCore/releases)
-[![Downloads](https://img.shields.io/github/downloads/jarrod-dalton/fluxCore/total)](https://github.com/jarrod-dalton/fluxCore/releases)
 [![r-universe](https://jarrod-dalton.r-universe.dev/badges/fluxCore)](https://jarrod-dalton.r-universe.dev/fluxCore)
 [![License: LGPL-3](https://img.shields.io/badge/license-LGPL--3-blue.svg)](https://www.gnu.org/licenses/lgpl-3.0)
 [![Language: R](https://img.shields.io/badge/language-R-276DC3?logo=r&logoColor=white)](https://www.r-project.org/)
@@ -19,7 +18,15 @@ This package is meant to be a **foundation**. It does not contain a domain-speci
 - (optional) add interventions (“policies”) without rewriting your baseline model
 
 If you can describe your model as “a sequence of events over time that change state variables”, this scaffold is a good fit.
+## Installation
 
+```r
+# Latest stable release (recommended):
+install.packages("fluxCore", repos = "https://jarrod-dalton.r-universe.dev")
+
+# Pre-release install from source code:
+remotes::install_github("jarrod-dalton/fluxCore")
+```
 ---
 
 ## Key terms (plain-language definitions)
