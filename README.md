@@ -1,6 +1,7 @@
 # fluxCore
 [![Release](https://img.shields.io/github/v/release/jarrod-dalton/fluxCore?display_name=tag)](https://github.com/jarrod-dalton/fluxCore/releases)
 [![Downloads](https://img.shields.io/github/downloads/jarrod-dalton/fluxCore/total)](https://github.com/jarrod-dalton/fluxCore/releases)
+[![r-universe](https://jarrod-dalton.r-universe.dev/badges/fluxCore)](https://jarrod-dalton.r-universe.dev/fluxCore)
 [![License: LGPL-3](https://img.shields.io/badge/license-LGPL--3-blue.svg)](https://www.gnu.org/licenses/lgpl-3.0)
 [![Language: R](https://img.shields.io/badge/language-R-276DC3?logo=r&logoColor=white)](https://www.r-project.org/)
 
