@@ -7,7 +7,7 @@
 
 A small set of R tools for building **entity-level simulation models** where things happen at **irregular times** (not every day, not every month), and where each event can change only a few state variables.
 
-This package is meant to be a **foundation**. It does not contain a disease model. Instead, it gives you a clear way to:
+This package is meant to be a **foundation**. It does not contain a domain-specific model. Instead, it gives you a clear way to:
 
 - store an entity’s current variables (“state”)
 - record a time-ordered list of events (what happened, when)
@@ -352,7 +352,7 @@ The core package does not force any one approach. The example model package demo
 
 ## What this package does not assume
 
-- It does not assume a specific disease area.
+- It does not assume a specific domain or industry.
 - It does not assume daily time steps or fixed visit schedules.
 - It does not require parameter uncertainty (you can ignore draws).
 - It does not require episodes/submodels (you can keep everything at the top level).
