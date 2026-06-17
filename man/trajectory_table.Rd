@@ -15,8 +15,8 @@ trajectory_table(records, vars = NULL)
 }
 \value{
 A data.frame with columns: \code{t}, \code{decision_point_id}, \code{trigger_event},
-\code{action_taken}, plus \verb{<var>_before} and \verb{<var>_after} for each requested
-variable.
+\code{action_taken}, \code{condition_met}, plus \verb{<var>_before} and \verb{<var>_after} for
+each requested variable.
 }
 \description{
 Takes the list of trajectory records from an engine run and returns a tidy

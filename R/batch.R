@@ -27,9 +27,6 @@
 #' @param param_draws Optional; a list of length D with per-draw parameter contexts. If NULL,
 #' the function will attempt to call engine$bundle$sample_params(D) when available;
 #' otherwise it uses a single NULL draw (no global parameter variation).
-#' @param ctx Optional context (v1.x path). Either a single list merged into each run context, or a
-#' list of per-draw context lists of length n_param_draws. Not accepted when engine was built
-#' via `load_model()` (v2 mode); use `runtime` instead.
 #' @param runtime Optional [RuntimeContext]; carries seed, backend, and n_workers for v2-mode
 #' engines. Takes precedence over the individual `seed`, `backend`, and `n_workers` arguments
 #' when non-NULL.

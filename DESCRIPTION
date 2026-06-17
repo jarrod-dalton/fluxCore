@@ -18,9 +18,11 @@ Encoding: UTF-8
 Imports:
     R6
 Suggests:
+    future,
     future.apply,
+    jsonlite,
     parallel,
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
-RoxygenNote: 7.3.3
 Roxygen: list(markdown = TRUE)
+Config/roxygen2/version: 8.0.0

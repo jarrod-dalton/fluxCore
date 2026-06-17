@@ -7,7 +7,7 @@
 ActionEvent(
   action_type,
   time_next,
-  decision_point_id,
+  decision_point_id = NULL,
   params = NULL,
   metadata = NULL
 )
@@ -19,7 +19,10 @@ the decision point declared any.}
 \item{time_next}{Numeric scalar; realization time on the canonical timeline.}
 
 \item{decision_point_id}{Character scalar; which decision point produced this
-action.}
+action. If \code{NULL} (the default), the engine fills this in automatically
+from the firing decision point's \code{id}. Only supply it explicitly if you
+need to override or if you are constructing an \code{ActionEvent} outside of a
+policy call.}
 
 \item{params}{Optional named list of action-specific parameters.}
 

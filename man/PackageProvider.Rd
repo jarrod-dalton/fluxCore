@@ -13,66 +13,74 @@ Deprecated in v2.0.0. Use \code{\link[=load_model]{load_model()}} or \code{Engin
 \keyword{internal}
 \section{Methods}{
 \subsection{Public methods}{
-\itemize{
-\item \href{#method-PackageProvider-new}{\code{PackageProvider$new()}}
-\item \href{#method-PackageProvider-load}{\code{PackageProvider$load()}}
-\item \href{#method-PackageProvider-sample_param_draws}{\code{PackageProvider$sample_param_draws()}}
-\item \href{#method-PackageProvider-clone}{\code{PackageProvider$clone()}}
-}
+  \itemize{
+    \item \href{#method-PackageProvider-initialize}{\code{PackageProvider$new()}}
+    \item \href{#method-PackageProvider-load}{\code{PackageProvider$load()}}
+    \item \href{#method-PackageProvider-sample_param_draws}{\code{PackageProvider$sample_param_draws()}}
+    \item \href{#method-PackageProvider-clone}{\code{PackageProvider$clone()}}
+  }
 }
 \if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-PackageProvider-new"></a>}}
-\if{latex}{\out{\hypertarget{method-PackageProvider-new}{}}}
-\subsection{Method \code{new()}}{
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{PackageProvider$new(registry)}\if{html}{\out{</div>}}
+\if{html}{\out{<a id="method-PackageProvider-initialize"></a>}}
+\if{latex}{\out{\hypertarget{method-PackageProvider-initialize}{}}}
+\subsection{\code{PackageProvider$new()}}{
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{PackageProvider$new(registry)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{registry}}{Named list mapping bundle names to functions returning ModelBundles.}
+    }
+    \if{html}{\out{</div>}}
+  }
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{registry}}{Named list mapping bundle names to functions returning ModelBundles.}
-}
-\if{html}{\out{</div>}}
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-PackageProvider-load"></a>}}
 \if{latex}{\out{\hypertarget{method-PackageProvider-load}{}}}
-\subsection{Method \code{load()}}{
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{PackageProvider$load(model_spec = list(), ...)}\if{html}{\out{</div>}}
+\subsection{\code{PackageProvider$load()}}{
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{PackageProvider$load(model_spec = list(), ...)}
+    \if{html}{\out{</div>}}
+  }
 }
 
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-PackageProvider-sample_param_draws"></a>}}
 \if{latex}{\out{\hypertarget{method-PackageProvider-sample_param_draws}{}}}
-\subsection{Method \code{sample_param_draws()}}{
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{PackageProvider$sample_param_draws(
+\subsection{\code{PackageProvider$sample_param_draws()}}{
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{PackageProvider$sample_param_draws(
   model_spec = list(),
   n_param_draws = 1L,
   ...
-)}\if{html}{\out{</div>}}
+)}
+    \if{html}{\out{</div>}}
+  }
 }
 
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-PackageProvider-clone"></a>}}
 \if{latex}{\out{\hypertarget{method-PackageProvider-clone}{}}}
-\subsection{Method \code{clone()}}{
-The objects of this class are cloneable with this method.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{PackageProvider$clone(deep = FALSE)}\if{html}{\out{</div>}}
+\subsection{\code{PackageProvider$clone()}}{
+  The objects of this class are cloneable with this method.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{PackageProvider$clone(deep = FALSE)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{deep}}{Whether to make a deep clone.}
+    }
+    \if{html}{\out{</div>}}
+  }
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{deep}}{Whether to make a deep clone.}
-}
-\if{html}{\out{</div>}}
-}
-}
 }

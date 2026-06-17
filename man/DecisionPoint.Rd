@@ -8,6 +8,9 @@ DecisionPoint(
   id,
   trigger,
   allowed_actions = NULL,
+  action_handlers = NULL,
+  condition = NULL,
+  audit = FALSE,
   observation_fn = NULL,
   label = NULL
 )
@@ -16,10 +19,30 @@ DecisionPoint(
 \item{id}{Character scalar; unique identifier (e.g., \code{"post_dropoff"}).}
 
 \item{trigger}{Character vector of event types and/or a predicate function
-\verb{function(event)} that returns \code{TRUE} when the decision point fires.}
+\verb{function(event)} that returns \code{TRUE} when the decision point fires.
+Evaluated \strong{pre-transition} on the raw event object; entity state is not
+yet updated at this point.}
 
 \item{allowed_actions}{Optional character vector of named action types. If
 \code{NULL}, the policy is unconstrained.}
+
+\item{action_handlers}{Optional named list of functions, keyed by action type.
+Each function has signature \verb{function(entity, event)} (with optional
+\code{param_ctx}) and returns a named list of state updates, or \code{NULL} for no
+change. When present, the engine calls the matching handler directly when an
+ActionEvent of that type fires — bypassing \code{bundle$transition()}. Names must
+be a subset of \code{allowed_actions}.}
+
+\item{condition}{Optional function \verb{function(entity)} evaluated
+\strong{post-transition} on the updated entity. If it returns \code{FALSE}, the
+policy is not consulted for this event cycle. Use \code{condition} to gate on
+entity state (e.g., \code{function(entity) entity$current$battery_pct < 25}).
+When \code{NULL} (default), the policy is always consulted when \code{trigger} fires.}
+
+\item{audit}{Logical scalar (default \code{FALSE}). When \code{TRUE}, a
+\code{TrajectoryRecord} with \code{condition_met = FALSE} is emitted even for cycles
+where \code{condition} vetoed the policy call. Useful for auditing why a
+decision point did not fire.}
 
 \item{observation_fn}{Optional function \verb{function(entity)} that computes the
 observable state presented to the policy. Defaults to a full entity

@@ -10,25 +10,26 @@ such as id and optional meta$entity_type.
 }
 \section{Methods}{
 \subsection{Public methods}{
-\itemize{
-\item \href{#method-Entity-new}{\code{Entity$new()}}
-\item \href{#method-Entity-state}{\code{Entity$state()}}
-\item \href{#method-Entity-as_list}{\code{Entity$as_list()}}
-\item \href{#method-Entity-update}{\code{Entity$update()}}
-\item \href{#method-Entity-state_at_time}{\code{Entity$state_at_time()}}
-\item \href{#method-Entity-snapshot}{\code{Entity$snapshot()}}
-\item \href{#method-Entity-snapshot_at}{\code{Entity$snapshot_at()}}
-\item \href{#method-Entity-snapshot_at_time}{\code{Entity$snapshot_at_time()}}
-\item \href{#method-Entity-state_at}{\code{Entity$state_at()}}
-\item \href{#method-Entity-clone}{\code{Entity$clone()}}
-}
+  \itemize{
+    \item \href{#method-Entity-initialize}{\code{Entity$new()}}
+    \item \href{#method-Entity-state}{\code{Entity$state()}}
+    \item \href{#method-Entity-as_list}{\code{Entity$as_list()}}
+    \item \href{#method-Entity-update}{\code{Entity$update()}}
+    \item \href{#method-Entity-state_at_time}{\code{Entity$state_at_time()}}
+    \item \href{#method-Entity-snapshot}{\code{Entity$snapshot()}}
+    \item \href{#method-Entity-snapshot_at}{\code{Entity$snapshot_at()}}
+    \item \href{#method-Entity-snapshot_at_time}{\code{Entity$snapshot_at_time()}}
+    \item \href{#method-Entity-state_at}{\code{Entity$state_at()}}
+    \item \href{#method-Entity-clone}{\code{Entity$clone()}}
+  }
 }
 \if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-Entity-new"></a>}}
-\if{latex}{\out{\hypertarget{method-Entity-new}{}}}
-\subsection{Method \code{new()}}{
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Entity$new(
+\if{html}{\out{<a id="method-Entity-initialize"></a>}}
+\if{latex}{\out{\hypertarget{method-Entity-initialize}{}}}
+\subsection{\code{Entity$new()}}{
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Entity$new(
   init = list(),
   schema,
   derived_vars = NULL,
@@ -36,97 +37,116 @@ such as id and optional meta$entity_type.
   entity_type = NULL,
   time0 = 0,
   event_type0 = "init"
-)}\if{html}{\out{</div>}}
+)}
+    \if{html}{\out{</div>}}
+  }
 }
 
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Entity-state"></a>}}
 \if{latex}{\out{\hypertarget{method-Entity-state}{}}}
-\subsection{Method \code{state()}}{
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Entity$state(vars = NULL)}\if{html}{\out{</div>}}
+\subsection{\code{Entity$state()}}{
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Entity$state(vars = NULL)}
+    \if{html}{\out{</div>}}
+  }
 }
 
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Entity-as_list"></a>}}
 \if{latex}{\out{\hypertarget{method-Entity-as_list}{}}}
-\subsection{Method \code{as_list()}}{
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Entity$as_list(vars = NULL)}\if{html}{\out{</div>}}
+\subsection{\code{Entity$as_list()}}{
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Entity$as_list(vars = NULL)}
+    \if{html}{\out{</div>}}
+  }
 }
 
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Entity-update"></a>}}
 \if{latex}{\out{\hypertarget{method-Entity-update}{}}}
-\subsection{Method \code{update()}}{
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Entity$update(time, event_type, changes = NULL)}\if{html}{\out{</div>}}
+\subsection{\code{Entity$update()}}{
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Entity$update(time, event_type, changes = NULL)}
+    \if{html}{\out{</div>}}
+  }
 }
 
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Entity-state_at_time"></a>}}
 \if{latex}{\out{\hypertarget{method-Entity-state_at_time}{}}}
-\subsection{Method \code{state_at_time()}}{
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Entity$state_at_time(time, vars = NULL)}\if{html}{\out{</div>}}
+\subsection{\code{Entity$state_at_time()}}{
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Entity$state_at_time(time, vars = NULL)}
+    \if{html}{\out{</div>}}
+  }
 }
 
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Entity-snapshot"></a>}}
 \if{latex}{\out{\hypertarget{method-Entity-snapshot}{}}}
-\subsection{Method \code{snapshot()}}{
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Entity$snapshot(vars = NULL)}\if{html}{\out{</div>}}
+\subsection{\code{Entity$snapshot()}}{
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Entity$snapshot(vars = NULL)}
+    \if{html}{\out{</div>}}
+  }
 }
 
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Entity-snapshot_at"></a>}}
 \if{latex}{\out{\hypertarget{method-Entity-snapshot_at}{}}}
-\subsection{Method \code{snapshot_at()}}{
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Entity$snapshot_at(j, vars = NULL)}\if{html}{\out{</div>}}
+\subsection{\code{Entity$snapshot_at()}}{
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Entity$snapshot_at(j, vars = NULL)}
+    \if{html}{\out{</div>}}
+  }
 }
 
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Entity-snapshot_at_time"></a>}}
 \if{latex}{\out{\hypertarget{method-Entity-snapshot_at_time}{}}}
-\subsection{Method \code{snapshot_at_time()}}{
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Entity$snapshot_at_time(time, vars = NULL)}\if{html}{\out{</div>}}
+\subsection{\code{Entity$snapshot_at_time()}}{
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Entity$snapshot_at_time(time, vars = NULL)}
+    \if{html}{\out{</div>}}
+  }
 }
 
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Entity-state_at"></a>}}
 \if{latex}{\out{\hypertarget{method-Entity-state_at}{}}}
-\subsection{Method \code{state_at()}}{
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Entity$state_at(j, vars = NULL)}\if{html}{\out{</div>}}
+\subsection{\code{Entity$state_at()}}{
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Entity$state_at(j, vars = NULL)}
+    \if{html}{\out{</div>}}
+  }
 }
 
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Entity-clone"></a>}}
 \if{latex}{\out{\hypertarget{method-Entity-clone}{}}}
-\subsection{Method \code{clone()}}{
-The objects of this class are cloneable with this method.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Entity$clone(deep = FALSE)}\if{html}{\out{</div>}}
+\subsection{\code{Entity$clone()}}{
+  The objects of this class are cloneable with this method.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Entity$clone(deep = FALSE)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{deep}}{Whether to make a deep clone.}
+    }
+    \if{html}{\out{</div>}}
+  }
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{deep}}{Whether to make a deep clone.}
-}
-\if{html}{\out{</div>}}
-}
-}
 }

@@ -10,51 +10,77 @@ patch, recording the event on a Entity, and stopping when bundle$stop() returns 
 }
 \section{Methods}{
 \subsection{Public methods}{
-\itemize{
-\item \href{#method-Engine-new}{\code{Engine$new()}}
-\item \href{#method-Engine-run}{\code{Engine$run()}}
-\item \href{#method-Engine-clone}{\code{Engine$clone()}}
-}
+  \itemize{
+    \item \href{#method-Engine-initialize}{\code{Engine$new()}}
+    \item \href{#method-Engine-run}{\code{Engine$run()}}
+    \item \href{#method-Engine-run_draw}{\code{Engine$run_draw()}}
+    \item \href{#method-Engine-clone}{\code{Engine$clone()}}
+  }
 }
 \if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-Engine-new"></a>}}
-\if{latex}{\out{\hypertarget{method-Engine-new}{}}}
-\subsection{Method \code{new()}}{
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Engine$new(bundle = NULL, ...)}\if{html}{\out{</div>}}
+\if{html}{\out{<a id="method-Engine-initialize"></a>}}
+\if{latex}{\out{\hypertarget{method-Engine-initialize}{}}}
+\subsection{\code{Engine$new()}}{
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Engine$new(bundle = NULL, ...)}
+    \if{html}{\out{</div>}}
+  }
 }
 
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Engine-run"></a>}}
 \if{latex}{\out{\hypertarget{method-Engine-run}{}}}
-\subsection{Method \code{run()}}{
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Engine$run(
+\subsection{\code{Engine$run()}}{
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Engine$run(
   entity,
   max_events = 1000,
   max_time = NULL,
   return_observations = TRUE,
-  ctx = NULL
-)}\if{html}{\out{</div>}}
+  .internal_ctx = NULL
+)}
+    \if{html}{\out{</div>}}
+  }
 }
 
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-Engine-run_draw"></a>}}
+\if{latex}{\out{\hypertarget{method-Engine-run_draw}{}}}
+\subsection{\code{Engine$run_draw()}}{
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Engine$run_draw(
+  entity,
+  params = list(),
+  draw_id = 1L,
+  sim_id = 1L,
+  max_events = 1000,
+  max_time = NULL,
+  return_observations = TRUE
+)}
+    \if{html}{\out{</div>}}
+  }
 }
+
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Engine-clone"></a>}}
 \if{latex}{\out{\hypertarget{method-Engine-clone}{}}}
-\subsection{Method \code{clone()}}{
-The objects of this class are cloneable with this method.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Engine$clone(deep = FALSE)}\if{html}{\out{</div>}}
+\subsection{\code{Engine$clone()}}{
+  The objects of this class are cloneable with this method.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Engine$clone(deep = FALSE)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{deep}}{Whether to make a deep clone.}
+    }
+    \if{html}{\out{</div>}}
+  }
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{deep}}{Whether to make a deep clone.}
-}
-\if{html}{\out{</div>}}
-}
-}
 }

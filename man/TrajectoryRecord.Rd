@@ -16,6 +16,7 @@ TrajectoryRecord(
   selected_action = NULL,
   state_before = NULL,
   state_after = NULL,
+  condition_met = NULL,
   reward = NULL
 )
 }
@@ -47,6 +48,10 @@ timeline.}
 
 \item{state_after}{Optional named list; entity state after the transition.
 \code{NULL} unless the TrajectoryLogger is configured to capture it.}
+
+\item{condition_met}{Logical scalar or \code{NULL}; whether the \code{condition}
+predicate was satisfied. \code{TRUE} when condition passed or was absent,
+\code{FALSE} for audit records emitted when condition vetoed the policy call.}
 
 \item{reward}{Optional numeric or named list; reward signal(s).}
 }

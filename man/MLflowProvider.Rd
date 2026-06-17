@@ -13,64 +13,71 @@ Deprecated in v2.0.0. Use \code{\link[=load_model]{load_model()}} or \code{Engin
 \keyword{internal}
 \section{Methods}{
 \subsection{Public methods}{
-\itemize{
-\item \href{#method-MLflowProvider-new}{\code{MLflowProvider$new()}}
-\item \href{#method-MLflowProvider-load}{\code{MLflowProvider$load()}}
-\item \href{#method-MLflowProvider-sample_param_draws}{\code{MLflowProvider$sample_param_draws()}}
-\item \href{#method-MLflowProvider-clone}{\code{MLflowProvider$clone()}}
-}
+  \itemize{
+    \item \href{#method-MLflowProvider-initialize}{\code{MLflowProvider$new()}}
+    \item \href{#method-MLflowProvider-load}{\code{MLflowProvider$load()}}
+    \item \href{#method-MLflowProvider-sample_param_draws}{\code{MLflowProvider$sample_param_draws()}}
+    \item \href{#method-MLflowProvider-clone}{\code{MLflowProvider$clone()}}
+  }
 }
 \if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-MLflowProvider-new"></a>}}
-\if{latex}{\out{\hypertarget{method-MLflowProvider-new}{}}}
-\subsection{Method \code{new()}}{
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{MLflowProvider$new(builder_fn, sampler_fn = NULL)}\if{html}{\out{</div>}}
+\if{html}{\out{<a id="method-MLflowProvider-initialize"></a>}}
+\if{latex}{\out{\hypertarget{method-MLflowProvider-initialize}{}}}
+\subsection{\code{MLflowProvider$new()}}{
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{MLflowProvider$new(builder_fn, sampler_fn = NULL)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{builder_fn}}{Function returning a ModelBundle.}
+      \item{\code{sampler_fn}}{Optional function returning a list of length D parameter contexts.}
+    }
+    \if{html}{\out{</div>}}
+  }
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{builder_fn}}{Function returning a ModelBundle.}
-
-\item{\code{sampler_fn}}{Optional function returning a list of length D parameter contexts.}
-}
-\if{html}{\out{</div>}}
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-MLflowProvider-load"></a>}}
 \if{latex}{\out{\hypertarget{method-MLflowProvider-load}{}}}
-\subsection{Method \code{load()}}{
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{MLflowProvider$load(model_spec, ...)}\if{html}{\out{</div>}}
+\subsection{\code{MLflowProvider$load()}}{
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{MLflowProvider$load(model_spec, ...)}
+    \if{html}{\out{</div>}}
+  }
 }
 
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-MLflowProvider-sample_param_draws"></a>}}
 \if{latex}{\out{\hypertarget{method-MLflowProvider-sample_param_draws}{}}}
-\subsection{Method \code{sample_param_draws()}}{
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{MLflowProvider$sample_param_draws(model_spec, n_param_draws = 1L, ...)}\if{html}{\out{</div>}}
+\subsection{\code{MLflowProvider$sample_param_draws()}}{
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{MLflowProvider$sample_param_draws(model_spec, n_param_draws = 1L, ...)}
+    \if{html}{\out{</div>}}
+  }
 }
 
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-MLflowProvider-clone"></a>}}
 \if{latex}{\out{\hypertarget{method-MLflowProvider-clone}{}}}
-\subsection{Method \code{clone()}}{
-The objects of this class are cloneable with this method.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{MLflowProvider$clone(deep = FALSE)}\if{html}{\out{</div>}}
+\subsection{\code{MLflowProvider$clone()}}{
+  The objects of this class are cloneable with this method.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{MLflowProvider$clone(deep = FALSE)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{deep}}{Whether to make a deep clone.}
+    }
+    \if{html}{\out{</div>}}
+  }
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{deep}}{Whether to make a deep clone.}
-}
-\if{html}{\out{</div>}}
-}
-}
 }

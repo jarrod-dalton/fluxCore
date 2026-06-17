@@ -4,7 +4,14 @@
 \alias{set_schema}
 \title{Build or extend a fluxCore schema with hybrid shorthand}
 \usage{
-set_schema(vars = NULL, schema = NULL, remove = NULL, overwrite = FALSE)
+set_schema(
+  vars = NULL,
+  schema = NULL,
+  remove = NULL,
+  overwrite = FALSE,
+  time_spec = NULL,
+  decision_points = NULL
+)
 }
 \arguments{
 \item{vars}{Named list (or character vector) of variable specs. Each element
@@ -13,7 +20,8 @@ recognized schema fields (\code{min}, \code{max}, \code{levels}, \code{default},
 \code{validate}, \code{allow_na}, \code{required}, \code{blocks}).}
 
 \item{schema}{Optional existing schema to extend. If \code{NULL}, a new schema is
-created.}
+created. May be either a plain variables list or a full schema list (with a
+\verb{$variables} field) — both forms are accepted.}
 
 \item{remove}{Optional character vector of variable names to remove from
 \code{schema} before merging \code{vars}. Errors if any name is not present.}
@@ -21,9 +29,19 @@ created.}
 \item{overwrite}{Logical scalar. If \code{FALSE} (default), adding a variable
 already present in \code{schema} is an error. If \code{TRUE}, existing entries are
 replaced.}
+
+\item{time_spec}{Optional \code{\link[=time_spec]{time_spec()}} object. When provided, the returned
+value is a full schema list with \verb{$variables}, \verb{$time_spec}, and
+\verb{$decision_points}, ready to pass directly to \code{\link[=load_model]{load_model()}}.}
+
+\item{decision_points}{Optional list of \code{\link[=DecisionPoint]{DecisionPoint()}} objects to attach
+to the schema. Requires \code{time_spec} to also be provided. When supplied, the
+returned value is a full schema list (see \code{time_spec} above).}
 }
 \value{
-A validated fluxCore schema (named list).
+A validated fluxCore variables spec (named list), or — when
+\code{time_spec} or \code{decision_points} is supplied — a full schema list with
+\verb{$variables}, \verb{$time_spec}, and \verb{$decision_points}.
 }
 \description{
 Constructs a validated fluxCore schema from a hybrid \code{vars} specification.
@@ -32,9 +50,17 @@ a fully-specified list (e.g. \code{list(type = "positive_numeric", max = 20)}).
 Optionally merges onto an existing \code{schema}, with explicit \code{overwrite} and
 \code{remove} controls.
 }
+\details{
+When \code{time_spec} or \code{decision_points} is supplied, \code{set_schema()} returns a
+\strong{full schema list} (with \verb{$variables}, \verb{$time_spec}, and
+\verb{$decision_points}) suitable for direct use with \code{\link[=load_model]{load_model()}}. When
+neither is supplied, it returns just the validated variables spec (backward-
+compatible with prior usage and with \code{Entity$new(schema = ...)}).
+}
 \examples{
 \dontrun{
-  s <- set_schema(vars = list(
+  # Variables only (backward-compatible):
+  vars <- set_schema(vars = list(
     route_zone  = list(type = "categorical",
                        levels = c("urban", "suburban", "rural")),
     battery_pct = "percent",
@@ -42,6 +68,16 @@ Optionally merges onto an existing \code{schema}, with explicit \code{overwrite}
     deliveries  = "count",
     prob_rain   = "probability"
   ))
+
+  # Full schema for load_model():
+  dp <- DecisionPoint(id = "dp1", trigger = "event_A",
+                      allowed_actions = c("accept", "decline"))
+  schema <- set_schema(
+    vars             = list(battery_pct = "percent"),
+    time_spec        = time_spec(unit = "hours"),
+    decision_points  = list(dp)
+  )
+  # schema$variables, schema$time_spec, schema$decision_points are all set.
 }
 
 }

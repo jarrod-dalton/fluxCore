@@ -379,20 +379,20 @@ Engine <- R6::R6Class(
       out
     },
 
-    #' Run a single entity with explicit parameter injection.
-    #'
-    #' Public entry point for downstream packages (e.g., fluxForecast streaming
-    #' functions) that need per-run parameter control without coupling to the
-    #' internal .internal_ctx structure used by run_cohort().
-    #'
-    #' @param entity An Entity object to simulate.
-    #' @param params Named list of parameter values for this run.
-    #' @param draw_id Integer identifying the parameter draw (default 1L).
-    #' @param sim_id Integer identifying the stochastic replicate (default 1L).
-    #' @param max_events Maximum number of events before stopping.
-    #' @param max_time Maximum simulation time.
-    #' @param return_observations Whether to return observations.
-    #' @return Same structure as Engine$run().
+    # Run a single entity with explicit parameter injection.
+    #
+    # Public entry point for downstream packages (e.g., fluxForecast streaming
+    # functions) that need per-run parameter control without coupling to the
+    # internal .internal_ctx structure used by run_cohort().
+    #
+    # @param entity An Entity object to simulate.
+    # @param params Named list of parameter values for this run.
+    # @param draw_id Integer identifying the parameter draw (default 1L).
+    # @param sim_id Integer identifying the stochastic replicate (default 1L).
+    # @param max_events Maximum number of events before stopping.
+    # @param max_time Maximum simulation time.
+    # @param return_observations Whether to return observations.
+    # @return Same structure as Engine$run().
     run_draw = function(entity,
                         params = list(),
                         draw_id = 1L,
