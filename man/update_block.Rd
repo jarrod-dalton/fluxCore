@@ -15,7 +15,7 @@ update_block(
 \arguments{
 \item{entity}{A Entity object.}
 
-\item{block}{Block name (character scalar) corresponding to schema$\if{html}{\out{<var>}}$blocks.}
+\item{block}{Block name (character scalar) corresponding to \code{schema$blocks}.}
 
 \item{values}{Named vector or named list of values to update. Names must correspond
 to state variables in the entity's schema.}
