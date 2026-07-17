@@ -286,7 +286,6 @@ schema_validator_levels <- function(levels, allow_na = FALSE) {
 #'   `$variables`, `$time_spec`, and `$decision_points`.
 #'
 #' @examples
-#' \dontrun{
 #'   # Variables only (backward-compatible):
 #'   vars <- set_schema(vars = list(
 #'     route_zone  = list(type = "categorical",
@@ -306,7 +305,6 @@ schema_validator_levels <- function(levels, allow_na = FALSE) {
 #'     decision_points  = list(dp)
 #'   )
 #'   # schema$variables, schema$time_spec, schema$decision_points are all set.
-#' }
 #'
 #' @export
 set_schema <- function(vars            = NULL,

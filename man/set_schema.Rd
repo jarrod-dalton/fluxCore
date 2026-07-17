@@ -58,7 +58,6 @@ neither is supplied, it returns just the validated variables spec (backward-
 compatible with prior usage and with \code{Entity$new(schema = ...)}).
 }
 \examples{
-\dontrun{
   # Variables only (backward-compatible):
   vars <- set_schema(vars = list(
     route_zone  = list(type = "categorical",
@@ -78,6 +77,5 @@ compatible with prior usage and with \code{Entity$new(schema = ...)}).
     decision_points  = list(dp)
   )
   # schema$variables, schema$time_spec, schema$decision_points are all set.
-}
 
 }
