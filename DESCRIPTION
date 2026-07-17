@@ -14,10 +14,10 @@ Description: A foundation for probabilistic simulation of single-entity systems
     declared schema and a 'ModelBundle' of callback functions (event
     proposal, state transition, stopping rule) and run through a single
     validated entry point, 'load_model()'. Supports competing event
-    processes, schema-declared decision points with pluggable policies,
+    processes, schema-declared decision points with user-supplied policies,
     typed parameter draws for representing uncertainty, and optional
     trajectory recording for auditing simulated decisions. Designed to be
-    domain-agnostic: this package contains no model of any particular
+    domain agnostic: this package contains no model of any particular
     system, only the scaffolding for building one.
 License: LGPL-3
 Encoding: UTF-8
