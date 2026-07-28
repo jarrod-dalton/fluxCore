@@ -1,5 +1,6 @@
 # fluxCore
 [![Release](https://img.shields.io/github/v/release/jarrod-dalton/fluxCore?display_name=tag)](https://github.com/jarrod-dalton/fluxCore/releases)
+[![CRAN downloads](https://cranlogs.r-pkg.org/badges/grand-total/fluxCore)](https://CRAN.R-project.org/package=fluxCore)
 [![License: LGPL-3](https://img.shields.io/badge/license-LGPL--3-blue.svg)](https://www.gnu.org/licenses/lgpl-3.0)
 [![Language: R](https://img.shields.io/badge/language-R-276DC3?logo=r&logoColor=white)](https://www.r-project.org/)
 
@@ -19,11 +20,16 @@ This package is meant to be a **foundation**. It does not contain a domain-speci
 If you can describe your model as “a sequence of events over time that change state variables”, this scaffold is a good fit.
 ## Installation
 
-```r
-# Latest stable release (recommended):
-install.packages("fluxCore", repos = "https://jarrod-dalton.r-universe.dev")
+The latest stable release is available from
+[CRAN](https://CRAN.R-project.org/package=fluxCore):
 
-# Pre-release install from source code:
+```r
+install.packages("fluxCore")
+```
+
+Install the development version from GitHub:
+
+```r
 remotes::install_github("jarrod-dalton/fluxCore")
 ```
 ---
