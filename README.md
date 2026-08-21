@@ -238,7 +238,7 @@ Model `transition()` functions can generate vector-valued predictions and expand
 them into per-variable updates with helpers:
 
 ```r
-transition <- function(entity, event, ctx) {
+transition <- function(entity, event) {
   if (event$event_type != "dispatch_check") return(NULL)
   draw <- c(82, 3.1) # battery_pct, payload_kg
   set_vars(vehicle_vars, draw)
@@ -274,7 +274,7 @@ entities <- lapply(1:10, function(i) {
 })
 names(entities) <- paste0("id", seq_along(entities))
 
-eng <- Engine$new(provider = list(load = function(model_spec = NULL, ...) toy_bundle))
+eng <- Engine$new(bundle = toy_bundle)
 
 batch <- run_cohort(
   engine = eng,
@@ -312,7 +312,8 @@ Where do the parameter draws come from?
 - If your bundle provides `sample_params(D)`, `run_cohort()` will use it.
 - If not, draws default to `NULL` (which is fine for models that do not have parameter draws).
 
-Bundles/components that use parameter draws can look at `ctx$params`. Components that do not (e.g., some machine learning models) can ignore `ctx$params`.
+Bundle callbacks that use parameter draws can declare `param_ctx = NULL` and read
+`param_ctx$params`. Callbacks that do not use parameter draws can omit that argument.
 
 ---
 
