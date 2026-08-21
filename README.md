@@ -95,43 +95,38 @@ In `fluxCore`, a model is represented by a **ModelBundle**: a named list of func
 
 A bundle must provide:
 
-
-- `propose_events(entity, ctx, ...)`  
+- `propose_events(entity, ...)`
   Returns one *proposed future event* per process, as a named list keyed by `process_id`.
   Each proposed event is a list that includes at least `time_next` and `event_type`.
 
-
-- `transition(entity, event, ctx)`  
+- `transition(entity, event, ...)`
   Returns a sparse patch: a named list of state updates, or `NULL`.
 
-
-- `stop(entity, event, ctx)`  
+- `stop(entity, event, ...)`
   Returns `TRUE` to stop the run, `FALSE` to continue.
 
 A bundle may also provide:
 
-
-- `observe(entity, event, ctx)`  
+- `observe(entity, event)`
   Returns extra outputs you want to record (costs, utilities, measurements, etc.).
 
-- `refresh_rules(entity, last_event, changes, ctx)`
+- `refresh_rules(entity, last_event, changes)`
   Controls which processes should regenerate their next proposal after an event. Return
   "ALL" to refresh all processes, or a character vector of `process_id`s.
 
 - `sample_params(D)`  
   Returns a list of length `D` containing parameter draw objects. This is used for parameter uncertainty (see below). Components that do not use parameter draws can ignore this.
 
-### What is `ctx`?
-`ctx` is an optional “context” list passed into bundle functions. It can include:
-- `time` / `time_spec` (internal/canonical time metadata populated by the engine)
-- `param_draw_id` and `sim_id` (identifiers when running repeated simulations)
-- `params` (a parameter draw, if you are doing parameter uncertainty)
-- any other run-level inputs you want to pass through cleanly
+### Optional callback inputs
 
-Declare the model time axis once in the model bundle via
-`time_spec(unit = "...")`. Runtime `ctx` must not override canonical time settings.
+Callbacks declare only the inputs they use. The engine injects `sim_ctx` for
+simulation-level metadata and `param_ctx` for the current parameter draw when
+those named formals are present. `propose_events()` may also declare
+`process_ids`, `current_proposals`, and `last_event`; `last_event` is `NULL` on
+initial proposal generation and is the realized event on later refreshes.
 
-Bundles that do not need context can ignore it.
+Declare the model time axis once with `time_spec(unit = "...")`. Callbacks that
+do not need optional inputs can use the compact signatures shown above.
 
 ---
 
@@ -158,14 +153,14 @@ toy_bundle <- list(
   time_spec = time_spec(unit = "hours"),
   event_catalog = c("dispatch_check", "delivery_completed", "end_shift"),
   terminal_events = "end_shift",
-  propose_events = function(entity, ctx = NULL, process_ids = NULL, current_proposals = NULL) {
+  propose_events = function(entity, process_ids = NULL, current_proposals = NULL) {
     list(
       dispatch = list(time_next = entity$last_time + stats::rexp(1, rate = 0.8), event_type = "dispatch_check"),
       delivery = list(time_next = entity$last_time + stats::rexp(1, rate = 1.2), event_type = "delivery_completed"),
       end_shift = list(time_next = 8, event_type = "end_shift")
     )
   },
-  transition = function(entity, event, ctx = NULL) {
+  transition = function(entity, event) {
     if (identical(event$event_type, "dispatch_check")) {
       return(list(payload_kg = max(0, stats::rlnorm(1, log(2), 0.3))))
     }
@@ -178,7 +173,7 @@ toy_bundle <- list(
     }
     list()
   },
-  stop = function(entity, event, ctx = NULL) identical(event$event_type, "end_shift")
+  stop = function(entity, event) identical(event$event_type, "end_shift")
 )
 
 p <- Entity$new(
@@ -188,14 +183,13 @@ p <- Entity$new(
   time0  = 0
 )
 
-eng <- Engine$new(
-  provider = list(load = function(model_spec = NULL, ...) toy_bundle)
-)
+eng <- Engine$new(bundle = toy_bundle)
 
 out <- eng$run(p, max_events = 50)
 
 tail(out$events, 5)
 out$entity$state(c("route_zone", "battery_pct", "payload_kg"))
+out$stopped_by
 ```
 
 ### Trajectory output contract (v2 trajectory logger)

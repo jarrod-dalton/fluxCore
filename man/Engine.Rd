@@ -8,6 +8,14 @@ Orchestrates simulation by repeatedly proposing the next event(s), applying a tr
 patch, recording the event on a Entity, and stopping when bundle$stop() returns TRUE
 (or a max_time / max_events limit is reached).
 }
+\section{Run result}{
+
+\code{Engine$run()} returns a list containing the updated \code{entity}, its \code{events},
+optional \code{observations}, and \code{stopped_by}. The termination value is one of
+\code{"stop"}, \code{"max_time"}, \code{"max_events"}, or \code{"no_proposals"}. When trajectory
+logging is configured, the result also contains \code{trajectory_records}.
+}
+
 \section{Methods}{
 \subsection{Public methods}{
   \itemize{

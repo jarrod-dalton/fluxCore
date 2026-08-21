@@ -4,6 +4,12 @@
 #' patch, recording the event on a Entity, and stopping when bundle$stop() returns TRUE
 #' (or a max_time / max_events limit is reached).
 #'
+#' @section Run result:
+#' `Engine$run()` returns a list containing the updated `entity`, its `events`,
+#' optional `observations`, and `stopped_by`. The termination value is one of
+#' `"stop"`, `"max_time"`, `"max_events"`, or `"no_proposals"`. When trajectory
+#' logging is configured, the result also contains `trajectory_records`.
+#'
 #' @export
 Engine <- R6::R6Class(
   classname = "Engine",
@@ -167,9 +173,8 @@ Engine <- R6::R6Class(
       trajectory_accum <- list()
       model_event_catalog <- .validate_bundle_event_set(self$bundle$event_catalog, "event_catalog")
 
-      # Build action_handler lookup from DPs and auto-register action event types.
-      # action_handler_map: list keyed by "<dp_id>::<action_type>" -> handler function
-      # Also maps dp_id -> DecisionPoint for reverse lookup from synthetic process_ids.
+      # Build action-handler lookup from DPs and auto-register action event types.
+      # `dp_map` retains each decision point's pending-action policy for merging.
       action_handler_map <- list()
       dp_map <- list()
       if (isTRUE(self$.v2_mode) && !is.null(self$.schema$decision_points)) {
@@ -189,17 +194,28 @@ Engine <- R6::R6Class(
 
       proposals <- .call_propose_events(self$bundle, entity, sim_ctx = sim_ctx, param_ctx = param_ctx)
 
-      step_once <- function() {
-        ev <- .pick_next_event(proposals, event_catalog = model_event_catalog)
+      # Engine-owned store of pending policy actions, keyed by decision point id.
+      # This is deliberately separate from `proposals`: `proposals` is owned by the
+      # model and rewritten by refresh_rules()/propose_events(), whereas pending
+      # actions are owned by the engine, survive every refresh, and are retired by
+      # the engine itself once realized. Each decision point holds at most one.
+      action_proposals <- list()
 
-        # Check if this event is an ActionEvent from a DP with an action_handler.
-        # If so, call the handler directly instead of bundle$transition().
+      # Records why the run ended: "stop", "max_time", "max_events", or
+      # "no_proposals". Without this a runaway model is indistinguishable from a
+      # normal completion.
+      stop_reason <- NULL
+
+      step_once <- function() {
+        ev <- .pick_next_event(proposals, action_proposals, event_catalog = model_event_catalog)
+        ev_source <- attr(ev, "flux_source")
+        ev_key <- attr(ev, "flux_key")
+
+        # Engine-owned action events dispatch to their DecisionPoint's action_handler
+        # (when one is registered) instead of bundle$transition().
         action_handler <- NULL
-        ev_pid <- ev$process_id
-        if (!is.null(ev_pid) && grepl("^\\.action\\.", ev_pid)) {
-          origin_dp_id <- sub("^\\.action\\.", "", ev_pid)
-          key <- paste0(origin_dp_id, "::", ev$event_type)
-          action_handler <- action_handler_map[[key]]
+        if (identical(ev_source, "action")) {
+          action_handler <- action_handler_map[[paste0(ev_key, "::", ev$event_type)]]
         }
 
         fired_dps <- fired_decision_points(self$.schema, ev, self$.v2_mode)
@@ -271,9 +287,9 @@ Engine <- R6::R6Class(
                 if (is.null(proposed_action$event_type) || !nzchar(proposed_action$event_type)) {
                   proposed_action$event_type <- proposed_action$action_type
                 }
-                # Insert as a candidate event proposal under a synthetic process id.
-                pid <- paste0(".action.", dp$id)
-                action_props[[pid]] <- proposed_action
+                # Stage the action by decision point. The merge below applies that
+                # decision point's declared policy if an earlier action is pending.
+                action_props[[dp$id]] <- proposed_action
                 selected_actions[[dp$id]] <- proposed_action
               }
             }
@@ -331,20 +347,38 @@ Engine <- R6::R6Class(
           }
         }
 
-        if (.call_stop(self$bundle, entity, ev, sim_ctx = sim_ctx, param_ctx = param_ctx)) return(FALSE)
-        if (!is.null(max_time) && entity$last_time >= max_time) return(FALSE)
+        if (.call_stop(self$bundle, entity, ev, sim_ctx = sim_ctx, param_ctx = param_ctx)) {
+          stop_reason <<- "stop"
+          return(FALSE)
+        }
+        if (!is.null(max_time) && entity$last_time >= max_time) {
+          stop_reason <<- "max_time"
+          return(FALSE)
+        }
+
+        # Retire the realized action. The engine owns this store, so the model is
+        # never responsible for clearing it -- and cannot, since it does not name it.
+        if (identical(ev_source, "action")) {
+          action_proposals[[ev_key]] <<- NULL
+        }
 
         refresh_ids <- .call_refresh_rules(self$bundle, entity, ev, changes)
 
         if (identical(refresh_ids, "ALL")) {
-          proposals <<- .call_propose_events(self$bundle, entity, sim_ctx = sim_ctx, param_ctx = param_ctx)
+          proposals <<- .call_propose_events(
+            self$bundle, entity,
+            sim_ctx = sim_ctx,
+            param_ctx = param_ctx,
+            last_event = ev
+          )
         } else if (length(refresh_ids) > 0) {
           new_props <- .call_propose_events(
             self$bundle, entity,
             process_ids = refresh_ids,
             current_proposals = proposals,
             sim_ctx = sim_ctx,
-            param_ctx = param_ctx
+            param_ctx = param_ctx,
+            last_event = ev
           )
           for (pid in refresh_ids) {
             if (!is.null(new_props[[pid]])) {
@@ -355,25 +389,73 @@ Engine <- R6::R6Class(
           }
         }
 
-        if (length(action_props) > 0L) {
-          proposals <<- utils::modifyList(proposals, action_props, keep.null = TRUE)
+        # Newly proposed actions join the engine-owned store. Refresh above rewrote
+        # only `proposals`, so any action still pending from an earlier step survives.
+        # A decision point holds at most one pending action; how a new proposal
+        # interacts with an existing one is declared by on_pending_action. Note the
+        # realized action was retired above, so a decision point re-proposing right
+        # after its own action fired is not a conflict.
+        for (dp_id in names(action_props)) {
+          pending <- action_proposals[[dp_id]]
+          if (is.null(pending)) {
+            action_proposals[[dp_id]] <<- action_props[[dp_id]]
+            next
+          }
+
+          mode <- dp_map[[dp_id]]$on_pending_action
+          if (is.null(mode)) mode <- "warn"
+
+          if (identical(mode, "keep")) next
+          if (identical(mode, "error")) {
+            stop(
+              sprintf(
+                "DecisionPoint('%s') proposed an action for t=%g while its previous action for t=%g was still pending. Set on_pending_action to allow this.",
+                dp_id, action_props[[dp_id]]$time_next, pending$time_next
+              ),
+              call. = FALSE
+            )
+          }
+          if (identical(mode, "warn")) {
+            warning(
+              sprintf(
+                "DecisionPoint('%s') replaced a still-pending action for t=%g with a new one for t=%g. Set on_pending_action = 'replace' to declare this intentional, or 'keep' to preserve the pending action.",
+                dp_id, pending$time_next, action_props[[dp_id]]$time_next
+              ),
+              call. = FALSE
+            )
+          }
+          action_proposals[[dp_id]] <<- action_props[[dp_id]]
         }
 
         TRUE
       }
 
+      proposal_count <- function(x) {
+        if (length(x) == 0L) return(0L)
+        sum(!vapply(x, is.null, logical(1)))
+      }
+
       n <- 0L
-      while (n < max_events) {
+      if (proposal_count(proposals) + proposal_count(action_proposals) == 0L) {
+        stop_reason <- "no_proposals"
+      }
+      while (is.null(stop_reason) && n < max_events) {
         n <- n + 1L
         cont <- step_once()
         if (!isTRUE(cont)) break
-        if (length(proposals) == 0L) break
+        if (proposal_count(proposals) + proposal_count(action_proposals) == 0L) {
+          stop_reason <- "no_proposals"
+          break
+        }
       }
+      # No reason recorded means the loop ran out of its event budget.
+      if (is.null(stop_reason)) stop_reason <- "max_events"
 
       out <- list(
         entity = entity,
         events = entity$events,
-        observations = if (isTRUE(return_observations)) obs_accum else NULL
+        observations = if (isTRUE(return_observations)) obs_accum else NULL,
+        stopped_by = stop_reason
       )
       if (!is.null(traj_cfg)) out$trajectory_records <- trajectory_accum
       out
@@ -436,6 +518,24 @@ Engine <- R6::R6Class(
   invisible(NULL)
 }
 
+# Process ids beginning with "." are reserved for engine-internal use. Models must
+# not create or address them: the engine owns its own proposal bookkeeping and
+# retires it without model involvement.
+.reject_reserved_process_ids <- function(ids, source) {
+  reserved <- ids[!is.na(ids) & startsWith(ids, ".")]
+  if (length(reserved) > 0L) {
+    stop(
+      sprintf(
+        "bundle$%s returned reserved process_id value(s): %s. Process ids beginning with '.' are reserved for fluxCore internal use; choose a name that does not start with a dot.",
+        source,
+        paste(unique(reserved), collapse = ", ")
+      ),
+      call. = FALSE
+    )
+  }
+  invisible(NULL)
+}
+
 .call_init_entity <- function(bundle, entity) {
   f <- bundle$init_entity
   if (is.null(f)) return(invisible(NULL))
@@ -445,7 +545,7 @@ Engine <- R6::R6Class(
   invisible(do.call(f, args))
 }
 
-.call_propose_events <- function(bundle, entity, process_ids = NULL, current_proposals = NULL, sim_ctx = NULL, param_ctx = NULL) {
+.call_propose_events <- function(bundle, entity, process_ids = NULL, current_proposals = NULL, sim_ctx = NULL, param_ctx = NULL, last_event = NULL) {
   if (is.null(bundle$propose_events) || !is.function(bundle$propose_events)) {
     stop("ModelBundle must provide propose_events(entity, ...).")
   }
@@ -457,6 +557,10 @@ Engine <- R6::R6Class(
   if ("current_proposals" %in% fml) args$current_proposals <- current_proposals
   if ("sim_ctx" %in% fml) args$sim_ctx <- sim_ctx
   if ("param_ctx" %in% fml) args$param_ctx <- param_ctx
+  # `last_event` is injected only when declared, so bundles written before this
+  # argument existed are called exactly as they were. NULL on the initial call,
+  # the realized event on every post-event refresh.
+  if ("last_event" %in% fml) args$last_event <- last_event
 
   out <- do.call(bundle$propose_events, args)
   if (is.null(out)) return(list())
@@ -471,6 +575,7 @@ Engine <- R6::R6Class(
   if (length(bad) > 0L) {
     stop("bundle$propose_events returned empty or missing process_id names.", call. = FALSE)
   }
+  .reject_reserved_process_ids(pids, "propose_events")
   dup <- unique(pids[duplicated(pids)])
   if (length(dup) > 0L) {
     stop(
@@ -533,30 +638,35 @@ Engine <- R6::R6Class(
   )
 }
 
-.pick_next_event <- function(proposals, event_catalog = NULL) {
-  if (length(proposals) == 0L) stop("No proposals available.")
+.pick_next_event <- function(proposals, action_proposals = list(), event_catalog = NULL) {
+  if (length(proposals) == 0L && length(action_proposals) == 0L) stop("No proposals available.")
 
-  if (is.null(names(proposals))) {
+  if (length(proposals) > 0L && is.null(names(proposals))) {
     stop("Internal error: proposals must be a named list keyed by process_id.", call. = FALSE)
   }
   keep <- !vapply(proposals, is.null, logical(1))
   proposals <- proposals[keep]
-  if (length(proposals) == 0L) stop("No proposals available.")
 
-  .validate_event <- function(x, pid) {
+  if (length(action_proposals) > 0L) {
+    akeep <- !vapply(action_proposals, is.null, logical(1))
+    action_proposals <- action_proposals[akeep]
+  }
+  if (length(proposals) == 0L && length(action_proposals) == 0L) stop("No proposals available.")
+
+  .validate_event <- function(x, label) {
     if (is.null(x)) return(invisible(FALSE))
-    if (!is.list(x)) stop(sprintf("Event proposal for process_id '%s' must be a list.", pid))
+    if (!is.list(x)) stop(sprintf("Event proposal for %s must be a list.", label))
     if (is.null(x$time_next) || !is.numeric(x$time_next) || length(x$time_next) != 1L || !is.finite(x$time_next)) {
-      stop(sprintf("Event proposal for process_id '%s' must include numeric scalar time_next.", pid))
+      stop(sprintf("Event proposal for %s must include numeric scalar time_next.", label))
     }
     if (is.null(x$event_type) || !is.character(x$event_type) || length(x$event_type) != 1L || !nzchar(x$event_type)) {
-      stop(sprintf("Event proposal for process_id '%s' must include character scalar event_type.", pid))
+      stop(sprintf("Event proposal for %s must include character scalar event_type.", label))
     }
     if (!is.null(event_catalog) && !(x$event_type %in% event_catalog)) {
       stop(
         sprintf(
-          "Event proposal for process_id '%s' has event_type '%s' not declared in bundle$event_catalog.",
-          pid, x$event_type
+          "Event proposal for %s has event_type '%s' not declared in bundle$event_catalog.",
+          label, x$event_type
         ),
         call. = FALSE
       )
@@ -565,13 +675,39 @@ Engine <- R6::R6Class(
   }
 
   pids <- names(proposals)
-  for (k in seq_along(proposals)) .validate_event(proposals[[k]], pids[[k]])
+  for (k in seq_along(proposals)) {
+    .validate_event(proposals[[k]], sprintf("process_id '%s'", pids[[k]]))
+  }
+  akeys <- names(action_proposals)
+  for (k in seq_along(action_proposals)) {
+    # Actions have no process_id, so identify them by their decision point.
+    .validate_event(action_proposals[[k]], sprintf("the action from DecisionPoint('%s')", akeys[[k]]))
+  }
 
-  times <- vapply(proposals, function(x) x$time_next, numeric(1))
-  o <- order(times, pids) # deterministic tie-break: time, then process_id
-  pid <- pids[[o[[1]]]]
-  ev <- proposals[[pid]]
-  ev$process_id <- pid
+  # Arbitrate across both stores at once. Model proposals and engine-owned action
+  # proposals compete on equal terms; the deterministic tie-break (time, then id)
+  # is unchanged.
+  candidates <- c(proposals, action_proposals)
+  ids <- c(pids, akeys)
+  sources <- c(rep("model", length(proposals)), rep("action", length(action_proposals)))
+
+  times <- vapply(candidates, function(x) x$time_next, numeric(1))
+  o <- order(times, ids) # deterministic tie-break: time, then store key
+  i <- o[[1]]
+
+  ev <- candidates[[i]]
+  # `process_id` is a model-process concept. A realized action is not a model
+  # process -- it is identified by its `decision_point_id`, which ActionEvent()
+  # already carries. Leaving `process_id` unset keeps the two namespaces from
+  # colliding, and makes `is.null(event$process_id)` a reliable marker that the
+  # event came from a policy rather than from a model process.
+  if (identical(sources[[i]], "model")) {
+    ev$process_id <- ids[[i]]
+  } else {
+    ev$process_id <- NULL
+  }
+  attr(ev, "flux_source") <- sources[[i]]
+  attr(ev, "flux_key") <- ids[[i]]
   ev
 }
 
@@ -651,6 +787,7 @@ Engine <- R6::R6Class(
       call. = FALSE
     )
   }
+  .reject_reserved_process_ids(out, "refresh_rules")
   dup <- unique(out[duplicated(out)])
   if (length(dup) > 0L) {
     stop(

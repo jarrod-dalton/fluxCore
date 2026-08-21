@@ -40,6 +40,16 @@
 #'   `TrajectoryRecord` with `condition_met = FALSE` is emitted even for cycles
 #'   where `condition` vetoed the policy call. Useful for auditing why a
 #'   decision point did not fire.
+#' @param on_pending_action What to do when the policy proposes an action at this
+#'   decision point while a previously proposed action from the *same* decision
+#'   point is still waiting to be realized. A decision point holds at most one
+#'   pending action at a time.
+#'   * `"warn"` (default) -- replace the pending action and emit a warning.
+#'   * `"replace"` -- replace the pending action silently. Use this to state
+#'     explicitly that superseding is the intended behavior, as for a decision
+#'     point whose job is to reschedule something.
+#'   * `"keep"` -- keep the pending action and discard the new proposal.
+#'   * `"error"` -- stop with an error.
 #' @param observation_fn Optional function `function(entity)` that computes the
 #'   observable state presented to the policy. Defaults to a full entity
 #'   snapshot when `NULL`.
@@ -54,6 +64,7 @@ DecisionPoint <- function(id,
                           action_handlers = NULL,
                           condition       = NULL,
                           audit           = FALSE,
+                          on_pending_action = c("warn", "replace", "keep", "error"),
                           observation_fn  = NULL,
                           label           = NULL) {
   if (missing(id) || !is.character(id) || length(id) != 1L || !nzchar(id)) {
@@ -102,6 +113,7 @@ DecisionPoint <- function(id,
   if (!is.logical(audit) || length(audit) != 1L || is.na(audit)) {
     stop("DecisionPoint: `audit` must be TRUE or FALSE.", call. = FALSE)
   }
+  on_pending_action <- match.arg(on_pending_action)
   if (!is.null(observation_fn) && !is.function(observation_fn)) {
     stop("DecisionPoint: `observation_fn` must be a function or NULL.", call. = FALSE)
   }
@@ -117,6 +129,7 @@ DecisionPoint <- function(id,
       action_handlers = action_handlers,
       condition       = condition,
       audit           = audit,
+      on_pending_action = on_pending_action,
       observation_fn  = observation_fn,
       label           = label
     ),
@@ -154,6 +167,7 @@ print.DecisionPoint <- function(x, ...) {
   }
   cat("  condition      :", if (is.null(x$condition)) "(none)" else "(function)", "\n")
   cat("  audit          :", x$audit, "\n")
+  cat("  on_pending_act :", if (is.null(x$on_pending_action)) "warn" else x$on_pending_action, "\n")
   cat("  allowed_actions:", if (is.null(x$allowed_actions)) "(unconstrained)" else paste(x$allowed_actions, collapse = ", "), "\n")
   cat("  label          :", if (is.null(x$label)) "(none)" else x$label, "\n")
   invisible(x)

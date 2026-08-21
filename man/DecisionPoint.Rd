@@ -11,6 +11,7 @@ DecisionPoint(
   action_handlers = NULL,
   condition = NULL,
   audit = FALSE,
+  on_pending_action = c("warn", "replace", "keep", "error"),
   observation_fn = NULL,
   label = NULL
 )
@@ -43,6 +44,19 @@ When \code{NULL} (default), the policy is always consulted when \code{trigger} f
 \code{TrajectoryRecord} with \code{condition_met = FALSE} is emitted even for cycles
 where \code{condition} vetoed the policy call. Useful for auditing why a
 decision point did not fire.}
+
+\item{on_pending_action}{What to do when the policy proposes an action at this
+decision point while a previously proposed action from the \emph{same} decision
+point is still waiting to be realized. A decision point holds at most one
+pending action at a time.
+\itemize{
+\item \code{"warn"} (default) -- replace the pending action and emit a warning.
+\item \code{"replace"} -- replace the pending action silently. Use this to state
+explicitly that superseding is the intended behavior, as for a decision
+point whose job is to reschedule something.
+\item \code{"keep"} -- keep the pending action and discard the new proposal.
+\item \code{"error"} -- stop with an error.
+}}
 
 \item{observation_fn}{Optional function \verb{function(entity)} that computes the
 observable state presented to the policy. Defaults to a full entity

@@ -1,3 +1,68 @@
+## fluxCore 2.1.0
+
+This release repairs the lifecycle of policy-proposed actions. Actions are now held
+in an engine-owned store, separate from the proposals a model manages through
+`propose_events()` and `refresh_rules()`. Two defects followed from the previous
+arrangement, in which both lived in one dictionary governed by the model's refresh
+contract.
+
+### Bug fixes
+
+- **A scheduled action could be silently discarded before it fired.** Refreshing all
+  processes -- the default when a bundle does not supply `refresh_rules()` -- replaced
+  the whole proposal set, destroying any action proposed in an earlier step that had
+  not yet been realized. An action scheduled meaningfully into the future would
+  therefore never happen. Pending actions are now untouched by refresh, under either
+  refresh strategy.
+
+- **A realized action could repeat indefinitely.** When `refresh_rules()` returned a
+  selective list of process ids, the action that had just been realized stayed in the
+  proposal set and was selected again at the same instant, on every subsequent step.
+  The engine now retires an action as soon as it is realized. This was not something a
+  model could work around: the engine identified pending actions by an internal name
+  the model was never given.
+
+### New features
+
+- **`propose_events()` may declare `last_event`.** When declared, it receives the event
+  that was just realized, including an `ActionEvent`'s `params`, `metadata`, and
+  `decision_point_id`. This makes it possible for a parameterized action to influence a
+  future event process without a state variable used purely to carry the value.
+  `last_event` is `NULL` on the first call, which also distinguishes initial proposal
+  generation from a mid-run refresh -- previously indistinguishable. Callbacks that do
+  not declare the argument are called exactly as before.
+
+- **`DecisionPoint(on_pending_action = )`** declares what happens when a policy proposes
+  an action while that decision point's previous action is still pending: `"warn"`
+  (the default; supersede and warn), `"replace"` (supersede silently), `"keep"`
+  (discard the new proposal), or `"error"`. A decision point re-proposing after its own
+  action has fired is not a conflict and never warns.
+
+- **`Engine$run()` reports `stopped_by`**, one of `"stop"`, `"max_time"`,
+  `"max_events"`, or `"no_proposals"`. Previously a run that exhausted its event budget
+  ended silently and was indistinguishable from normal completion.
+
+### Behavior changes
+
+- **Process ids beginning with `.` are reserved** for internal use and are rejected from
+  both `propose_events()` and `refresh_rules()` with an explanatory error.
+
+- **A realized action no longer carries a `process_id`.** A `process_id` identifies a
+  model process, and an action is not one; actions are identified by
+  `decision_point_id`, which `ActionEvent()` already carries. `is.null(event$process_id)`
+  therefore distinguishes a policy action from a model event, and a model process may
+  safely share a name with a decision point.
+
+- **`load_model()` rejects duplicated `DecisionPoint` ids.** The engine keys pending
+  actions by decision point id, so duplicates would silently collapse into one slot.
+
+- **Several pending actions can now coexist and all will be realized.** Each decision
+  point holds at most one pending action, but distinct decision points hold their own.
+  Scheduling one action earlier than another orders them; it does not cancel the later
+  one. Where two decision points represent alternative responses, make them mutually
+  exclusive with `condition` rather than relying on `time_next` ordering. Tutorial 03
+  has been updated accordingly.
+
 ## fluxCore 2.0.0
 
 This is a major release. The core engine is unchanged; v2.0.0 layers a formalized

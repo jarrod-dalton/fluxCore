@@ -111,6 +111,28 @@ load_model <- function(schema,
   # v2.0.0: hard error on bundle callbacks that still declare `ctx`
   .reject_ctx_formals(bundle)
 
+  # -- decision point ids ----------------------------------------------------
+  # The engine keys each pending policy action by its decision point id, so those
+  # ids must be unique; duplicates would silently collapse into a single slot.
+  if (!is.null(schema$decision_points) && length(schema$decision_points) > 0L) {
+    dp_ids <- vapply(
+      schema$decision_points,
+      function(d) if (is.null(d$id)) NA_character_ else as.character(d$id)[[1L]],
+      character(1)
+    )
+    dp_ids <- dp_ids[!is.na(dp_ids)]
+    dup_dp <- unique(dp_ids[duplicated(dp_ids)])
+    if (length(dup_dp) > 0L) {
+      stop(
+        sprintf(
+          "load_model(): duplicated DecisionPoint id(s) in `schema$decision_points`: %s. Each decision point must have a unique id.",
+          paste(dup_dp, collapse = ", ")
+        ),
+        call. = FALSE
+      )
+    }
+  }
+
   # -- trajectory + decision_points check ------------------------------------
   if (!is.null(trajectory)) {
     dps <- schema$decision_points
