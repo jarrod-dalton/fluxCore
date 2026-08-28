@@ -8,17 +8,30 @@
 #'   `state_before` and `state_after`. If `NULL` (default), all variables in
 #'   `state_before` are included.
 #'
-#' @return A data.frame with columns: `t`, `decision_point_id`, `trigger_event`,
-#'   `action_taken`, `condition_met`, plus `<var>_before` and `<var>_after` for
-#'   each requested variable.
+#' @return A data.frame with columns: `run_id`, `entity_id`, `t`,
+#'   `decision_point_id`, `trigger_event`, `selected_action`, `condition_met`,
+#'   plus `<var>_before` and `<var>_after` for each requested variable.
 #'
 #' @export
 trajectory_table <- function(records, vars = NULL) {
   if (!is.list(records) || length(records) == 0L) {
-    return(data.frame(
-      t = numeric(0), decision_point_id = character(0),
-      action_taken = character(0), stringsAsFactors = FALSE
-    ))
+    out <- data.frame(
+      run_id = character(0),
+      entity_id = character(0),
+      t = numeric(0),
+      decision_point_id = character(0),
+      trigger_event = character(0),
+      selected_action = character(0),
+      condition_met = logical(0),
+      stringsAsFactors = FALSE
+    )
+    if (!is.null(vars)) {
+      for (vn in vars) {
+        out[[paste0(vn, "_before")]] <- logical(0)
+        out[[paste0(vn, "_after")]] <- logical(0)
+      }
+    }
+    return(out)
   }
 
   rows <- lapply(records, function(tr) {
@@ -30,10 +43,12 @@ trajectory_table <- function(records, vars = NULL) {
       NA_character_
     }
     row <- list(
+      run_id            = tr$run_id,
+      entity_id         = tr$entity_id,
       t                 = tr$t,
       decision_point_id = tr$decision_point_id,
       trigger_event     = if (!is.null(tr$realized_event)) tr$realized_event$event_type else NA_character_,
-      action_taken      = action,
+      selected_action   = action,
       condition_met     = if (is.null(tr$condition_met)) NA else tr$condition_met
     )
 

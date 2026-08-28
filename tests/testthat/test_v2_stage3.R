@@ -1,19 +1,41 @@
 ## Stage 3 tests: trajectory logging emission and shape
 
 .make_stage3_bundle <- function() {
-  propose_events <- function(entity, process_ids = NULL, current_proposals = NULL) {
+  propose_events <- function(entity, process_ids = NULL, current_proposals = NULL,
+                             sim_ctx = NULL) {
     pid <- "default"
     if (!is.null(process_ids) && !(pid %in% process_ids)) return(list())
     t0 <- entity$last_time
-    list(default = list(time_next = t0 + 1, event_type = "VISIT", process_id = pid))
+    list(default = list(
+      time_next = t0 + 1,
+      event_type = "VISIT",
+      callback_run_id = sim_ctx$run_id,
+      process_id = pid
+    ))
   }
 
-  transition <- function(entity, event) {
+  transition <- function(entity, event, sim_ctx = NULL) {
+    callback_run_id <- if (identical(event$event_type, "ACT")) {
+      event$params$callback_run_id
+    } else {
+      event$callback_run_id
+    }
+    if (!identical(callback_run_id, sim_ctx$run_id)) {
+      base::stop("transition received inconsistent SimContext run_id")
+    }
     if (identical(event$event_type, "ACT")) return(list(acted = TRUE))
     list()
   }
 
-  stop <- function(entity, event) {
+  stop <- function(entity, event, sim_ctx = NULL) {
+    callback_run_id <- if (identical(event$event_type, "ACT")) {
+      event$params$callback_run_id
+    } else {
+      event$callback_run_id
+    }
+    if (!identical(callback_run_id, sim_ctx$run_id)) {
+      base::stop("stop received inconsistent SimContext run_id")
+    }
     isTRUE(identical(event$event_type, "ACT"))
   }
 
@@ -63,10 +85,43 @@
       ActionEvent(
         action_type = "ACT",
         time_next = entity$last_time + 0.1,
-        decision_point_id = decision_point$id
+        decision_point_id = decision_point$id,
+        params = list(callback_run_id = sim_ctx$run_id)
       )
     }
   )
+}
+
+.stage3_trajectory_signature <- function(record) {
+  list(
+    run_id = record$run_id,
+    entity_id = record$entity_id,
+    dp = record$decision_point_id,
+    t = record$t,
+    evt = record$realized_event$event_type,
+    proposal_callback_run_id = record$realized_event$callback_run_id,
+    act = if (!is.null(record$selected_action)) record$selected_action$action_type else NULL,
+    policy_callback_run_id = if (!is.null(record$selected_action)) {
+      record$selected_action$params$callback_run_id
+    } else {
+      NULL
+    }
+  )
+}
+
+.expect_stage3_trajectory_identity <- function(records, run_id, entity_id) {
+  expect_true(all(vapply(records, function(record) identical(record$run_id, run_id), logical(1))))
+  expect_true(all(vapply(records, function(record) identical(record$entity_id, entity_id), logical(1))))
+  expect_true(all(vapply(
+    records,
+    function(record) identical(record$realized_event$callback_run_id, run_id),
+    logical(1)
+  )))
+  expect_true(all(vapply(
+    records,
+    function(record) identical(record$selected_action$params$callback_run_id, run_id),
+    logical(1)
+  )))
 }
 
 test_that("Engine v2: returns trajectory_records when trajectory logger is configured", {
@@ -237,23 +292,17 @@ test_that("run_cohort v2: trajectory records are deterministic across serial and
   expect_equal(serial$index, parallel$index)
   expect_equal(names(serial$runs), names(parallel$runs))
 
-  rec_signature <- function(rec) {
-    list(
-      dp = rec$decision_point_id,
-      t = rec$t,
-      evt = rec$realized_event$event_type,
-      act = if (!is.null(rec$selected_action)) rec$selected_action$action_type else NULL
-    )
-  }
-
   for (rid in names(serial$runs)) {
     s_tr <- serial$runs[[rid]]$trajectory_records
     p_tr <- parallel$runs[[rid]]$trajectory_records
+    entity_id <- serial$index$entity_id[serial$index$run_id == rid]
 
     expect_equal(length(s_tr), length(p_tr), label = paste("trajectory length", rid))
+    .expect_stage3_trajectory_identity(s_tr, rid, entity_id)
+    .expect_stage3_trajectory_identity(p_tr, rid, entity_id)
 
-    s_sig <- lapply(s_tr, rec_signature)
-    p_sig <- lapply(p_tr, rec_signature)
+    s_sig <- lapply(s_tr, .stage3_trajectory_signature)
+    p_sig <- lapply(p_tr, .stage3_trajectory_signature)
     expect_equal(s_sig, p_sig, label = paste("trajectory signature", rid))
   }
 })
@@ -301,23 +350,48 @@ test_that("run_cohort v2: trajectory records are deterministic across serial and
   expect_equal(serial$index, parallel$index)
   expect_equal(names(serial$runs), names(parallel$runs))
 
-  rec_signature <- function(rec) {
-    list(
-      dp = rec$decision_point_id,
-      t = rec$t,
-      evt = rec$realized_event$event_type,
-      act = if (!is.null(rec$selected_action)) rec$selected_action$action_type else NULL
-    )
-  }
-
   for (rid in names(serial$runs)) {
     s_tr <- serial$runs[[rid]]$trajectory_records
     p_tr <- parallel$runs[[rid]]$trajectory_records
+    entity_id <- serial$index$entity_id[serial$index$run_id == rid]
 
     expect_equal(length(s_tr), length(p_tr), label = paste("future trajectory length", rid))
+    .expect_stage3_trajectory_identity(s_tr, rid, entity_id)
+    .expect_stage3_trajectory_identity(p_tr, rid, entity_id)
 
-    s_sig <- lapply(s_tr, rec_signature)
-    p_sig <- lapply(p_tr, rec_signature)
+    s_sig <- lapply(s_tr, .stage3_trajectory_signature)
+    p_sig <- lapply(p_tr, .stage3_trajectory_signature)
     expect_equal(s_sig, p_sig, label = paste("future trajectory signature", rid))
   }
+})
+
+test_that("direct run entry points retain the run_1 identity fallback", {
+  bundle <- .make_stage3_bundle()
+  schema <- .make_stage3_schema()
+  engine <- load_model(
+    schema = schema,
+    bundle = bundle,
+    policy = .make_stage3_policy(),
+    trajectory = list(detail = "none")
+  )
+
+  direct <- engine$run(
+    Entity$new(schema = schema$variables, id = "direct"),
+    max_events = 2
+  )
+  draw <- engine$run_draw(
+    Entity$new(schema = schema$variables, id = "draw"),
+    max_events = 2
+  )
+
+  expect_true(all(vapply(
+    direct$trajectory_records,
+    function(rec) identical(rec$run_id, "run_1"),
+    logical(1)
+  )))
+  expect_true(all(vapply(
+    draw$trajectory_records,
+    function(rec) identical(rec$run_id, "run_1"),
+    logical(1)
+  )))
 })

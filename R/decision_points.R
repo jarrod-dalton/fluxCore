@@ -280,6 +280,11 @@ state_summary_default <- function(entity, ...) {
 #' `state_before` and `state_after` are `NULL` by default. Supply a
 #' `summary_fn` to the TrajectoryLogger to enable summary-level or full capture.
 #'
+#' Consult the entity's event history to determine which selected actions
+#' actually realized. For example, a later policy selection can be discarded
+#' when its decision point uses `on_pending_action = "keep"` and an earlier
+#' action is still pending.
+#'
 #' @param run_id Character scalar; run identifier (from `SimContext`).
 #' @param entity_id Character scalar; entity identifier.
 #' @param t Numeric scalar; time at which the decision point fired.
@@ -291,8 +296,9 @@ state_summary_default <- function(entity, ...) {
 #' @param candidate_actions Optional character vector of actions presented to
 #'   the policy.
 #' @param proposed_actions Optional list of actions proposed by the policy.
-#' @param selected_action Optional `ActionEvent`; the action realized on the
-#'   timeline.
+#' @param selected_action Optional `ActionEvent`; the action selected by the
+#'   policy for this decision, recorded before pending-action resolution. It
+#'   does not by itself establish that the action was retained or realized.
 #' @param state_before Optional named list; entity state before the event.
 #'   `NULL` unless the TrajectoryLogger is configured to capture it.
 #' @param state_after Optional named list; entity state after the transition.

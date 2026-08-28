@@ -46,6 +46,11 @@
 #' runs: list of per-run outputs (entity/events/observations; plus trajectory_records when enabled) with labels
 #' index: data.frame mapping run_id -> entity_id/param_draw_id/sim_id
 #'
+#' The index `run_id` is a batch-local join key shared by the corresponding run,
+#' its `SimContext`, and its trajectory records. For replay across cohort calls,
+#' use the stable entity/draw/simulation coordinates rather than assuming that a
+#' sequential `run_id` will remain unchanged when the cohort shape changes.
+#'
 #' @export
 run_cohort <- function(engine,
                        entities,
@@ -250,6 +255,7 @@ run_cohort <- function(engine,
   out_list <- vector("list", nrow(rows))
 
   for (r in seq_len(nrow(rows))) {
+    run_id <- rows$run_id[[r]]
     param_draw_id <- rows$param_draw_id[[r]]
     sim_id <- rows$sim_id[[r]]
 
@@ -264,6 +270,7 @@ run_cohort <- function(engine,
 
     run_meta <- list(
       time_spec = canonical_time_spec,
+      run_id = run_id,
       entity_id = entity_id,
       param_draw_id = param_draw_id,
       sim_id = sim_id,
@@ -313,4 +320,3 @@ run_cohort <- function(engine,
   h  <- sum(utf8ToInt(as.character(entity_id))) %% 100000L
   as.integer((base_seed + P1 * param_draw_id + P2 * sim_id + P3 * h) %% .Machine$integer.max)
 }
-

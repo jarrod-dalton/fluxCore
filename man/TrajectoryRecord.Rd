@@ -40,8 +40,9 @@ the policy.}
 
 \item{proposed_actions}{Optional list of actions proposed by the policy.}
 
-\item{selected_action}{Optional \code{ActionEvent}; the action realized on the
-timeline.}
+\item{selected_action}{Optional \code{ActionEvent}; the action selected by the
+policy for this decision, recorded before pending-action resolution. It
+does not by itself establish that the action was retained or realized.}
 
 \item{state_before}{Optional named list; entity state before the event.
 \code{NULL} unless the TrajectoryLogger is configured to capture it.}
@@ -66,4 +67,9 @@ evaluation, audit, and RL reward computation.
 \details{
 \code{state_before} and \code{state_after} are \code{NULL} by default. Supply a
 \code{summary_fn} to the TrajectoryLogger to enable summary-level or full capture.
+
+Consult the entity's event history to determine which selected actions
+actually realized. For example, a later policy selection can be discarded
+when its decision point uses \code{on_pending_action = "keep"} and an earlier
+action is still pending.
 }

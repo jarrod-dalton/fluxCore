@@ -56,6 +56,11 @@ Ignored when \code{runtime} is supplied.}
 A list with:
 runs: list of per-run outputs (entity/events/observations; plus trajectory_records when enabled) with labels
 index: data.frame mapping run_id -> entity_id/param_draw_id/sim_id
+
+The index \code{run_id} is a batch-local join key shared by the corresponding run,
+its \code{SimContext}, and its trajectory records. For replay across cohort calls,
+use the stable entity/draw/simulation coordinates rather than assuming that a
+sequential \code{run_id} will remain unchanged when the cohort shape changes.
 }
 \description{
 These helpers support batch simulation with:

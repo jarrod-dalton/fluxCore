@@ -14,9 +14,9 @@ trajectory_table(records, vars = NULL)
 \code{state_before} are included.}
 }
 \value{
-A data.frame with columns: \code{t}, \code{decision_point_id}, \code{trigger_event},
-\code{action_taken}, \code{condition_met}, plus \verb{<var>_before} and \verb{<var>_after} for
-each requested variable.
+A data.frame with columns: \code{run_id}, \code{entity_id}, \code{t},
+\code{decision_point_id}, \code{trigger_event}, \code{selected_action}, \code{condition_met},
+plus \verb{<var>_before} and \verb{<var>_after} for each requested variable.
 }
 \description{
 Takes the list of trajectory records from an engine run and returns a tidy
