@@ -22,6 +22,18 @@ payload entry point. Its caller owns RNG setup, so a RuntimeContext stored on th
 Engine does not reseed the internal draw run.
 }
 
+\section{Grouped decision dispatch}{
+
+For an Engine assembled with \code{schema$decision_groups}, raw direct/group
+overlap is rejected before transition. After the event transition is applied
+once, Core freezes ordinary eligibility followed by grouped-member
+eligibility, dispatches ordinary policies first, and then calls each fired
+group's \code{policy$propose_plan()} at most once. A grouped \code{\link[=DecisionPlan]{DecisionPlan()}} is
+validated completely and preflighted against every member pending slot before
+one group-level commit. This atomic boundary coordinates action selection and
+staging only; constituent actions later arbitrate and realize independently.
+}
+
 \section{Methods}{
 \subsection{Public methods}{
   \itemize{

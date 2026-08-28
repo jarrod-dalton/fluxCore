@@ -292,7 +292,16 @@ test_that("set_schema rejects invalid grouped cross-references", {
 
 test_that("load_model defensively repeats essential grouped schema checks", {
   schema <- .s3a_schema()
-  engine <- load_model(schema, .s3a_bundle())
+  grouped_policy <- list(
+    propose_plan = function(grouped_decision_point,
+                            eligible_decision_points,
+                            entity) {
+      selections <- rep(list(NULL), length(eligible_decision_points))
+      names(selections) <- names(eligible_decision_points)
+      DecisionPlan(selections)
+    }
+  )
+  engine <- load_model(schema, .s3a_bundle(), policy = grouped_policy)
   expect_s3_class(engine, "Engine")
   expect_identical(engine$.schema$decision_groups, schema$decision_groups)
 

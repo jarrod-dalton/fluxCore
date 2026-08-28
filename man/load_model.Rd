@@ -26,8 +26,9 @@ declarations in \verb{$decision_points} and grouped references in
 \code{transition}, and \code{stop} callbacks, plus a \verb{$time_spec} semantically equal
 to the full schema declaration.}
 
-\item{policy}{Optional. A function or list with a \code{propose_action} method
-called at declared decision points. Stage 2B.}
+\item{policy}{Optional for ordinary decisions. A function or list with a
+\code{propose_action} method called at ordinary decision points. A schema with
+non-empty \code{decision_groups} requires a list with a \code{propose_plan} method.}
 
 \item{environment}{Optional. An \link{EnvironmentContext} for ABM/RL scenarios.}
 
@@ -78,7 +79,9 @@ trigger declarations live separately in \code{schema$decision_groups} and
 reference leaf ids rather than embedding leaf definitions. \code{load_model()}
 defensively repeats the global id, membership, no-nesting, and group-only
 trigger checks performed by \code{\link[=set_schema]{set_schema()}} so manually assembled schemas do
-not bypass the declaration contract.
+not bypass the declaration contract. When at least one group is declared,
+\code{policy} must be a list exposing \code{propose_plan()}; grouped dispatch never
+falls back implicitly to \code{propose_action()}.
 }
 \section{User experience tiers}{
 \tabular{lll}{

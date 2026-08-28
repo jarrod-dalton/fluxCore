@@ -40,7 +40,9 @@
 #' reference leaf ids rather than embedding leaf definitions. `load_model()`
 #' defensively repeats the global id, membership, no-nesting, and group-only
 #' trigger checks performed by [set_schema()] so manually assembled schemas do
-#' not bypass the declaration contract.
+#' not bypass the declaration contract. When at least one group is declared,
+#' `policy` must be a list exposing `propose_plan()`; grouped dispatch never
+#' falls back implicitly to `propose_action()`.
 #'
 #' @section User experience tiers:
 #' | Level | Entry point | What you supply |
@@ -70,8 +72,9 @@
 #' @param bundle A ModelBundle list with at minimum `propose_events`,
 #'   `transition`, and `stop` callbacks, plus a `$time_spec` semantically equal
 #'   to the full schema declaration.
-#' @param policy Optional. A function or list with a `propose_action` method
-#'   called at declared decision points. Stage 2B.
+#' @param policy Optional for ordinary decisions. A function or list with a
+#'   `propose_action` method called at ordinary decision points. A schema with
+#'   non-empty `decision_groups` requires a list with a `propose_plan` method.
 #' @param environment Optional. An [EnvironmentContext] for ABM/RL scenarios.
 #' @param trajectory Optional. A TrajectoryLogger configuration list; enables
 #'   [TrajectoryRecord] emission. Requires `schema$decision_points` to be
@@ -162,6 +165,13 @@ load_model <- function(schema,
       decision_groups = schema$decision_groups,
       caller = "load_model"
     )
+    if (!is.null(schema$decision_groups) && length(schema$decision_groups) > 0L &&
+        (!is.list(policy) || !is.function(policy$propose_plan))) {
+      stop(
+        "load_model(): non-empty `schema$decision_groups` requires `policy` to be a list with a `propose_plan()` function.",
+        call. = FALSE
+      )
+    }
   }
 
   # -- trajectory + decision_points check ------------------------------------

@@ -16,6 +16,16 @@
 #' payload entry point. Its caller owns RNG setup, so a RuntimeContext stored on
 #' the Engine does not reseed the internal draw run.
 #'
+#' @section Grouped decision dispatch:
+#' For an Engine assembled with `schema$decision_groups`, raw direct/group
+#' overlap is rejected before transition. After the event transition is applied
+#' once, Core freezes ordinary eligibility followed by grouped-member
+#' eligibility, dispatches ordinary policies first, and then calls each fired
+#' group's `policy$propose_plan()` at most once. A grouped [DecisionPlan()] is
+#' validated completely and preflighted against every member pending slot before
+#' one group-level commit. This atomic boundary coordinates action selection and
+#' staging only; constituent actions later arbitrate and realize independently.
+#'
 #' @export
 Engine <- R6::R6Class(
   classname = "Engine",
@@ -127,6 +137,17 @@ Engine <- R6::R6Class(
         out
       }
 
+      fired_decision_groups <- function(schema, event, v2_mode = FALSE) {
+        if (!isTRUE(v2_mode)) return(list())
+        if (is.null(schema) || is.null(schema$decision_groups) ||
+            length(schema$decision_groups) == 0L) return(list())
+        out <- list()
+        for (group in schema$decision_groups) {
+          if (.group_fires(group, event)) out[[length(out) + 1L]] <- group
+        }
+        out
+      }
+
       decision_observation <- function(dp, entity) {
         if (!is.null(dp$observation_fn)) {
           out <- dp$observation_fn(entity)
@@ -223,6 +244,46 @@ Engine <- R6::R6Class(
       # the engine itself once realized. Each decision point holds at most one.
       action_proposals <- list()
 
+      # Ordinary decisions retain their established sequential, per-slot D1
+      # behavior. In a mixed activation this resolver runs before grouped
+      # consultations so a later independent group failure does not suppress
+      # earlier ordinary warnings or local pending-slot work. In a no-group
+      # event it remains at the historical post-refresh location below.
+      merge_ordinary_action_props <- function(action_props) {
+        for (dp_id in names(action_props)) {
+          pending <- action_proposals[[dp_id]]
+          if (is.null(pending)) {
+            action_proposals[[dp_id]] <<- action_props[[dp_id]]
+            next
+          }
+
+          mode <- dp_map[[dp_id]]$on_pending_action
+          if (is.null(mode)) mode <- "warn"
+
+          if (identical(mode, "keep")) next
+          if (identical(mode, "error")) {
+            stop(
+              sprintf(
+                "DecisionPoint('%s') proposed an action for t=%g while its previous action for t=%g was still pending. Set on_pending_action to allow this.",
+                dp_id, action_props[[dp_id]]$time_next, pending$time_next
+              ),
+              call. = FALSE
+            )
+          }
+          if (identical(mode, "warn")) {
+            warning(
+              sprintf(
+                "DecisionPoint('%s') replaced a still-pending action for t=%g with a new one for t=%g. Set on_pending_action = 'replace' to declare this intentional, or 'keep' to preserve the pending action.",
+                dp_id, pending$time_next, action_props[[dp_id]]$time_next
+              ),
+              call. = FALSE
+            )
+          }
+          action_proposals[[dp_id]] <<- action_props[[dp_id]]
+        }
+        invisible(NULL)
+      }
+
       # Records why the run ended: "stop", "max_time", "max_events", or
       # "no_proposals". Without this a runaway model is indistinguishable from a
       # normal completion.
@@ -241,6 +302,8 @@ Engine <- R6::R6Class(
         }
 
         fired_dps <- fired_decision_points(self$.schema, ev, self$.v2_mode)
+        fired_groups <- fired_decision_groups(self$.schema, ev, self$.v2_mode)
+        .assert_unambiguous_decision_activations(fired_dps, fired_groups, ev)
         state_before <- if (length(fired_dps) > 0L) capture_trajectory_state(entity, traj_cfg, when = "before") else NULL
 
         if (!is.null(action_handler)) {
@@ -251,11 +314,22 @@ Engine <- R6::R6Class(
 
         entity$update(time = ev$time_next, event_type = ev$event_type, changes = changes)
 
+        # Once an action has updated the Entity it no longer occupies its
+        # pending slot. Retire it before any decision preflight so both ordinary
+        # and grouped paths may re-propose for that leaf without a false
+        # conflict. Raw activation overlap was already rejected above, before
+        # this engine-owned mutation.
+        if (identical(ev_source, "action")) {
+          action_proposals[[ev_key]] <<- NULL
+        }
+
         state_after <- if (length(fired_dps) > 0L) capture_trajectory_state(entity, traj_cfg, when = "after") else NULL
 
-        # Evaluate condition (post-transition) for each fired DP.
-        # active_dps: condition met (or absent) -> policy is consulted.
-        # vetoed_dps: condition false AND audit=TRUE -> audit record only.
+        # Freeze every post-transition eligibility result before the first
+        # policy callback. Canonical order is ordinary schema order, followed
+        # by fired groups in schema order and their members in declaration
+        # order. Overlap has already been rejected, so each activation path is
+        # evaluated exactly once.
         active_dps <- list()
         vetoed_dps <- list()
         for (dp in fired_dps) {
@@ -264,6 +338,35 @@ Engine <- R6::R6Class(
             active_dps[[length(active_dps) + 1L]] <- dp
           } else if (isTRUE(dp$audit)) {
             vetoed_dps[[length(vetoed_dps) + 1L]] <- dp
+          }
+        }
+
+        group_activations <- vector("list", length(fired_groups))
+        if (length(fired_groups) > 0L) {
+          for (group_i in seq_along(fired_groups)) {
+            group <- fired_groups[[group_i]]
+            eligible <- list()
+            ineligible <- list()
+            for (member_id in group$members) {
+              dp <- dp_map[[member_id]]
+              cond_met <- .evaluate_decision_condition(dp, entity)
+              if (cond_met) {
+                eligible[[length(eligible) + 1L]] <- dp
+              } else {
+                ineligible[[length(ineligible) + 1L]] <- dp
+              }
+            }
+            if (length(eligible) > 0L) {
+              names(eligible) <- vapply(eligible, `[[`, character(1), "id")
+            }
+            if (length(ineligible) > 0L) {
+              names(ineligible) <- vapply(ineligible, `[[`, character(1), "id")
+            }
+            group_activations[[group_i]] <- list(
+              group = group,
+              eligible = eligible,
+              ineligible = ineligible
+            )
           }
         }
 
@@ -304,6 +407,60 @@ Engine <- R6::R6Class(
                 selected_actions[[dp$id]] <- proposed_action
               }
             }
+          }
+        }
+
+        ordinary_actions_merged_early <- length(fired_groups) > 0L
+        if (ordinary_actions_merged_early) {
+          merge_ordinary_action_props(action_props)
+        }
+
+        # Grouped consultations follow all ordinary policy callbacks. Each
+        # non-empty eligible set receives exactly one strict propose_plan()
+        # call, then one pure pending-store preflight and at most one commit.
+        # Empty eligible sets deliberately skip policy.
+        if (length(group_activations) > 0L) {
+          for (group_i in seq_along(group_activations)) {
+            activation <- group_activations[[group_i]]
+            group <- activation$group
+            eligible <- activation$eligible
+            if (length(eligible) == 0L) next
+
+            plan <- .call_group_policy(
+              self$.policy,
+              group = group,
+              eligible_decision_points = eligible,
+              entity = entity,
+              sim_ctx = sim_ctx,
+              param_ctx = param_ctx
+            )
+            plan <- .validate_group_decision_plan(
+              plan,
+              group = group,
+              eligible_decision_points = eligible,
+              current_time = entity$last_time,
+              event_catalog = model_event_catalog
+            )
+            preflight <- .preflight_group_pending_actions(
+              plan,
+              group = group,
+              eligible_decision_points = eligible,
+              pending_actions = action_proposals
+            )
+
+            if (length(preflight$warning_ids) > 0L) {
+              warning(
+                sprintf(
+                  "GroupedDecisionPoint('%s') replaced still-pending actions for member DecisionPoint id(s) {%s}. Set on_pending_action = 'replace' to declare replacement intentional, or 'keep' to preserve existing actions.",
+                  group$id,
+                  paste(preflight$warning_ids, collapse = ", ")
+                ),
+                call. = FALSE
+              )
+            }
+            action_proposals <<- preflight$candidate
+            group_activations[[group_i]]$plan <- plan
+            group_activations[[group_i]]$pending_outcomes <- preflight$outcomes
           }
         }
 
@@ -367,12 +524,6 @@ Engine <- R6::R6Class(
           return(FALSE)
         }
 
-        # Retire the realized action. The engine owns this store, so the model is
-        # never responsible for clearing it -- and cannot, since it does not name it.
-        if (identical(ev_source, "action")) {
-          action_proposals[[ev_key]] <<- NULL
-        }
-
         refresh_ids <- .call_refresh_rules(self$bundle, entity, ev, changes)
 
         if (identical(refresh_ids, "ALL")) {
@@ -404,38 +555,11 @@ Engine <- R6::R6Class(
         # only `proposals`, so any action still pending from an earlier step survives.
         # A decision point holds at most one pending action; how a new proposal
         # interacts with an existing one is declared by on_pending_action. Note the
-        # realized action was retired above, so a decision point re-proposing right
-        # after its own action fired is not a conflict.
-        for (dp_id in names(action_props)) {
-          pending <- action_proposals[[dp_id]]
-          if (is.null(pending)) {
-            action_proposals[[dp_id]] <<- action_props[[dp_id]]
-            next
-          }
-
-          mode <- dp_map[[dp_id]]$on_pending_action
-          if (is.null(mode)) mode <- "warn"
-
-          if (identical(mode, "keep")) next
-          if (identical(mode, "error")) {
-            stop(
-              sprintf(
-                "DecisionPoint('%s') proposed an action for t=%g while its previous action for t=%g was still pending. Set on_pending_action to allow this.",
-                dp_id, action_props[[dp_id]]$time_next, pending$time_next
-              ),
-              call. = FALSE
-            )
-          }
-          if (identical(mode, "warn")) {
-            warning(
-              sprintf(
-                "DecisionPoint('%s') replaced a still-pending action for t=%g with a new one for t=%g. Set on_pending_action = 'replace' to declare this intentional, or 'keep' to preserve the pending action.",
-                dp_id, pending$time_next, action_props[[dp_id]]$time_next
-              ),
-              call. = FALSE
-            )
-          }
-          action_proposals[[dp_id]] <<- action_props[[dp_id]]
+        # realized action was retired immediately after Entity update, so a
+        # decision point re-proposing right after its own action fired is not a
+        # conflict.
+        if (!ordinary_actions_merged_early) {
+          merge_ordinary_action_props(action_props)
         }
 
         TRUE
@@ -638,6 +762,384 @@ Engine <- R6::R6Class(
     result,
     decision_point_id = dp$id,
     source = "policy$propose_action()"
+  )
+}
+
+# Test whether a GroupedDecisionPoint's raw trigger fires. Group triggers use
+# the same pre-transition matching contract as ordinary DecisionPoint triggers.
+.group_fires <- function(group, event) {
+  stopifnot(inherits(group, "GroupedDecisionPoint"))
+  if (is.function(group$trigger)) {
+    isTRUE(group$trigger(event))
+  } else {
+    isTRUE(event$event_type %in% group$trigger)
+  }
+}
+
+# Reject a leaf activated through more than one raw path before any transition,
+# Entity mutation, condition, or policy callback. Conditions cannot resolve a
+# structural ambiguity because they are intentionally post-transition.
+.assert_unambiguous_decision_activations <- function(fired_dps, fired_groups, event) {
+  direct_ids <- if (length(fired_dps) == 0L) {
+    character()
+  } else {
+    vapply(fired_dps, `[[`, character(1), "id")
+  }
+  grouped_ids <- if (length(fired_groups) == 0L) {
+    character()
+  } else {
+    unlist(lapply(fired_groups, `[[`, "members"), use.names = FALSE)
+  }
+  activated_ids <- c(direct_ids, grouped_ids)
+  overlapping_ids <- unique(activated_ids[duplicated(activated_ids)])
+  if (length(overlapping_ids) == 0L) return(invisible(TRUE))
+
+  describe_paths <- function(id) {
+    paths <- character()
+    if (id %in% direct_ids) paths <- c(paths, "direct trigger")
+    for (group in fired_groups) {
+      if (id %in% group$members) {
+        paths <- c(paths, sprintf("GroupedDecisionPoint('%s')", group$id))
+      }
+    }
+    sprintf("%s via %s", id, paste(paths, collapse = " + "))
+  }
+  event_label <- if (is.character(event$event_type) &&
+                     length(event$event_type) == 1L &&
+                     !is.na(event$event_type)) {
+    event$event_type
+  } else {
+    "<unknown>"
+  }
+  stop(
+    sprintf(
+      "Engine$run(): ambiguous decision activation for raw event '%s': %s. Each leaf may activate through only one direct or grouped path per event.",
+      event_label,
+      paste(vapply(overlapping_ids, describe_paths, character(1)), collapse = "; ")
+    ),
+    call. = FALSE
+  )
+}
+
+# One strict grouped-policy consultation. A missing method is rejected by
+# load_model() and checked again here because Engine fields are publicly
+# mutable after assembly.
+.call_group_policy <- function(policy,
+                               group,
+                               eligible_decision_points,
+                               entity,
+                               sim_ctx = NULL,
+                               param_ctx = NULL) {
+  if (!is.list(policy) || !is.function(policy$propose_plan)) {
+    stop(
+      sprintf(
+        "GroupedDecisionPoint('%s') requires policy$propose_plan().",
+        group$id
+      ),
+      call. = FALSE
+    )
+  }
+
+  f <- policy$propose_plan
+  fml <- names(formals(f))
+  args <- list(
+    grouped_decision_point = group,
+    eligible_decision_points = eligible_decision_points,
+    entity = entity
+  )
+  if ("sim_ctx" %in% fml) args$sim_ctx <- sim_ctx
+  if ("param_ctx" %in% fml) args$param_ctx <- param_ctx
+
+  tryCatch(
+    do.call(f, args),
+    error = function(e) {
+      stop(
+        sprintf(
+          "policy$propose_plan() errored for GroupedDecisionPoint('%s'): %s",
+          group$id,
+          conditionMessage(e)
+        ),
+        call. = FALSE
+      )
+    }
+  )
+}
+
+# Validate one grouped ActionEvent before pending-store preflight. Ordinary
+# decisions retain their established warn-and-ignore path; the coordinated path
+# is strict so one malformed member rejects the whole plan.
+.validate_group_action_event <- function(action,
+                                         group,
+                                         dp,
+                                         current_time,
+                                         event_catalog = NULL) {
+  context <- sprintf(
+    "GroupedDecisionPoint('%s') selection for DecisionPoint('%s')",
+    group$id,
+    dp$id
+  )
+  if (!inherits(action, "ActionEvent") || !is.list(action)) {
+    stop(context, " must be an ActionEvent or explicit NULL.", call. = FALSE)
+  }
+  action_fields <- names(action)
+  expected_fields <- c(
+    "action_type", "event_type", "time_next", "decision_point_id",
+    "params", "metadata"
+  )
+  if (is.null(action_fields) || anyNA(action_fields) ||
+      !identical(sort(action_fields), sort(expected_fields))) {
+    stop(
+      context,
+      " is a malformed ActionEvent; expected exactly one `action_type`, `event_type`, `time_next`, `decision_point_id`, `params`, and `metadata` field.",
+      call. = FALSE
+    )
+  }
+  if (!is.character(action$action_type) || length(action$action_type) != 1L ||
+      is.na(action$action_type) || !nzchar(action$action_type)) {
+    stop(context, " has an invalid `action_type`.", call. = FALSE)
+  }
+  if (!is.character(action$event_type) || length(action$event_type) != 1L ||
+      is.na(action$event_type) || !nzchar(action$event_type) ||
+      !identical(action$event_type, action$action_type)) {
+    stop(
+      context,
+      " must have one non-empty `event_type` identical to `action_type`.",
+      call. = FALSE
+    )
+  }
+  if (!is.numeric(action$time_next) || length(action$time_next) != 1L ||
+      !is.finite(action$time_next)) {
+    stop(context, " has an invalid finite numeric `time_next`.", call. = FALSE)
+  }
+  if (action$time_next < current_time) {
+    stop(
+      sprintf(
+        "%s schedules t=%g before the current model time t=%g.",
+        context, action$time_next, current_time
+      ),
+      call. = FALSE
+    )
+  }
+  if (!is.null(dp$allowed_actions) &&
+      !(action$action_type %in% dp$allowed_actions)) {
+    stop(
+      sprintf(
+        "%s returned action_type '%s', which is not in allowed_actions {%s}.",
+        context,
+        action$action_type,
+        paste(dp$allowed_actions, collapse = ", ")
+      ),
+      call. = FALSE
+    )
+  }
+  if (!is.null(event_catalog) && !(action$event_type %in% event_catalog)) {
+    stop(
+      sprintf(
+        "%s has event_type '%s' not declared in the model event catalog.",
+        context, action$event_type
+      ),
+      call. = FALSE
+    )
+  }
+  if (!is.null(action$params) && !is.list(action$params)) {
+    stop(context, " has invalid `params`; expected a list or NULL.", call. = FALSE)
+  }
+  if (!is.null(action$metadata) && !is.list(action$metadata)) {
+    stop(context, " has invalid `metadata`; expected a list or NULL.", call. = FALSE)
+  }
+  if (!is.null(action$decision_point_id) &&
+      (!is.character(action$decision_point_id) ||
+       length(action$decision_point_id) != 1L ||
+       is.na(action$decision_point_id) ||
+       !nzchar(action$decision_point_id))) {
+    stop(
+      context,
+      " has invalid `decision_point_id`; expected one non-empty character value or NULL.",
+      call. = FALSE
+    )
+  }
+  invisible(TRUE)
+}
+
+# Validate plan shape/completeness and normalize ActionEvent provenance. The
+# returned selection list is reordered to canonical eligible-member order so
+# pending resolution never depends on policy list order.
+.validate_group_decision_plan <- function(plan,
+                                          group,
+                                          eligible_decision_points,
+                                          current_time,
+                                          event_catalog = NULL) {
+  context <- sprintf("GroupedDecisionPoint('%s')", group$id)
+  if (!inherits(plan, "DecisionPlan") || !is.list(plan)) {
+    stop(
+      context,
+      " policy$propose_plan() result must be a DecisionPlan, not NULL or another object.",
+      call. = FALSE
+    )
+  }
+
+  plan_fields <- names(plan)
+  expected_fields <- c("selections", "metadata")
+  if (is.null(plan_fields) || anyNA(plan_fields) ||
+      !identical(sort(plan_fields), sort(expected_fields))) {
+    stop(
+      context,
+      " returned a malformed DecisionPlan; expected exactly `selections` and `metadata` fields.",
+      call. = FALSE
+    )
+  }
+  if (!is.list(plan$selections) || length(plan$selections) == 0L) {
+    stop(context, " returned malformed `DecisionPlan$selections`.", call. = FALSE)
+  }
+  selection_ids <- names(plan$selections)
+  if (is.null(selection_ids) || anyNA(selection_ids) || any(!nzchar(selection_ids)) ||
+      anyDuplicated(selection_ids)) {
+    stop(
+      context,
+      " requires unique, non-empty names on every DecisionPlan selection.",
+      call. = FALSE
+    )
+  }
+
+  eligible_ids <- names(eligible_decision_points)
+  missing_ids <- setdiff(eligible_ids, selection_ids)
+  extra_ids <- setdiff(selection_ids, eligible_ids)
+  if (length(missing_ids) > 0L || length(extra_ids) > 0L ||
+      length(selection_ids) != length(eligible_ids)) {
+    details <- character()
+    if (length(missing_ids) > 0L) {
+      details <- c(details, sprintf("missing {%s}", paste(missing_ids, collapse = ", ")))
+    }
+    if (length(extra_ids) > 0L) {
+      details <- c(details, sprintf("extra {%s}", paste(extra_ids, collapse = ", ")))
+    }
+    stop(
+      sprintf(
+        "%s returned an incomplete DecisionPlan: selections must name every and only eligible member (%s).",
+        context,
+        paste(details, collapse = "; ")
+      ),
+      call. = FALSE
+    )
+  }
+
+  if (!is.null(plan$metadata)) {
+    if (!is.list(plan$metadata)) {
+      stop(context, " returned invalid DecisionPlan metadata; expected a named list or NULL.", call. = FALSE)
+    }
+    if (length(plan$metadata) > 0L) {
+      metadata_names <- names(plan$metadata)
+      if (is.null(metadata_names) || anyNA(metadata_names) ||
+          any(!nzchar(metadata_names)) || anyDuplicated(metadata_names)) {
+        stop(
+          context,
+          " returned invalid DecisionPlan metadata names; expected unique non-empty names.",
+          call. = FALSE
+        )
+      }
+    }
+  }
+
+  normalized <- vector("list", length(eligible_ids))
+  names(normalized) <- eligible_ids
+  for (i in seq_along(eligible_ids)) {
+    member_id <- eligible_ids[[i]]
+    selection <- plan$selections[[match(member_id, selection_ids)]]
+    if (is.null(selection)) {
+      normalized[i] <- list(NULL)
+      next
+    }
+    if (!inherits(selection, "ActionEvent") || !is.list(selection)) {
+      stop(
+        sprintf(
+          "%s selection for DecisionPoint('%s') must be an ActionEvent or explicit NULL.",
+          context, member_id
+        ),
+        call. = FALSE
+      )
+    }
+    .validate_group_action_event(
+      selection,
+      group = group,
+      dp = eligible_decision_points[[member_id]],
+      current_time = current_time,
+      event_catalog = event_catalog
+    )
+    selection <- .normalize_action_provenance(
+      selection,
+      decision_point_id = member_id,
+      source = sprintf("policy$propose_plan() for GroupedDecisionPoint('%s')", group$id)
+    )
+    normalized[[i]] <- selection
+  }
+
+  plan$selections <- normalized
+  plan
+}
+
+# Pure pending-store preflight for one complete plan. It returns a candidate
+# store and diagnostics but never mutates the live store or emits warnings.
+.preflight_group_pending_actions <- function(plan,
+                                             group,
+                                             eligible_decision_points,
+                                             pending_actions) {
+  candidate <- pending_actions
+  warning_ids <- character()
+  outcomes <- stats::setNames(
+    character(length(eligible_decision_points)),
+    names(eligible_decision_points)
+  )
+
+  for (i in seq_along(eligible_decision_points)) {
+    dp <- eligible_decision_points[[i]]
+    member_id <- dp$id
+    selection <- plan$selections[[i]]
+    if (is.null(selection)) {
+      outcomes[[member_id]] <- "no_action"
+      next
+    }
+
+    pending <- candidate[[member_id]]
+    if (is.null(pending)) {
+      candidate[[member_id]] <- selection
+      outcomes[[member_id]] <- "stage"
+      next
+    }
+
+    mode <- dp$on_pending_action
+    if (is.null(mode)) mode <- "warn"
+    if (identical(mode, "keep")) {
+      outcomes[[member_id]] <- "keep"
+      next
+    }
+    if (identical(mode, "error")) {
+      stop(
+        sprintf(
+          "GroupedDecisionPoint('%s') cannot stage its complete plan: DecisionPoint('%s') selected an action for t=%g while its previous action for t=%g is still pending and on_pending_action = 'error'.",
+          group$id, member_id, selection$time_next, pending$time_next
+        ),
+        call. = FALSE
+      )
+    }
+    if (!(mode %in% c("replace", "warn"))) {
+      stop(
+        sprintf(
+          "GroupedDecisionPoint('%s') found unsupported on_pending_action mode '%s' for DecisionPoint('%s').",
+          group$id, mode, member_id
+        ),
+        call. = FALSE
+      )
+    }
+
+    candidate[[member_id]] <- selection
+    outcomes[[member_id]] <- mode
+    if (identical(mode, "warn")) warning_ids <- c(warning_ids, member_id)
+  }
+
+  list(
+    candidate = candidate,
+    warning_ids = warning_ids,
+    outcomes = outcomes
   )
 }
 
