@@ -61,8 +61,10 @@ test_that("ParamContext: coerces numeric draw_id to integer", {
   expect_identical(pc$draw_id, 5L)
 })
 
-test_that("ParamContext: errors on non-integer-coercible draw_id", {
+test_that("ParamContext: errors on invalid draw_id", {
   expect_error(ParamContext(draw_id = "x", params = list()), "draw_id")
+  expect_error(ParamContext(draw_id = 1.2, params = list()), "draw_id")
+  expect_error(ParamContext(draw_id = 0L, params = list()), "draw_id")
 })
 
 test_that("ParamContext: errors when params is not a list", {

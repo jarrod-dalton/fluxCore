@@ -28,13 +28,18 @@ run_cohort(
 
 \item{n_sims}{Integer; number of stochastic sims per entity per draw (S). Default 1.}
 
-\item{param_draws}{Optional; a list of length D with per-draw parameter contexts. If NULL,
-the function will attempt to call engine$bundle$sample_params(D) when available;
-otherwise it uses a single NULL draw (no global parameter variation).}
+\item{param_draws}{Optional list of exactly \code{n_param_draws} \link{ParamContext}
+objects. Draw ids are stable identities: they must be positive and unique,
+need not be contiguous, and determine canonical cohort order. Bare parameter
+payload lists are not accepted. If \code{NULL}, the function calls
+\code{engine$bundle$sample_params(D)} when available; otherwise it constructs
+contexts numbered \code{1:D} from \code{bundle$params} or an empty parameter list.}
 
 \item{runtime}{Optional \link{RuntimeContext}; carries seed, backend, and n_workers for v2-mode
 engines. Takes precedence over the individual \code{seed}, \code{backend}, and \code{n_workers} arguments
-when non-NULL.}
+when non-NULL. Its \code{replicate_id} must be \code{NULL}; cohort replicates are
+represented by \code{sim_id}. An explicit runtime with \code{seed = NULL} requests an
+unseeded cohort even when the Engine stores a seed.}
 
 \item{max_events}{Max events per run.}
 
@@ -43,19 +48,23 @@ when non-NULL.}
 \item{return_observations}{Logical; whether to return observations (if bundle provides observe()).}
 
 \item{backend}{Backend used to parallelize across entities. One of "none", "cluster",
-"mclapply", or "future". Default is "none". Ignored when \code{runtime} is supplied.}
+"mclapply", or "future". When \code{NULL}, inherits the Engine's stored runtime
+backend when available, then defaults to "none". Ignored when \code{runtime} is supplied.}
 
 \item{n_workers}{Integer; workers for parallel; default parallel::detectCores() - 1.
+When \code{NULL}, inherits the Engine's stored runtime setting when available.
 Ignored when \code{runtime} is supplied.}
 
 \item{seed}{Optional base seed for reproducibility. Public contract:
 fixed \code{seed} + \code{draw_id} + \code{sim_id} + \code{entity_id} = reproducible output.
-Ignored when \code{runtime} is supplied.}
+A non-\code{NULL} value overrides the Engine's stored runtime seed. Ignored when
+\code{runtime} is supplied.}
 }
 \value{
 A list with:
 runs: list of per-run outputs (entity/events/observations; plus trajectory_records when enabled) with labels
 index: data.frame mapping run_id -> entity_id/param_draw_id/sim_id
+param_draws: the validated contexts in ascending draw-id order
 
 The index \code{run_id} is a batch-local join key shared by the corresponding run,
 its \code{SimContext}, and its trajectory records. For replay across cohort calls,

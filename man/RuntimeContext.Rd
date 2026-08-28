@@ -14,8 +14,9 @@ RuntimeContext(
 \arguments{
 \item{seed}{Optional integer scalar; top-level seed. NULL = unseeded.}
 
-\item{replicate_id}{Optional integer scalar; stochastic replicate index
-within a draw.}
+\item{replicate_id}{Optional integer scalar; stochastic replicate index for
+a direct Engine run. Cohorts use \code{sim_id} and reject a non-\code{NULL} value on
+an explicitly supplied RuntimeContext.}
 
 \item{backend}{Character scalar; one of \code{"none"} (default), \code{"cluster"},
 \code{"mclapply"}, \code{"future"}.}
@@ -26,9 +27,11 @@ within a draw.}
 A list of class \code{"RuntimeContext"}.
 }
 \description{
-Captures reproducibility and backend settings for one simulation run.
-Supplied to \code{load_model()} or \code{run_cohort()} in v2 mode; also accepted
-by \code{Engine$run()} when the Engine was created via \code{load_model()}.
+Captures reproducibility and backend settings. A context stored on an Engine
+configures direct \code{Engine$run()} calls. When supplied explicitly to
+\code{run_cohort()}, it configures the cohort and takes precedence over scalar
+seed/backend/worker controls; its \code{replicate_id} must be \code{NULL} because
+cohort replication is identified by \code{sim_id}.
 }
 \details{
 The public reproducibility contract is:

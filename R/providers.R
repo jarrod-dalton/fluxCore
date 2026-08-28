@@ -59,19 +59,21 @@ PackageProvider <- R6::R6Class(
       # Optional hook for global parameter draws.
       # Default behavior:
       # - if the bundle builder returns a bundle with $sample_params(D), use it
-      # - otherwise return NULL draws
+      # - otherwise return typed contexts carrying bundle defaults
       n_param_draws <- as.integer(n_param_draws)
       if (!is.finite(n_param_draws) || n_param_draws < 1L) stop("n_param_draws must be a positive integer.")
 
       bundle <- self$load(model_spec = model_spec, ...)
       if (!is.null(bundle$sample_params) && is.function(bundle$sample_params)) {
         draws <- bundle$sample_params(n_param_draws)
-        if (!is.list(draws) || length(draws) != n_param_draws) {
-          stop("bundle$sample_params(D) must return a list of length D.")
-        }
-        return(draws)
+        return(.normalize_param_draws(
+          draws,
+          n_param_draws,
+          "PackageProvider bundle$sample_params(D)"
+        ))
       }
-      rep(list(NULL), n_param_draws)
+      params <- if (!is.null(bundle$params)) bundle$params else list()
+      .default_param_draws(params, n_param_draws)
     }
   )
 )
@@ -106,15 +108,20 @@ FileProvider <- R6::R6Class(
       bundle
     },
     sample_param_draws = function(model_spec, n_param_draws = 1L, ...) {
-      # If the bundle includes sample_params, use it; else NULL draws.
+      # If the bundle includes sample_params, use it; else typed default draws.
       n_param_draws <- as.integer(n_param_draws)
+      if (!is.finite(n_param_draws) || n_param_draws < 1L) stop("n_param_draws must be a positive integer.")
       bundle <- self$load(model_spec, ...)
       if (!is.null(bundle$sample_params) && is.function(bundle$sample_params)) {
         draws <- bundle$sample_params(n_param_draws)
-        if (!is.list(draws) || length(draws) != n_param_draws) stop("bundle$sample_params(D) must return a list of length D.")
-        return(draws)
+        return(.normalize_param_draws(
+          draws,
+          n_param_draws,
+          "FileProvider bundle$sample_params(D)"
+        ))
       }
-      rep(list(NULL), n_param_draws)
+      params <- if (!is.null(bundle$params)) bundle$params else list()
+      .default_param_draws(params, n_param_draws)
     }
   )
 )
@@ -166,18 +173,19 @@ MLflowProvider <- R6::R6Class(
         bundle <- self$load(model_spec, ...)
         if (!is.null(bundle$sample_params) && is.function(bundle$sample_params)) {
           draws <- bundle$sample_params(n_param_draws)
-          if (!is.list(draws) || length(draws) != n_param_draws) stop("bundle$sample_params(D) must return a list of length D.")
-          return(draws)
+          return(.normalize_param_draws(
+            draws,
+            n_param_draws,
+            "MLflowProvider bundle$sample_params(D)"
+          ))
         }
-        return(rep(list(NULL), n_param_draws))
+        params <- if (!is.null(bundle$params)) bundle$params else list()
+        return(.default_param_draws(params, n_param_draws))
       }
       model_uri <- as.character(model_spec$model_uri)
       artifacts <- model_spec$artifacts
       draws <- self$sampler_fn(model_uri = model_uri, artifacts = artifacts, model_spec = model_spec, D = n_param_draws, ...)
-      if (!is.list(draws) || length(draws) != n_param_draws) {
-        stop("sampler_fn(...) must return a list of length D.")
-      }
-      draws
+      .normalize_param_draws(draws, n_param_draws, "MLflowProvider sampler_fn(...)")
     }
   )
 )

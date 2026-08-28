@@ -7,7 +7,10 @@
 ParamContext(draw_id, params, provenance = NULL)
 }
 \arguments{
-\item{draw_id}{Integer scalar identifying this parameter draw.}
+\item{draw_id}{Positive integer-valued numeric scalar identifying this
+parameter draw. Whole-valued doubles such as \code{5.0} are accepted and stored
+as integers; fractional, non-finite, non-positive, and out-of-range values
+are rejected rather than truncated.}
 
 \item{params}{Named list of concrete parameter values.}
 

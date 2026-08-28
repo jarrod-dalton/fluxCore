@@ -14,6 +14,12 @@ patch, recording the event on a Entity, and stopping when bundle$stop() returns 
 optional \code{observations}, and \code{stopped_by}. The termination value is one of
 \code{"stop"}, \code{"max_time"}, \code{"max_events"}, or \code{"no_proposals"}. When trajectory
 logging is configured, the result also contains \code{trajectory_records}.
+
+Direct \code{Engine$run()} calls construct one \code{ParamContext} from
+\code{bundle$params}, or an empty parameter list, unless a Core cohort harness
+supplies a prevalidated context. \code{Engine$run_draw()} remains a raw parameter
+payload entry point. Its caller owns RNG setup, so a RuntimeContext stored on the
+Engine does not reseed the internal draw run.
 }
 
 \section{Methods}{

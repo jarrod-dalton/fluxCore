@@ -10,6 +10,12 @@
 #' `"stop"`, `"max_time"`, `"max_events"`, or `"no_proposals"`. When trajectory
 #' logging is configured, the result also contains `trajectory_records`.
 #'
+#' Direct `Engine$run()` calls construct one `ParamContext` from
+#' `bundle$params`, or an empty parameter list, unless a Core cohort harness
+#' supplies a prevalidated context. `Engine$run_draw()` remains a raw parameter
+#' payload entry point. Its caller owns RNG setup, so a RuntimeContext stored on
+#' the Engine does not reseed the internal draw run.
+#'
 #' @export
 Engine <- R6::R6Class(
   classname = "Engine",
@@ -47,8 +53,9 @@ Engine <- R6::R6Class(
                    return_observations = TRUE,
                    .internal_ctx = NULL) {
 
-      # .internal_ctx is used only by run_cohort() to pass run metadata
-      # (run_id, entity_id, param_draw_id, params). NOT a user-facing parameter.
+      # .internal_ctx is used only by Core run harnesses to pass run metadata,
+      # a prevalidated ParamContext, and private RNG ownership. It is not a
+      # user-facing parameter.
       if (is.null(.internal_ctx)) .internal_ctx <- list()
 
       run_id <- if (!is.null(.internal_ctx$run_id)) as.character(.internal_ctx$run_id) else "run_1"
@@ -60,17 +67,29 @@ Engine <- R6::R6Class(
         "entity"
       }
 
-      # Resolve params: from .internal_ctx (cohort), from bundle$params, or empty.
-      params <- if (!is.null(.internal_ctx$params)) {
-        .internal_ctx$params
-      } else if (!is.null(self$bundle$params) && is.list(self$bundle$params)) {
-        self$bundle$params
+      # A cohort supplies one already-normalized ParamContext. Direct run paths
+      # continue to supply raw payloads and construct their one context here.
+      supplied_param_ctx <- .internal_ctx$param_ctx
+      if (!is.null(supplied_param_ctx) && !inherits(supplied_param_ctx, "ParamContext")) {
+        stop("Internal error: `.internal_ctx$param_ctx` must be a ParamContext.", call. = FALSE)
+      }
+      params <- if (is.null(supplied_param_ctx)) {
+        if (!is.null(.internal_ctx$params)) {
+          .internal_ctx$params
+        } else if (!is.null(self$bundle$params) && is.list(self$bundle$params)) {
+          self$bundle$params
+        } else {
+          list()
+        }
       } else {
-        list()
+        NULL
       }
 
       # Stage 3 hardening: apply RuntimeContext seed in single-run v2 path.
-      if (isTRUE(self$.v2_mode) && !is.null(self$.runtime) && !is.null(self$.runtime$seed)) {
+      if (isTRUE(self$.v2_mode) &&
+          !isTRUE(.internal_ctx$.rng_owned_by_harness) &&
+          !is.null(self$.runtime) &&
+          !is.null(self$.runtime$seed)) {
         draw_id <- if (!is.null(.internal_ctx$param_draw_id)) as.integer(.internal_ctx$param_draw_id) else 1L
         replicate_id <- if (!is.null(self$.runtime$replicate_id)) as.integer(self$.runtime$replicate_id) else 1L
         local_seed <- .seed_for(as.integer(self$.runtime$seed), entity_id, draw_id, replicate_id)
@@ -159,11 +178,15 @@ Engine <- R6::R6Class(
         scenario_id = NULL,
         horizon = max_time
       )
-      param_ctx <- ParamContext(
-        draw_id = if (!is.null(.internal_ctx$param_draw_id)) .internal_ctx$param_draw_id else 1L,
-        params = params,
-        provenance = NULL
-      )
+      param_ctx <- if (!is.null(supplied_param_ctx)) {
+        supplied_param_ctx
+      } else {
+        ParamContext(
+          draw_id = if (!is.null(.internal_ctx$param_draw_id)) .internal_ctx$param_draw_id else 1L,
+          params = params,
+          provenance = NULL
+        )
+      }
 
       # One-time initialization hook (optional).
       .call_init_entity(self$bundle, entity)
@@ -453,7 +476,9 @@ Engine <- R6::R6Class(
     #
     # Public entry point for downstream packages (e.g., fluxForecast streaming
     # functions) that need per-run parameter control without coupling to the
-    # internal .internal_ctx structure used by run_cohort().
+    # internal .internal_ctx structure used by run_cohort(). The caller owns
+    # RNG setup for this lower-level harness; a stored Engine runtime does not
+    # reseed the internal run.
     #
     # @param entity An Entity object to simulate.
     # @param params Named list of parameter values for this run.
@@ -480,7 +505,8 @@ Engine <- R6::R6Class(
         entity_id     = entity_id,
         param_draw_id = as.integer(draw_id),
         sim_id        = as.integer(sim_id),
-        params        = params
+        params        = params,
+        .rng_owned_by_harness = TRUE
       )
       self$run(
         entity = entity,

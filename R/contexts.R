@@ -89,7 +89,10 @@ print.SimContext <- function(x, ...) {
 #' per draw by a `ParamSource` (or supplied directly) and injected into every
 #' bundle callback that accepts a `param_ctx` argument.
 #'
-#' @param draw_id Integer scalar identifying this parameter draw.
+#' @param draw_id Positive integer-valued numeric scalar identifying this
+#'   parameter draw. Whole-valued doubles such as `5.0` are accepted and stored
+#'   as integers; fractional, non-finite, non-positive, and out-of-range values
+#'   are rejected rather than truncated.
 #' @param params Named list of concrete parameter values.
 #' @param provenance Optional character scalar labelling the source of this
 #'   draw (e.g., `"posterior_draw_42"`).
@@ -98,10 +101,20 @@ print.SimContext <- function(x, ...) {
 #'
 #' @export
 ParamContext <- function(draw_id, params, provenance = NULL) {
-  draw_id <- suppressWarnings(as.integer(draw_id))
-  if (length(draw_id) != 1L || is.na(draw_id)) {
-    stop("ParamContext: `draw_id` must be a single integer-coercible value.", call. = FALSE)
+  if (missing(draw_id) ||
+      !is.numeric(draw_id) ||
+      length(draw_id) != 1L ||
+      is.na(draw_id) ||
+      !is.finite(draw_id) ||
+      draw_id <= 0 ||
+      draw_id > .Machine$integer.max ||
+      draw_id != floor(draw_id)) {
+    stop(
+      "ParamContext: `draw_id` must be a positive, losslessly integer-valued numeric scalar.",
+      call. = FALSE
+    )
   }
+  draw_id <- as.integer(draw_id)
   if (missing(params) || !is.list(params)) {
     stop("ParamContext: `params` must be a named list.", call. = FALSE)
   }
@@ -131,9 +144,11 @@ print.ParamContext <- function(x, ...) {
 
 #' Construct a RuntimeContext
 #'
-#' Captures reproducibility and backend settings for one simulation run.
-#' Supplied to `load_model()` or `run_cohort()` in v2 mode; also accepted
-#' by `Engine$run()` when the Engine was created via `load_model()`.
+#' Captures reproducibility and backend settings. A context stored on an Engine
+#' configures direct `Engine$run()` calls. When supplied explicitly to
+#' [run_cohort()], it configures the cohort and takes precedence over scalar
+#' seed/backend/worker controls; its `replicate_id` must be `NULL` because
+#' cohort replication is identified by `sim_id`.
 #'
 #' The public reproducibility contract is:
 #'   `seed + draw_id + replicate_id + entity_id` = deterministic output.
@@ -141,8 +156,9 @@ print.ParamContext <- function(x, ...) {
 #' must not be set by users directly.
 #'
 #' @param seed Optional integer scalar; top-level seed. NULL = unseeded.
-#' @param replicate_id Optional integer scalar; stochastic replicate index
-#'   within a draw.
+#' @param replicate_id Optional integer scalar; stochastic replicate index for
+#'   a direct Engine run. Cohorts use `sim_id` and reject a non-`NULL` value on
+#'   an explicitly supplied RuntimeContext.
 #' @param backend Character scalar; one of `"none"` (default), `"cluster"`,
 #'   `"mclapply"`, `"future"`.
 #' @param n_workers Optional integer; number of parallel workers.

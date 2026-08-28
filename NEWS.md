@@ -8,6 +8,30 @@ contract.
 
 ### Bug fixes
 
+- **Cohort parameter contexts are no longer nested or renumbered.**
+  `run_cohort(param_draws = )` and `bundle$sample_params(D)` now use one
+  unambiguous `list<ParamContext>` boundary. Core validates and sorts the
+  collection once by its positive, unique `draw_id`, preserves each context's
+  direct `params` and `provenance` fields in callbacks, uses the actual ids in
+  run indexing and deterministic seeds, and returns the canonical collection.
+  Bare parameter payload lists at this Core boundary now fail early. When no
+  draw source is supplied, Core constructs typed `1:D` contexts from
+  `bundle$params` or an empty list.
+
+- **Cohort and lower-level draw seeds are no longer overwritten by a loaded
+  Engine.** `run_cohort()` now resolves its effective runtime settings once and
+  owns coordinate-specific seeding; `Engine$run_draw()` preserves RNG state
+  established by its caller. A private handoff prevents `Engine$run()` from
+  applying the stored RuntimeContext seed a second time, while direct
+  `Engine$run()` seeding is unchanged. Seeded results that previously collapsed
+  distinct cohort or streaming replicates will change under the corrected
+  ownership contract.
+
+- **`ParamContext(draw_id = )` no longer truncates invalid ids.** Positive
+  whole-valued doubles such as `5.0` retain the documented convenience and are
+  stored as integers; fractional, non-positive, non-finite, and out-of-range
+  values now error.
+
 - **A scheduled action could be silently discarded before it fired.** Refreshing all
   processes -- the default when a bundle does not supply `refresh_rules()` -- replaced
   the whole proposal set, destroying any action proposed in an earlier step that had
