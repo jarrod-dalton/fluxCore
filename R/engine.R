@@ -237,18 +237,7 @@ Engine <- R6::R6Class(
         active_dps <- list()
         vetoed_dps <- list()
         for (dp in fired_dps) {
-          cond_met <- is.null(dp$condition) || isTRUE(
-            tryCatch(
-              dp$condition(entity),
-              error = function(e) {
-                warning(
-                  sprintf("DecisionPoint('%s') condition errored: %s", dp$id, conditionMessage(e)),
-                  call. = FALSE
-                )
-                FALSE
-              }
-            )
-          )
+          cond_met <- .evaluate_decision_condition(dp, entity)
           if (cond_met) {
             active_dps[[length(active_dps) + 1L]] <- dp
           } else if (isTRUE(dp$audit)) {
@@ -609,9 +598,14 @@ Engine <- R6::R6Class(
   result <- tryCatch(
     do.call(f, args),
     error = function(e) {
-      warning(sprintf("policy$propose_action() errored for dp '%s': %s", dp$id, conditionMessage(e)),
-              call. = FALSE)
-      NULL
+      stop(
+        sprintf(
+          "policy$propose_action() errored for DecisionPoint('%s'): %s",
+          dp$id,
+          conditionMessage(e)
+        ),
+        call. = FALSE
+      )
     }
   )
   .normalize_action_provenance(
@@ -619,6 +613,39 @@ Engine <- R6::R6Class(
     decision_point_id = dp$id,
     source = "policy$propose_action()"
   )
+}
+
+# Evaluate a DecisionPoint condition without assigning callback failures a
+# valid model meaning. This helper is shared by every decision-dispatch path so
+# ordinary and grouped decisions enforce the same strict scalar contract.
+.evaluate_decision_condition <- function(dp, entity) {
+  if (is.null(dp$condition)) return(TRUE)
+
+  result <- tryCatch(
+    dp$condition(entity),
+    error = function(e) {
+      stop(
+        sprintf(
+          "DecisionPoint('%s') condition callback errored: %s",
+          dp$id,
+          conditionMessage(e)
+        ),
+        call. = FALSE
+      )
+    }
+  )
+
+  if (!is.logical(result) || length(result) != 1L || is.na(result)) {
+    stop(
+      sprintf(
+        "DecisionPoint('%s') condition callback must return exactly one non-missing logical value.",
+        dp$id
+      ),
+      call. = FALSE
+    )
+  }
+
+  result
 }
 
 # Normalize the provenance carried by an ActionEvent selected for a particular
@@ -653,9 +680,16 @@ Engine <- R6::R6Class(
   tryCatch(
     do.call(handler, args),
     error = function(e) {
-      warning(sprintf("action_handler errored for event_type '%s': %s",
-                      event$event_type, conditionMessage(e)), call. = FALSE)
-      NULL
+      action_type <- if (!is.null(event$action_type)) event$action_type else event$event_type
+      stop(
+        sprintf(
+          "action_handler for action_type '%s' from DecisionPoint('%s') errored: %s",
+          action_type,
+          event$decision_point_id,
+          conditionMessage(e)
+        ),
+        call. = FALSE
+      )
     }
   )
 }
