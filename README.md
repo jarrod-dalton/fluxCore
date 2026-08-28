@@ -15,7 +15,7 @@ This package is meant to be a **foundation**. It does not contain a domain-speci
 - optionally record extra outputs (costs, utilities, measurements)
 - run many entities, optionally in parallel
 - (optional) represent **parameter uncertainty** using global parameter draws shared across entities
-- (optional) add interventions (“policies”) without rewriting your baseline model
+- (optional) declare decision points and policy-selected actions without rewriting baseline model dynamics
 
 If you can describe your model as “a sequence of events over time that change state variables”, this scaffold is a good fit.
 ## Installation
@@ -59,10 +59,12 @@ A named list of only the variables that change at an event. Variables not in the
 Example patch: `list(battery_pct = 82, payload_kg = 3.1)`
 
 **Observation (optional)**  
-Information you want to record for analysis/reporting that does *not* affect future events (cost, utility, “was this an ED visit?”, etc.). Observations are separate from state updates on purpose.
+Information you want to record for analysis/reporting that does *not* affect future events (cost, utility, “was this delivery late?”, etc.). Observations are separate from state updates on purpose.
 
-**Episode (optional)**  
-A short period with its own internal logic (e.g., a hospitalization) that returns a *summary* back to the main entity state, and optionally a detailed record (“artifact”) if you want it.
+**Episode (optional modeling pattern)** — A bounded piece of model logic, such
+as a multi-stop delivery tour, that returns a *summary* to the main entity state
+and can optionally retain a detailed record ("artifact"). Episodes are a
+modeling pattern, not a special fluxCore API.
 
 ---
 
@@ -115,7 +117,7 @@ A bundle may also provide:
   "ALL" to refresh all processes, or a character vector of `process_id`s.
 
 - `sample_params(D)`  
-  Returns a list of length `D` containing parameter draw objects. This is used for parameter uncertainty (see below). Components that do not use parameter draws can ignore this.
+  Returns a list of length `D` containing typed `ParamContext` objects. This is used for parameter uncertainty (see below). Components that do not use parameter draws can ignore this.
 
 ### Optional callback inputs
 
@@ -176,14 +178,16 @@ toy_bundle <- list(
   stop = function(entity, event) identical(event$event_type, "end_shift")
 )
 
+full_schema <- set_schema(schema = schema, time_spec = toy_bundle$time_spec)
+
 p <- Entity$new(
   init   = list(route_zone = "urban", battery_pct = 100, payload_kg = 0),
-  schema = schema,
+  schema = full_schema$variables,
   entity_type = "courier",
   time0  = 0
 )
 
-eng <- Engine$new(bundle = toy_bundle)
+eng <- load_model(schema = full_schema, bundle = toy_bundle)
 
 out <- eng$run(p, max_events = 50)
 
@@ -192,6 +196,11 @@ out$entity$state(c("route_zone", "battery_pct", "payload_kg"))
 out$stopped_by
 ```
 
+`load_model()` is the validated assembly path: a full schema and its bundle must
+declare semantically matching clocks. For a simpler bundle-only model,
+`Engine$new(bundle = toy_bundle)` remains available; it does not perform the
+cross-component validation provided by `load_model()`.
+
 ### Trajectory output contract (v2 trajectory logger)
 
 When using v2 assembly (`load_model(..., trajectory = ...)`), `Engine$run()` adds
@@ -199,7 +208,8 @@ When using v2 assembly (`load_model(..., trajectory = ...)`), `Engine$run()` add
 
 Current contract for `trajectory_records`:
 - It is a list of plain named lists (JSON-serializable by default).
-- One record is emitted per fired decision point.
+- A record is emitted when a fired decision point reaches policy evaluation.
+  A condition veto is recorded only when that decision point has `audit = TRUE`.
 - `state_before`/`state_after` follow `trajectory$detail`:
   - `none`: both are `NULL`
   - `summary`: both are summary lists from `summary_fn` (default `state_summary_default`)
@@ -209,10 +219,16 @@ Each trajectory record contains:
 - `run_id`, `entity_id`, `t`, `decision_point_id`
 - `observation`, `realized_event`
 - `candidate_actions`, `proposed_actions`, `selected_action`
+- `condition_met`
 - `state_before`, `state_after`, `reward`
 
-This output shape is the portability-facing surface for Stage 3 and is designed to
-round-trip through JSON cleanly.
+Here `selected_action` means the policy's selection at that decision point. It
+does not by itself claim that the action was later realized: pending-action rules
+can retain or replace scheduled actions before their event time.
+
+Use `trajectory_table()` for a plain data frame with run and entity identity,
+decision-point id, triggering event, selected action, and condition result. The
+raw record shape is designed to round-trip through JSON cleanly.
 
 
 
@@ -309,40 +325,44 @@ You control this via:
 - `n_sims = S`
 
 Where do the parameter draws come from?
-- If your bundle provides `sample_params(D)`, `run_cohort()` will use it.
-- If not, draws default to `NULL` (which is fine for models that do not have parameter draws).
+- If your bundle provides `sample_params(D)`, `run_cohort()` will use its typed
+  `ParamContext` list.
+- If not, fluxCore creates default typed contexts, which is fine for models that
+  do not have parameter uncertainty.
 
 Bundle callbacks that use parameter draws can declare `param_ctx = NULL` and read
-`param_ctx$params`. Callbacks that do not use parameter draws can omit that argument.
+`param_ctx$params`. A direct run without sampled draws still receives an
+empty/default `ParamContext`; callbacks that do not use it can omit the argument.
 
 ---
 
 ## Policies and interventions (optional)
 
-Often you want to compare:
-- baseline model dynamics
-- baseline + intervention/policy
+Often you want to compare baseline model dynamics with one or more interventions
+without duplicating the baseline bundle. Declare each policy opportunity as a
+`DecisionPoint` in the schema, and let the policy select an `ActionEvent` when
+that point fires. Assemble the pieces with `load_model(policy = ...)`.
 
-The goal is to avoid duplicating baseline code.
-
-Use `compose_bundles(baseline, policy)` where `policy` is another bundle-like object that can add or override behavior.
-
-Most commonly, a policy adds extra state updates during `transition()`.
+Actions occur on the same timeline as model events. A decision point's named
+action handlers translate selected action events into sparse state updates when
+they occur. [Tutorial 03](https://github.com/jarrod-dalton/flux/blob/main/tutorials/03_decisions_policy.md)
+develops this workflow progressively using the urban food-delivery model.
 
 ---
 
-## Episodes (optional): detailed submodels without bloating the main state
+## Episodes (optional pattern): detailed logic without bloating the main state
 
-Some events (e.g., hospitalization) may have rich internal dynamics that you may or may not want to record in detail.
+Some events, such as a multi-stop delivery tour, may have internal dynamics that
+you may or may not want to record in detail.
 
 A simple approach is:
 
-- represent “hospitalization” as an event on the main timeline
-- optionally run a submodel for the hospital stay
-- return a **summary patch** to update main state (e.g., LOS, complications, post-discharge risk)
+- represent “delivery tour” as an event on the main timeline
+- optionally run detailed logic for its stops
+- return a **summary patch** to update main state (e.g., elapsed time, delivered orders, battery used)
 - optionally return an **artifact** (a detailed trace) stored outside the entity state
 
-The core package does not force any one approach. The example model package demonstrates a practical pattern.
+This is one modeling pattern rather than a fluxCore API requirement.
 
 ---
 
@@ -352,8 +372,8 @@ The core package does not force any one approach. The example model package demo
 - `R/schema.R`  : defining entity variables (schema)
 - `R/engine.R`  : running a single entity simulation
 - `R/batch.R`   : running many entities (serial/parallel; draws/sims)
-- `R/compose.R` : layering interventions/policies
-- `R/providers.R`: loading bundles from package/files/MLflow (stub)
+- `R/decision_points.R`: declaring policy opportunities and action events
+- `R/load_model.R`: validated assembly of schema, bundle, policy, and runtime settings
 
 ---
 
