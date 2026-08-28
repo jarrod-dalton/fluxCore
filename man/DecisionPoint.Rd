@@ -22,7 +22,10 @@ DecisionPoint(
 \item{trigger}{Character vector of event types and/or a predicate function
 \verb{function(event)} that returns \code{TRUE} when the decision point fires.
 Evaluated \strong{pre-transition} on the raw event object; entity state is not
-yet updated at this point.}
+yet updated at this point. An explicitly supplied \code{NULL} declares a
+group-only leaf that cannot fire directly and must be referenced by a
+\code{\link[=GroupedDecisionPoint]{GroupedDecisionPoint()}} in the full schema. Omitting \code{trigger} is an
+error.}
 
 \item{allowed_actions}{Optional character vector of named action types. If
 \code{NULL}, the policy is unconstrained.}

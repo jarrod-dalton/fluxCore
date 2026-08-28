@@ -22,7 +22,10 @@
 #' @param trigger Character vector of event types and/or a predicate function
 #'   `function(event)` that returns `TRUE` when the decision point fires.
 #'   Evaluated **pre-transition** on the raw event object; entity state is not
-#'   yet updated at this point.
+#'   yet updated at this point. An explicitly supplied `NULL` declares a
+#'   group-only leaf that cannot fire directly and must be referenced by a
+#'   [GroupedDecisionPoint()] in the full schema. Omitting `trigger` is an
+#'   error.
 #' @param allowed_actions Optional character vector of named action types. If
 #'   `NULL`, the policy is unconstrained.
 #' @param action_handlers Optional named list of functions, keyed by action type.
@@ -67,16 +70,17 @@ DecisionPoint <- function(id,
                           observation_fn  = NULL,
                           label           = NULL,
                           on_pending_action = c("warn", "replace", "keep", "error")) {
-  if (missing(id) || !is.character(id) || length(id) != 1L || !nzchar(id)) {
+  if (missing(id) || !is.character(id) || length(id) != 1L || is.na(id) || !nzchar(id)) {
     stop("DecisionPoint: `id` must be a non-empty character scalar.", call. = FALSE)
   }
   if (missing(trigger)) {
-    stop("DecisionPoint: `trigger` must be a character vector or predicate function.", call. = FALSE)
+    stop("DecisionPoint: `trigger` must be supplied; use explicit `NULL` only for a group-only leaf.", call. = FALSE)
   }
-  if (!is.character(trigger) && !is.function(trigger)) {
-    stop("DecisionPoint: `trigger` must be a character vector (event type(s)) or a function.", call. = FALSE)
+  if (!is.null(trigger) && !is.character(trigger) && !is.function(trigger)) {
+    stop("DecisionPoint: `trigger` must be a character vector, a function, or explicit `NULL`.", call. = FALSE)
   }
-  if (is.character(trigger) && (length(trigger) == 0L || any(!nzchar(trigger)))) {
+  if (is.character(trigger) &&
+      (length(trigger) == 0L || anyNA(trigger) || any(!nzchar(trigger)))) {
     stop("DecisionPoint: `trigger` character vector must have at least one non-empty element.", call. = FALSE)
   }
   if (!is.null(allowed_actions)) {
@@ -140,7 +144,8 @@ DecisionPoint <- function(id,
 #' Test whether a DecisionPoint fires for a given event
 #'
 #' Used internally by the Engine to detect decision points during the simulation
-#' loop.
+#' loop. A group-only DecisionPoint with an explicit `NULL` trigger never fires
+#' through this direct path.
 #'
 #' @param dp A `DecisionPoint` object.
 #' @param event An event list with at least `event_type`.
@@ -150,7 +155,9 @@ DecisionPoint <- function(id,
 #' @export
 dp_fires <- function(dp, event) {
   stopifnot(inherits(dp, "DecisionPoint"))
-  if (is.function(dp$trigger)) {
+  if (is.null(dp$trigger)) {
+    FALSE
+  } else if (is.function(dp$trigger)) {
     isTRUE(dp$trigger(event))
   } else {
     isTRUE(event$event_type %in% dp$trigger)
@@ -160,7 +167,9 @@ dp_fires <- function(dp, event) {
 #' @export
 print.DecisionPoint <- function(x, ...) {
   cat("<DecisionPoint:", x$id, ">\n")
-  if (is.character(x$trigger)) {
+  if (is.null(x$trigger)) {
+    cat("  trigger        : (group-only; no direct trigger)\n")
+  } else if (is.character(x$trigger)) {
     cat("  trigger        :", paste(x$trigger, collapse = ", "), "\n")
   } else {
     cat("  trigger        : (predicate function)\n")

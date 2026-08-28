@@ -256,11 +256,12 @@ schema_validator_levels <- function(levels, allow_na = FALSE) {
 #' Optionally merges onto an existing `schema`, with explicit `overwrite` and
 #' `remove` controls.
 #'
-#' When `time_spec` or `decision_points` is supplied, `set_schema()` returns a
-#' **full schema list** (with `$variables`, `$time_spec`, and
-#' `$decision_points`) suitable for direct use with [load_model()]. When
-#' neither is supplied, it returns just the validated variables spec (backward-
-#' compatible with prior usage and with `Entity$new(schema = ...)`).
+#' When `time_spec`, `decision_points`, or `decision_groups` is supplied,
+#' `set_schema()` returns a **full schema list** (with `$variables`,
+#' `$time_spec`, `$decision_points`, and `$decision_groups`) suitable for direct
+#' use with [load_model()]. When none is supplied, it returns just the validated
+#' variables spec (backward-compatible with prior usage and with
+#' `Entity$new(schema = ...)`).
 #'
 #' @param vars Named list (or character vector) of variable specs. Each element
 #'   is either a single type-name string or a list containing `type` plus any
@@ -275,15 +276,20 @@ schema_validator_levels <- function(levels, allow_na = FALSE) {
 #'   already present in `schema` is an error. If `TRUE`, existing entries are
 #'   replaced.
 #' @param time_spec Optional [time_spec()] object. When provided, the returned
-#'   value is a full schema list with `$variables`, `$time_spec`, and
-#'   `$decision_points`, ready to pass directly to [load_model()].
+#'   value is a full schema list with `$variables`, `$time_spec`,
+#'   `$decision_points`, and `$decision_groups`, ready to pass directly to
+#'   [load_model()].
 #' @param decision_points Optional list of [DecisionPoint()] objects to attach
 #'   to the schema. Requires `time_spec` to also be provided. When supplied, the
 #'   returned value is a full schema list (see `time_spec` above).
+#' @param decision_groups Optional list of [GroupedDecisionPoint()] objects.
+#'   Members reference ids in `decision_points`. Requires `time_spec`; group and
+#'   leaf ids are validated in one shared namespace.
 #'
 #' @return A validated fluxCore variables spec (named list), or — when
-#'   `time_spec` or `decision_points` is supplied — a full schema list with
-#'   `$variables`, `$time_spec`, and `$decision_points`.
+#'   `time_spec`, `decision_points`, or `decision_groups` is supplied — a full
+#'   schema list with `$variables`, `$time_spec`, `$decision_points`, and
+#'   `$decision_groups`.
 #'
 #' @examples
 #'   # Variables only (backward-compatible):
@@ -302,9 +308,10 @@ schema_validator_levels <- function(levels, allow_na = FALSE) {
 #'   schema <- set_schema(
 #'     vars             = list(battery_pct = "percent"),
 #'     time_spec        = time_spec(unit = "hours"),
-#'     decision_points  = list(dp)
+#'     decision_points  = list(dp),
+#'     decision_groups  = NULL
 #'   )
-#'   # schema$variables, schema$time_spec, schema$decision_points are all set.
+#'   # Full schemas also contain schema$decision_groups (NULL here).
 #'
 #' @export
 set_schema <- function(vars            = NULL,
@@ -312,10 +319,14 @@ set_schema <- function(vars            = NULL,
                        remove          = NULL,
                        overwrite       = FALSE,
                        time_spec       = NULL,
-                       decision_points = NULL) {
-  # decision_points requires time_spec
+                       decision_points = NULL,
+                       decision_groups = NULL) {
+  # Decision declarations require the model clock carried by a full schema.
   if (!is.null(decision_points) && is.null(time_spec)) {
     stop("set_schema(): `time_spec` is required when `decision_points` is supplied.", call. = FALSE)
+  }
+  if (!is.null(decision_groups) && is.null(time_spec)) {
+    stop("set_schema(): `time_spec` is required when `decision_groups` is supplied.", call. = FALSE)
   }
 
   # Validate time_spec
@@ -337,6 +348,27 @@ set_schema <- function(vars            = NULL,
       }
     }
   }
+
+  # Validate grouped declarations locally before resolving their leaf ids.
+  if (!is.null(decision_groups)) {
+    if (!is.list(decision_groups) || length(decision_groups) == 0L) {
+      stop("set_schema(): `decision_groups` must be a non-empty list of GroupedDecisionPoint objects.", call. = FALSE)
+    }
+    for (i in seq_along(decision_groups)) {
+      if (!inherits(decision_groups[[i]], "GroupedDecisionPoint")) {
+        stop(
+          sprintf("set_schema(): `decision_groups[[%d]]` is not a GroupedDecisionPoint object.", i),
+          call. = FALSE
+        )
+      }
+    }
+  }
+
+  .validate_decision_schema_contract(
+    decision_points = decision_points,
+    decision_groups = decision_groups,
+    caller = "set_schema"
+  )
 
   # Accept a full schema list (with $variables) as the `schema` argument.
   if (!is.null(schema) && is.list(schema) && !is.null(schema$variables)) {
@@ -371,11 +403,12 @@ set_schema <- function(vars            = NULL,
 
   if (is.null(vars)) {
     vars_schema <- .validate_schema(schema)
-    if (!is.null(time_spec) || !is.null(decision_points)) {
+    if (!is.null(time_spec) || !is.null(decision_points) || !is.null(decision_groups)) {
       return(list(
         variables       = vars_schema,
         time_spec       = time_spec,
-        decision_points = decision_points
+        decision_points = decision_points,
+        decision_groups = decision_groups
       ))
     }
     return(vars_schema)
@@ -422,12 +455,13 @@ set_schema <- function(vars            = NULL,
 
   vars_schema <- .validate_schema(schema)
 
-  # Return full schema list when time_spec or decision_points were supplied.
-  if (!is.null(time_spec) || !is.null(decision_points)) {
+  # Return a full schema when any model-level declaration was supplied.
+  if (!is.null(time_spec) || !is.null(decision_points) || !is.null(decision_groups)) {
     return(list(
       variables       = vars_schema,
       time_spec       = time_spec,
-      decision_points = decision_points
+      decision_points = decision_points,
+      decision_groups = decision_groups
     ))
   }
 

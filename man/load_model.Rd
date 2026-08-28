@@ -18,7 +18,9 @@ load_model(
 \item{schema}{A validated full schema list (from \code{\link[=set_schema]{set_schema()}} or
 equivalent) containing at minimum \verb{$variables} and a \verb{$time_spec} of class
 \code{"time_spec"}. For 2.1 compatibility, a variables-only named list is also
-accepted with a migration warning. See \code{\link[=set_schema]{set_schema()}}.}
+accepted with a migration warning. A full schema may contain canonical leaf
+declarations in \verb{$decision_points} and grouped references in
+\verb{$decision_groups}. See \code{\link[=set_schema]{set_schema()}}.}
 
 \item{bundle}{A ModelBundle list with at minimum \code{propose_events},
 \code{transition}, and \code{stop} callbacks, plus a \verb{$time_spec} semantically equal
@@ -69,6 +71,15 @@ definitions without the full \verb{$variables} wrapper) is accepted with a
 migration warning and uses \code{bundle$time_spec}. A full schema, identified by
 the presence of a \verb{$variables} field, must also contain \verb{$time_spec}.
 }
+\section{Decision declaration contract}{
+
+Leaf \code{\link[=DecisionPoint]{DecisionPoint()}} objects remain in \code{schema$decision_points}. Shared
+trigger declarations live separately in \code{schema$decision_groups} and
+reference leaf ids rather than embedding leaf definitions. \code{load_model()}
+defensively repeats the global id, membership, no-nesting, and group-only
+trigger checks performed by \code{\link[=set_schema]{set_schema()}} so manually assembled schemas do
+not bypass the declaration contract.
+}
 \section{User experience tiers}{
 \tabular{lll}{
    Level \tab Entry point \tab What you supply \cr
@@ -97,5 +108,6 @@ When \code{trajectory} is configured, the Engine returned by \code{load_model()}
 
 \seealso{
 \code{\link[=SimContext]{SimContext()}}, \code{\link[=ParamContext]{ParamContext()}}, \code{\link[=RuntimeContext]{RuntimeContext()}},
-\code{\link[=EnvironmentContext]{EnvironmentContext()}}, \code{\link[=DecisionPoint]{DecisionPoint()}}, \code{\link[=TrajectoryRecord]{TrajectoryRecord()}}
+\code{\link[=EnvironmentContext]{EnvironmentContext()}}, \code{\link[=DecisionPoint]{DecisionPoint()}}, \code{\link[=GroupedDecisionPoint]{GroupedDecisionPoint()}},
+\code{\link[=DecisionPlan]{DecisionPlan()}}, \code{\link[=TrajectoryRecord]{TrajectoryRecord()}}
 }

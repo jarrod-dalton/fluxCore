@@ -10,7 +10,8 @@ set_schema(
   remove = NULL,
   overwrite = FALSE,
   time_spec = NULL,
-  decision_points = NULL
+  decision_points = NULL,
+  decision_groups = NULL
 )
 }
 \arguments{
@@ -31,17 +32,23 @@ already present in \code{schema} is an error. If \code{TRUE}, existing entries a
 replaced.}
 
 \item{time_spec}{Optional \code{\link[=time_spec]{time_spec()}} object. When provided, the returned
-value is a full schema list with \verb{$variables}, \verb{$time_spec}, and
-\verb{$decision_points}, ready to pass directly to \code{\link[=load_model]{load_model()}}.}
+value is a full schema list with \verb{$variables}, \verb{$time_spec},
+\verb{$decision_points}, and \verb{$decision_groups}, ready to pass directly to
+\code{\link[=load_model]{load_model()}}.}
 
 \item{decision_points}{Optional list of \code{\link[=DecisionPoint]{DecisionPoint()}} objects to attach
 to the schema. Requires \code{time_spec} to also be provided. When supplied, the
 returned value is a full schema list (see \code{time_spec} above).}
+
+\item{decision_groups}{Optional list of \code{\link[=GroupedDecisionPoint]{GroupedDecisionPoint()}} objects.
+Members reference ids in \code{decision_points}. Requires \code{time_spec}; group and
+leaf ids are validated in one shared namespace.}
 }
 \value{
 A validated fluxCore variables spec (named list), or — when
-\code{time_spec} or \code{decision_points} is supplied — a full schema list with
-\verb{$variables}, \verb{$time_spec}, and \verb{$decision_points}.
+\code{time_spec}, \code{decision_points}, or \code{decision_groups} is supplied — a full
+schema list with \verb{$variables}, \verb{$time_spec}, \verb{$decision_points}, and
+\verb{$decision_groups}.
 }
 \description{
 Constructs a validated fluxCore schema from a hybrid \code{vars} specification.
@@ -51,11 +58,12 @@ Optionally merges onto an existing \code{schema}, with explicit \code{overwrite}
 \code{remove} controls.
 }
 \details{
-When \code{time_spec} or \code{decision_points} is supplied, \code{set_schema()} returns a
-\strong{full schema list} (with \verb{$variables}, \verb{$time_spec}, and
-\verb{$decision_points}) suitable for direct use with \code{\link[=load_model]{load_model()}}. When
-neither is supplied, it returns just the validated variables spec (backward-
-compatible with prior usage and with \code{Entity$new(schema = ...)}).
+When \code{time_spec}, \code{decision_points}, or \code{decision_groups} is supplied,
+\code{set_schema()} returns a \strong{full schema list} (with \verb{$variables},
+\verb{$time_spec}, \verb{$decision_points}, and \verb{$decision_groups}) suitable for direct
+use with \code{\link[=load_model]{load_model()}}. When none is supplied, it returns just the validated
+variables spec (backward-compatible with prior usage and with
+\code{Entity$new(schema = ...)}).
 }
 \examples{
   # Variables only (backward-compatible):
@@ -74,8 +82,9 @@ compatible with prior usage and with \code{Entity$new(schema = ...)}).
   schema <- set_schema(
     vars             = list(battery_pct = "percent"),
     time_spec        = time_spec(unit = "hours"),
-    decision_points  = list(dp)
+    decision_points  = list(dp),
+    decision_groups  = NULL
   )
-  # schema$variables, schema$time_spec, schema$decision_points are all set.
+  # Full schemas also contain schema$decision_groups (NULL here).
 
 }

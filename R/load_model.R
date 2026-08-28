@@ -34,6 +34,14 @@
 #' migration warning and uses `bundle$time_spec`. A full schema, identified by
 #' the presence of a `$variables` field, must also contain `$time_spec`.
 #'
+#' @section Decision declaration contract:
+#' Leaf [DecisionPoint()] objects remain in `schema$decision_points`. Shared
+#' trigger declarations live separately in `schema$decision_groups` and
+#' reference leaf ids rather than embedding leaf definitions. `load_model()`
+#' defensively repeats the global id, membership, no-nesting, and group-only
+#' trigger checks performed by [set_schema()] so manually assembled schemas do
+#' not bypass the declaration contract.
+#'
 #' @section User experience tiers:
 #' | Level | Entry point | What you supply |
 #' |-------|-------------|-----------------|
@@ -56,7 +64,9 @@
 #' @param schema A validated full schema list (from [set_schema()] or
 #'   equivalent) containing at minimum `$variables` and a `$time_spec` of class
 #'   `"time_spec"`. For 2.1 compatibility, a variables-only named list is also
-#'   accepted with a migration warning. See [set_schema()].
+#'   accepted with a migration warning. A full schema may contain canonical leaf
+#'   declarations in `$decision_points` and grouped references in
+#'   `$decision_groups`. See [set_schema()].
 #' @param bundle A ModelBundle list with at minimum `propose_events`,
 #'   `transition`, and `stop` callbacks, plus a `$time_spec` semantically equal
 #'   to the full schema declaration.
@@ -74,7 +84,8 @@
 #' @return An [Engine] object with `v2_mode = TRUE`.
 #'
 #' @seealso [SimContext()], [ParamContext()], [RuntimeContext()],
-#'   [EnvironmentContext()], [DecisionPoint()], [TrajectoryRecord()]
+#'   [EnvironmentContext()], [DecisionPoint()], [GroupedDecisionPoint()],
+#'   [DecisionPlan()], [TrajectoryRecord()]
 #'
 #' @export
 load_model <- function(schema,
@@ -140,26 +151,17 @@ load_model <- function(schema,
   # v2.0.0: hard error on bundle callbacks that still declare `ctx`
   .reject_ctx_formals(bundle)
 
-  # -- decision point ids ----------------------------------------------------
-  # The engine keys each pending policy action by its decision point id, so those
-  # ids must be unique; duplicates would silently collapse into a single slot.
-  if (!is.null(schema$decision_points) && length(schema$decision_points) > 0L) {
-    dp_ids <- vapply(
-      schema$decision_points,
-      function(d) if (is.null(d$id)) NA_character_ else as.character(d$id)[[1L]],
-      character(1)
+  # -- decision declaration graph -------------------------------------------
+  # Repeat the essential constructor and cross-reference checks defensively:
+  # callers may supply a manually assembled or modified full schema rather than
+  # the value returned directly by set_schema(). No-group schemas follow the
+  # same leaf validation and retain their existing declaration order.
+  if (full_schema) {
+    .validate_decision_schema_contract(
+      decision_points = schema$decision_points,
+      decision_groups = schema$decision_groups,
+      caller = "load_model"
     )
-    dp_ids <- dp_ids[!is.na(dp_ids)]
-    dup_dp <- unique(dp_ids[duplicated(dp_ids)])
-    if (length(dup_dp) > 0L) {
-      stop(
-        sprintf(
-          "load_model(): duplicated DecisionPoint id(s) in `schema$decision_points`: %s. Each decision point must have a unique id.",
-          paste(dup_dp, collapse = ", ")
-        ),
-        call. = FALSE
-      )
-    }
   }
 
   # -- trajectory + decision_points check ------------------------------------

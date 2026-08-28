@@ -16,5 +16,6 @@ Logical scalar.
 }
 \description{
 Used internally by the Engine to detect decision points during the simulation
-loop.
+loop. A group-only DecisionPoint with an explicit \code{NULL} trigger never fires
+through this direct path.
 }
