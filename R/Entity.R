@@ -132,17 +132,17 @@ Entity <- R6::R6Class(
 
       j_next <- as.integer(self$last_j) + 1L
 
-      self$events <- rbind(
+      res <- .apply_changes(self$current, self$hist, self$schema, j_next, changes)
+      events_next <- rbind(
         self$events,
         data.frame(j = j_next, time = time, event_type = event_type, stringsAsFactors = FALSE)
       )
 
-      self$last_j <- j_next
-      self$last_time <- time
-
-      res <- .apply_changes(self$current, self$hist, self$schema, j_next, changes)
       self$current <- res$current
       self$hist <- res$hist
+      self$events <- events_next
+      self$last_j <- j_next
+      self$last_time <- time
 
       invisible(self)
     },
