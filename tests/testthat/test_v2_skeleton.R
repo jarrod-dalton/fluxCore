@@ -162,6 +162,36 @@ test_that("DecisionPoint: constructs with allowed_actions", {
   expect_equal(dp$allowed_actions, c("charge", "idle"))
 })
 
+test_that("DecisionPoint: preserves the v2.0 positional observation and label slots", {
+  observation_fn <- function(entity) list(x = entity$current$x)
+
+  dp <- DecisionPoint(
+    "dp1", "dropoff", "charge", NULL, NULL, TRUE,
+    observation_fn, "Legacy positional call"
+  )
+
+  expect_identical(dp$observation_fn, observation_fn)
+  expect_identical(dp$label, "Legacy positional call")
+  expect_true(dp$audit)
+  expect_identical(dp$on_pending_action, "warn")
+})
+
+test_that("DecisionPoint: named pending-action configuration remains available", {
+  observation_fn <- function(entity) list()
+
+  dp <- DecisionPoint(
+    id = "dp1",
+    trigger = "dropoff",
+    observation_fn = observation_fn,
+    label = "Named call",
+    on_pending_action = "keep"
+  )
+
+  expect_identical(dp$observation_fn, observation_fn)
+  expect_identical(dp$label, "Named call")
+  expect_identical(dp$on_pending_action, "keep")
+})
+
 test_that("DecisionPoint: errors on empty id", {
   expect_error(DecisionPoint("", "dropoff"), "id")
 })

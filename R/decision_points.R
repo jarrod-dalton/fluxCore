@@ -40,6 +40,10 @@
 #'   `TrajectoryRecord` with `condition_met = FALSE` is emitted even for cycles
 #'   where `condition` vetoed the policy call. Useful for auditing why a
 #'   decision point did not fire.
+#' @param observation_fn Optional function `function(entity)` that computes the
+#'   observable state presented to the policy. Defaults to a full entity
+#'   snapshot when `NULL`.
+#' @param label Optional human-readable description.
 #' @param on_pending_action What to do when the policy proposes an action at this
 #'   decision point while a previously proposed action from the *same* decision
 #'   point is still waiting to be realized. A decision point holds at most one
@@ -50,10 +54,6 @@
 #'     point whose job is to reschedule something.
 #'   * `"keep"` -- keep the pending action and discard the new proposal.
 #'   * `"error"` -- stop with an error.
-#' @param observation_fn Optional function `function(entity)` that computes the
-#'   observable state presented to the policy. Defaults to a full entity
-#'   snapshot when `NULL`.
-#' @param label Optional human-readable description.
 #'
 #' @return A list of class `"DecisionPoint"`.
 #'
@@ -64,9 +64,9 @@ DecisionPoint <- function(id,
                           action_handlers = NULL,
                           condition       = NULL,
                           audit           = FALSE,
-                          on_pending_action = c("warn", "replace", "keep", "error"),
                           observation_fn  = NULL,
-                          label           = NULL) {
+                          label           = NULL,
+                          on_pending_action = c("warn", "replace", "keep", "error")) {
   if (missing(id) || !is.character(id) || length(id) != 1L || !nzchar(id)) {
     stop("DecisionPoint: `id` must be a non-empty character scalar.", call. = FALSE)
   }

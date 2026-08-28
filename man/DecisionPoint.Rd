@@ -11,9 +11,9 @@ DecisionPoint(
   action_handlers = NULL,
   condition = NULL,
   audit = FALSE,
-  on_pending_action = c("warn", "replace", "keep", "error"),
   observation_fn = NULL,
-  label = NULL
+  label = NULL,
+  on_pending_action = c("warn", "replace", "keep", "error")
 )
 }
 \arguments{
@@ -45,6 +45,12 @@ When \code{NULL} (default), the policy is always consulted when \code{trigger} f
 where \code{condition} vetoed the policy call. Useful for auditing why a
 decision point did not fire.}
 
+\item{observation_fn}{Optional function \verb{function(entity)} that computes the
+observable state presented to the policy. Defaults to a full entity
+snapshot when \code{NULL}.}
+
+\item{label}{Optional human-readable description.}
+
 \item{on_pending_action}{What to do when the policy proposes an action at this
 decision point while a previously proposed action from the \emph{same} decision
 point is still waiting to be realized. A decision point holds at most one
@@ -57,12 +63,6 @@ point whose job is to reschedule something.
 \item \code{"keep"} -- keep the pending action and discard the new proposal.
 \item \code{"error"} -- stop with an error.
 }}
-
-\item{observation_fn}{Optional function \verb{function(entity)} that computes the
-observable state presented to the policy. Defaults to a full entity
-snapshot when \code{NULL}.}
-
-\item{label}{Optional human-readable description.}
 }
 \value{
 A list of class \code{"DecisionPoint"}.
