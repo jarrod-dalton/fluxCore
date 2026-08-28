@@ -23,5 +23,8 @@ remains available only in raw trajectory records.
 }
 \description{
 Takes the list of trajectory records from an engine run and returns a tidy
-data frame with one row per decision point firing.
+data frame with one row per emitted leaf decision record. For grouped rows,
+\code{grouped_decision_point_id} and \code{group_activation_id} identify the shared
+consultation; they do not assert that a selected action later realized.
+Arbitrary \code{decision_plan_metadata} remains on raw records only.
 }

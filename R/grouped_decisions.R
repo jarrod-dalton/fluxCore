@@ -15,6 +15,12 @@
 #' to ids in `schema$decision_points`; a grouped declaration does not copy leaf
 #' action contracts or own pending-action slots.
 #'
+#' When the group trigger fires, the Engine applies the triggering event's
+#' transition once and then evaluates each member's [DecisionPoint()] condition
+#' against the post-transition Entity. Members with no condition, or a condition
+#' returning `TRUE`, are eligible and are presented together in declared member
+#' order to `policy$propose_plan()`. An empty eligible set skips the policy call.
+#'
 #' @param id Non-empty character scalar. Group and leaf ids share one
 #'   schema-wide namespace.
 #' @param trigger Non-empty character vector of event types or a predicate
@@ -90,10 +96,20 @@ print.GroupedDecisionPoint <- function(x, ...) {
 #' selected. Completeness against the eligible members is validated by the
 #' Engine, which has the activation context.
 #'
+#' At runtime, `selections` must name every and only eligible member exactly
+#' once. An explicit `NULL` means "considered, but no new action selected"; it
+#' does not cancel an action already pending for that member. Core validates the
+#' complete plan and every pending-slot outcome before modifying any member
+#' slot. This all-or-none boundary covers plan acceptance and staging only.
+#' Accepted constituent actions subsequently arbitrate and realize as
+#' independent timeline events.
+#'
 #' @param selections Non-empty named list with unique leaf decision-point ids.
 #'   Every value must be an [ActionEvent()] or explicit `NULL`.
 #' @param metadata Optional named list of compact plan-level provenance. Core
 #'   treats these values as opaque audit information, never as execution input.
+#'   When trajectory logging is enabled, metadata is retained on raw grouped
+#'   leaf records but is not flattened by [trajectory_table()].
 #'
 #' @return A list of class `"DecisionPlan"`.
 #'

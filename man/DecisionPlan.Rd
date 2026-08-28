@@ -11,7 +11,9 @@ DecisionPlan(selections, metadata = NULL)
 Every value must be an \code{\link[=ActionEvent]{ActionEvent()}} or explicit \code{NULL}.}
 
 \item{metadata}{Optional named list of compact plan-level provenance. Core
-treats these values as opaque audit information, never as execution input.}
+treats these values as opaque audit information, never as execution input.
+When trajectory logging is enabled, metadata is retained on raw grouped
+leaf records but is not flattened by \code{\link[=trajectory_table]{trajectory_table()}}.}
 }
 \value{
 A list of class \code{"DecisionPlan"}.
@@ -22,4 +24,12 @@ consultation. Each named entry is either one \code{\link[=ActionEvent]{ActionEve
 \code{NULL}, meaning that the eligible leaf was considered but no new action was
 selected. Completeness against the eligible members is validated by the
 Engine, which has the activation context.
+
+At runtime, \code{selections} must name every and only eligible member exactly
+once. An explicit \code{NULL} means "considered, but no new action selected"; it
+does not cancel an action already pending for that member. Core validates the
+complete plan and every pending-slot outcome before modifying any member
+slot. This all-or-none boundary covers plan acceptance and staging only.
+Accepted constituent actions subsequently arbitrate and realize as
+independent timeline events.
 }

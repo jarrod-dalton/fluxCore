@@ -1,7 +1,10 @@
 #' Compile trajectory records into a data frame
 #'
 #' Takes the list of trajectory records from an engine run and returns a tidy
-#' data frame with one row per decision point firing.
+#' data frame with one row per emitted leaf decision record. For grouped rows,
+#' `grouped_decision_point_id` and `group_activation_id` identify the shared
+#' consultation; they do not assert that a selected action later realized.
+#' Arbitrary `decision_plan_metadata` remains on raw records only.
 #'
 #' @param records List of trajectory records (from `engine$run(...)$trajectory_records`).
 #' @param vars Character vector of state variable names to extract from

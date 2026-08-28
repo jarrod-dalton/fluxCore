@@ -345,8 +345,14 @@ that point fires. Assemble the pieces with `load_model(policy = ...)`.
 
 Actions occur on the same timeline as model events. A decision point's named
 action handlers translate selected action events into sparse state updates when
-they occur. [Tutorial 03](https://github.com/jarrod-dalton/flux/blob/main/tutorials/03_decisions_policy.md)
-develops this workflow progressively using the urban food-delivery model.
+they occur.
+
+When one event should open several related decisions for one coordinated policy
+consultation, reference those leaf decisions from a `GroupedDecisionPoint` and
+return one complete `DecisionPlan`. Core determines which leaves are eligible
+after the event transition; accepted member actions still enter the timeline and
+realize independently. [Tutorial 03](https://github.com/jarrod-dalton/flux/blob/main/tutorials/03_decisions_policy.md)
+develops both ordinary and grouped workflows using the urban food-delivery model.
 
 ---
 

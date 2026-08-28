@@ -44,6 +44,25 @@
 #' `policy` must be a list exposing `propose_plan()`; grouped dispatch never
 #' falls back implicitly to `propose_action()`.
 #'
+#' For each fired group with at least one eligible member, Core makes exactly
+#' one call of the following shape:
+#'
+#' ```r
+#' policy$propose_plan(
+#'   grouped_decision_point,
+#'   eligible_decision_points,
+#'   entity,
+#'   sim_ctx = NULL,
+#'   param_ctx = NULL
+#' )
+#' ```
+#'
+#' The first three named inputs are required. Core supplies `sim_ctx` and
+#' `param_ctx` only when the callback declares those formals. The eligible
+#' decision points are canonical schema objects in group member order, evaluated
+#' after the triggering transition; when none are eligible, Core skips the
+#' callback. The result must be a complete [DecisionPlan()] rather than `NULL`.
+#'
 #' @section User experience tiers:
 #' | Level | Entry point | What you supply |
 #' |-------|-------------|-----------------|
@@ -74,7 +93,9 @@
 #'   to the full schema declaration.
 #' @param policy Optional for ordinary decisions. A function or list with a
 #'   `propose_action` method called at ordinary decision points. A schema with
-#'   non-empty `decision_groups` requires a list with a `propose_plan` method.
+#'   non-empty `decision_groups` requires a list with an exact `propose_plan`
+#'   callback as documented above; there is no implicit ordinary-policy
+#'   fallback.
 #' @param environment Optional. An [EnvironmentContext] for ABM/RL scenarios.
 #' @param trajectory Optional. A TrajectoryLogger configuration list; enables
 #'   [TrajectoryRecord] emission. Requires `schema$decision_points` to be

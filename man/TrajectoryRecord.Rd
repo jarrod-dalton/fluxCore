@@ -69,7 +69,8 @@ one grouped firing within a run. Must be supplied with
 
 \item{decision_plan_metadata}{Optional named list copied from the accepted
 \code{\link[=DecisionPlan]{DecisionPlan()}} for grouped audit only. It requires both grouped identity
-fields and is never an execution input.}
+fields, remains available only on raw records, and is never an execution
+input.}
 }
 \value{
 A list of class \code{"TrajectoryRecord"}.
@@ -87,4 +88,11 @@ Consult the entity's event history to determine which selected actions
 actually realized. For example, a later policy selection can be discarded
 when its decision point uses \code{on_pending_action = "keep"} and an earlier
 action is still pending.
+
+Grouped leaf records carry the static group id and one deterministic,
+run-local activation id shared by every emitted leaf row from that firing.
+Ordinary records leave both fields \code{NULL}. These fields correlate the
+grouped consultation; they do not provide proposal-to-realization lineage.
+\code{decision_plan_metadata} is copied unchanged for raw audit and is intentionally
+omitted from \code{\link[=trajectory_table]{trajectory_table()}}.
 }

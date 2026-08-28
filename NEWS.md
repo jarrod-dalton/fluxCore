@@ -1,12 +1,52 @@
 ## fluxCore 2.1.0
 
-This release repairs the lifecycle of policy-proposed actions. Actions are now held
-in an engine-owned store, separate from the proposals a model manages through
-`propose_events()` and `refresh_rules()`. Two defects followed from the previous
-arrangement, in which both lived in one dictionary governed by the model's refresh
-contract.
+The 2.1.0 development line hardens the decision/action, model-clock, parameter,
+run-identity, and callback contracts. It also adds a bounded grouped-decision API
+for one coordinated policy consultation across existing decision points, without
+changing the independent realization of their selected actions.
+
+### Migration note: trajectory column and identity
+
+- **`trajectory_table()` renames `action_taken` to `selected_action`.** There is
+  no legacy alias. Update code that reads the old column name. The corrected name
+  is deliberate: it records the policy's selection before pending-action
+  resolution, not proof that the action was staged or realized. Populated and
+  empty results also retain `run_id` and `entity_id` as their leading columns and
+  expose compact `grouped_decision_point_id` and `group_activation_id` fields.
+  Consult entity event history for actions that actually realized.
 
 ### Bug fixes
+
+- **`DecisionPoint()` preserves the released v2.0 positional contract.**
+  `observation_fn` and `label` remain arguments seven and eight;
+  `on_pending_action` is appended after them. Fully positional v2.0 calls and
+  named 2.1 calls therefore retain their intended meanings.
+
+- **Rejected Entity updates no longer leave phantom events.** `Entity$update()`
+  now validates and constructs the complete candidate event, state, and history
+  before committing `events`, `last_j`, `last_time`, `current`, or `hist`. A
+  malformed or invalid patch leaves all five Entity-owned fields unchanged.
+
+- **Loaded models now have one matching clock.** A full schema's
+  `schema$time_spec` and its bundle's `time_spec` must be semantically equal in
+  unit, origin instant, origin class, and zone. A genuinely variables-only
+  schema remains a 2.1 compatibility input, uses the bundle clock, and emits a
+  targeted migration warning; a malformed full schema or clock mismatch errors.
+
+- **Cohort run identity now reaches callbacks and trajectory records.** The
+  batch-local `run_id` assigned in `batch$index` is carried into the matching
+  run name, `SimContext`, and every `TrajectoryRecord`, including supported
+  parallel backends. Stable entity/draw/simulation coordinates remain the
+  cross-call replay identity.
+
+- **Decision callback errors now fail fast with context.** Errors thrown by a
+  decision condition, `policy$propose_action()`, grouped
+  `policy$propose_plan()`, or an action handler are no longer converted into a
+  veto, no-action result, or realized no-effect action. Intentional condition
+  `FALSE` and policy/handler `NULL` remain supported. A condition or policy runs
+  after the triggering event was atomically committed, so that trigger is not
+  rolled back on failure; a failing action handler stops before its action event
+  or state effect is committed.
 
 - **Cohort parameter contexts are no longer nested or renumbered.**
   `run_cohort(param_draws = )` and `bundle$sample_params(D)` now use one
@@ -48,6 +88,26 @@ contract.
 
 ### New features
 
+- **Grouped decisions coordinate one policy consultation across existing
+  leaves.** `GroupedDecisionPoint()` declarations live in
+  `schema$decision_groups` and reference canonical `DecisionPoint()` ids. After
+  one triggering transition, Core evaluates member conditions in declared
+  order and calls `policy$propose_plan()` once with the non-empty eligible set;
+  an empty set skips policy. The returned `DecisionPlan()` must name every and
+  only eligible member exactly once, using an `ActionEvent` or explicit `NULL`
+  for each. Core validates and preflights the complete plan before modifying any
+  member pending slot. This all-or-none boundary covers plan acceptance and
+  staging only: selected actions subsequently arbitrate and realize
+  independently, and separate ordinary/group activations are not one global
+  transaction.
+
+- **Grouped trajectory rows carry activation identity without a synthetic
+  parent row.** Eligible leaves, including explicit `NULL` selections, share a
+  static `grouped_decision_point_id` and deterministic run-local
+  `group_activation_id`; opted-in veto rows use the same identity, including
+  zero-eligible activations. Optional plan metadata is opaque audit information
+  retained on raw grouped records only and excluded from `trajectory_table()`.
+
 - **`propose_events()` may declare `last_event`.** When declared, it receives the event
   that was just realized, including an `ActionEvent`'s `params`, `metadata`, and
   `decision_point_id`. This makes it possible for a parameterized action to influence a
@@ -67,6 +127,12 @@ contract.
   ended silently and was indistinguishable from normal completion.
 
 ### Behavior changes
+
+- **`ActionEvent$decision_point_id` is enforced as policy provenance, not a
+  routing override.** During ordinary or grouped policy dispatch, Core fills a
+  missing id from the owning decision point, accepts an exact match, and errors
+  on a mismatch. Manually constructed actions outside dispatch may still carry
+  any valid self-described id.
 
 - **Process ids beginning with `.` are reserved** for internal use and are rejected from
   both `propose_events()` and `refresh_rules()` with an explanatory error.

@@ -27,11 +27,41 @@ Engine does not reseed the internal draw run.
 For an Engine assembled with \code{schema$decision_groups}, raw direct/group
 overlap is rejected before transition. After the event transition is applied
 once, Core freezes ordinary eligibility followed by grouped-member
-eligibility, dispatches ordinary policies first, and then calls each fired
-group's \code{policy$propose_plan()} at most once. A grouped \code{\link[=DecisionPlan]{DecisionPlan()}} is
-validated completely and preflighted against every member pending slot before
-one group-level commit. This atomic boundary coordinates action selection and
+eligibility. Conditions are evaluated in ordinary schema order, then group
+declaration and member order, before any policy call. Core dispatches ordinary
+policies first and then each fired group in declaration order. A non-empty
+eligible group receives exactly one \code{policy$propose_plan()} call; an empty
+eligible group skips policy.
+
+A grouped \code{\link[=DecisionPlan]{DecisionPlan()}} must name every and only eligible member and is
+validated completely, including every pending-slot outcome, before one
+group-level commit. This atomic boundary coordinates action selection and
 staging only; constituent actions later arbitrate and realize independently.
+Ordinary decisions and separate groups are independent local boundaries, not
+one event-wide transaction.
+}
+
+\section{Grouped trajectory records}{
+
+With trajectory logging enabled, a grouped activation emits ordinary-style
+leaf rows, not a synthetic parent row. Every eligible member gets a row,
+including an explicit \code{NULL} selection; an ineligible member gets a veto row
+only when its leaf declares \code{audit = TRUE}. All rows from one firing share
+\code{grouped_decision_point_id} and a deterministic run-local
+\code{group_activation_id}. A zero-eligible firing still advances activation
+identity and emits its opted-in veto rows, but has no policy call or plan
+metadata. Plan metadata remains opaque and is retained only in raw records.
+}
+
+\section{Failure and partial progress}{
+
+Ambiguous raw activation is rejected before transition. Otherwise the
+triggering transition and atomic \link{Entity} update occur before decision
+conditions and policies. A condition, policy, or plan error therefore stops
+the run without rolling back that triggering event. A failing action handler
+stops before its action event or state effect is committed. Ordinary work and
+each accepted group are independent local boundaries, so a later group error
+does not roll back an earlier policy call, diagnostic, or pending-slot commit.
 }
 
 \section{Methods}{

@@ -28,7 +28,9 @@ to the full schema declaration.}
 
 \item{policy}{Optional for ordinary decisions. A function or list with a
 \code{propose_action} method called at ordinary decision points. A schema with
-non-empty \code{decision_groups} requires a list with a \code{propose_plan} method.}
+non-empty \code{decision_groups} requires a list with an exact \code{propose_plan}
+callback as documented below; there is no implicit ordinary-policy
+fallback.}
 
 \item{environment}{Optional. An \link{EnvironmentContext} for ABM/RL scenarios.}
 
@@ -82,6 +84,24 @@ trigger checks performed by \code{\link[=set_schema]{set_schema()}} so manually 
 not bypass the declaration contract. When at least one group is declared,
 \code{policy} must be a list exposing \code{propose_plan()}; grouped dispatch never
 falls back implicitly to \code{propose_action()}.
+
+For each fired group with at least one eligible member, Core makes exactly
+one call of the following shape:
+
+\if{html}{\out{<div class="sourceCode r">}}\preformatted{policy$propose_plan(
+  grouped_decision_point,
+  eligible_decision_points,
+  entity,
+  sim_ctx = NULL,
+  param_ctx = NULL
+)
+}\if{html}{\out{</div>}}
+
+The first three named inputs are required. Core supplies \code{sim_ctx} and
+\code{param_ctx} only when the callback declares those formals. The eligible
+decision points are canonical schema objects in group member order, evaluated
+after the triggering transition; when none are eligible, Core skips the
+callback. The result must be a complete \code{\link[=DecisionPlan]{DecisionPlan()}} rather than \code{NULL}.
 }
 \section{User experience tiers}{
 \tabular{lll}{

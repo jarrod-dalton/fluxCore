@@ -28,4 +28,10 @@ Declares one shared trigger that opens a coordinated policy consultation
 across existing leaf \code{\link[=DecisionPoint]{DecisionPoint()}} objects. Group members are references
 to ids in \code{schema$decision_points}; a grouped declaration does not copy leaf
 action contracts or own pending-action slots.
+
+When the group trigger fires, the Engine applies the triggering event's
+transition once and then evaluates each member's \code{\link[=DecisionPoint]{DecisionPoint()}} condition
+against the post-transition Entity. Members with no condition, or a condition
+returning \code{TRUE}, are eligible and are presented together in declared member
+order to \code{policy$propose_plan()}. An empty eligible set skips the policy call.
 }

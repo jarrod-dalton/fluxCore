@@ -294,6 +294,13 @@ state_summary_default <- function(entity, ...) {
 #' when its decision point uses `on_pending_action = "keep"` and an earlier
 #' action is still pending.
 #'
+#' Grouped leaf records carry the static group id and one deterministic,
+#' run-local activation id shared by every emitted leaf row from that firing.
+#' Ordinary records leave both fields `NULL`. These fields correlate the
+#' grouped consultation; they do not provide proposal-to-realization lineage.
+#' `decision_plan_metadata` is copied unchanged for raw audit and is intentionally
+#' omitted from [trajectory_table()].
+#'
 #' @param run_id Character scalar; run identifier (from `SimContext`).
 #' @param entity_id Character scalar; entity identifier.
 #' @param t Numeric scalar; time at which the decision point fired.
@@ -324,7 +331,8 @@ state_summary_default <- function(entity, ...) {
 #'   `grouped_decision_point_id`.
 #' @param decision_plan_metadata Optional named list copied from the accepted
 #'   [DecisionPlan()] for grouped audit only. It requires both grouped identity
-#'   fields and is never an execution input.
+#'   fields, remains available only on raw records, and is never an execution
+#'   input.
 #'
 #' @return A list of class `"TrajectoryRecord"`.
 #'
