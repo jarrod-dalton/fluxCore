@@ -22,7 +22,8 @@ test_that("trajectory_table retains identity and names policy selection accurate
   expect_identical(
     names(out),
     c(
-      "run_id", "entity_id", "t", "decision_point_id", "trigger_event",
+      "run_id", "entity_id", "t", "decision_point_id",
+      "grouped_decision_point_id", "group_activation_id", "trigger_event",
       "selected_action", "condition_met", "open_orders_before", "open_orders_after"
     )
   )
@@ -38,7 +39,8 @@ test_that("empty trajectory_table has the same fixed schema", {
   expect_identical(
     names(base),
     c(
-      "run_id", "entity_id", "t", "decision_point_id", "trigger_event",
+      "run_id", "entity_id", "t", "decision_point_id",
+      "grouped_decision_point_id", "group_activation_id", "trigger_event",
       "selected_action", "condition_met"
     )
   )
@@ -48,7 +50,8 @@ test_that("empty trajectory_table has the same fixed schema", {
   expect_identical(
     names(out),
     c(
-      "run_id", "entity_id", "t", "decision_point_id", "trigger_event",
+      "run_id", "entity_id", "t", "decision_point_id",
+      "grouped_decision_point_id", "group_activation_id", "trigger_event",
       "selected_action", "condition_met", "open_orders_before", "open_orders_after"
     )
   )
@@ -56,6 +59,8 @@ test_that("empty trajectory_table has the same fixed schema", {
   expect_type(out$run_id, "character")
   expect_type(out$entity_id, "character")
   expect_type(out$t, "double")
+  expect_type(out$grouped_decision_point_id, "character")
+  expect_type(out$group_activation_id, "character")
   expect_type(out$selected_action, "character")
   expect_type(out$condition_met, "logical")
 })

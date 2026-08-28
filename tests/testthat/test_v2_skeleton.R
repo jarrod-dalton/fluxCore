@@ -291,6 +291,9 @@ test_that("TrajectoryRecord: constructs with required fields", {
   expect_null(tr$state_before)
   expect_null(tr$state_after)
   expect_null(tr$reward)
+  expect_null(tr$grouped_decision_point_id)
+  expect_null(tr$group_activation_id)
+  expect_null(tr$decision_plan_metadata)
 })
 
 test_that("TrajectoryRecord: accepts optional fields", {

@@ -15,8 +15,11 @@ trajectory_table(records, vars = NULL)
 }
 \value{
 A data.frame with columns: \code{run_id}, \code{entity_id}, \code{t},
-\code{decision_point_id}, \code{trigger_event}, \code{selected_action}, \code{condition_met},
-plus \verb{<var>_before} and \verb{<var>_after} for each requested variable.
+\code{decision_point_id}, \code{grouped_decision_point_id}, \code{group_activation_id},
+\code{trigger_event}, \code{selected_action}, \code{condition_met}, plus
+\verb{<var>_before} and \verb{<var>_after} for each requested variable. Grouped ids
+are \code{NA} for ordinary or legacy records. Opaque decision-plan metadata
+remains available only in raw trajectory records.
 }
 \description{
 Takes the list of trajectory records from an engine run and returns a tidy

@@ -17,7 +17,10 @@ TrajectoryRecord(
   state_before = NULL,
   state_after = NULL,
   condition_met = NULL,
-  reward = NULL
+  reward = NULL,
+  grouped_decision_point_id = NULL,
+  group_activation_id = NULL,
+  decision_plan_metadata = NULL
 )
 }
 \arguments{
@@ -55,6 +58,18 @@ predicate was satisfied. \code{TRUE} when condition passed or was absent,
 \code{FALSE} for audit records emitted when condition vetoed the policy call.}
 
 \item{reward}{Optional numeric or named list; reward signal(s).}
+
+\item{grouped_decision_point_id}{Optional non-empty character scalar naming
+the grouped decision point that activated this leaf. Must be supplied with
+\code{group_activation_id}.}
+
+\item{group_activation_id}{Optional non-empty character scalar identifying
+one grouped firing within a run. Must be supplied with
+\code{grouped_decision_point_id}.}
+
+\item{decision_plan_metadata}{Optional named list copied from the accepted
+\code{\link[=DecisionPlan]{DecisionPlan()}} for grouped audit only. It requires both grouped identity
+fields and is never an execution input.}
 }
 \value{
 A list of class \code{"TrajectoryRecord"}.

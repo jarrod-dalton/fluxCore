@@ -316,6 +316,15 @@ state_summary_default <- function(entity, ...) {
 #'   predicate was satisfied. `TRUE` when condition passed or was absent,
 #'   `FALSE` for audit records emitted when condition vetoed the policy call.
 #' @param reward Optional numeric or named list; reward signal(s).
+#' @param grouped_decision_point_id Optional non-empty character scalar naming
+#'   the grouped decision point that activated this leaf. Must be supplied with
+#'   `group_activation_id`.
+#' @param group_activation_id Optional non-empty character scalar identifying
+#'   one grouped firing within a run. Must be supplied with
+#'   `grouped_decision_point_id`.
+#' @param decision_plan_metadata Optional named list copied from the accepted
+#'   [DecisionPlan()] for grouped audit only. It requires both grouped identity
+#'   fields and is never an execution input.
 #'
 #' @return A list of class `"TrajectoryRecord"`.
 #'
@@ -332,7 +341,10 @@ TrajectoryRecord <- function(run_id,
                              state_before      = NULL,
                              state_after       = NULL,
                              condition_met     = NULL,
-                             reward            = NULL) {
+                             reward            = NULL,
+                             grouped_decision_point_id = NULL,
+                             group_activation_id       = NULL,
+                             decision_plan_metadata    = NULL) {
   if (!is.character(run_id) || length(run_id) != 1L || !nzchar(run_id)) {
     stop("TrajectoryRecord: `run_id` must be a non-empty character scalar.", call. = FALSE)
   }
@@ -356,6 +368,64 @@ TrajectoryRecord <- function(run_id,
     stop("TrajectoryRecord: `selected_action` must be an ActionEvent or NULL.", call. = FALSE)
   }
 
+  grouped_ids <- list(
+    grouped_decision_point_id = grouped_decision_point_id,
+    group_activation_id = group_activation_id
+  )
+  grouped_ids_supplied <- !vapply(grouped_ids, is.null, logical(1))
+  if (any(grouped_ids_supplied) && !all(grouped_ids_supplied)) {
+    stop(
+      "TrajectoryRecord: `grouped_decision_point_id` and `group_activation_id` must be supplied together or both be NULL.",
+      call. = FALSE
+    )
+  }
+  if (all(grouped_ids_supplied)) {
+    valid_grouped_id <- vapply(
+      grouped_ids,
+      function(id) {
+        is.character(id) && length(id) == 1L && !is.na(id) && nzchar(id)
+      },
+      logical(1)
+    )
+    if (!all(valid_grouped_id)) {
+      stop(
+        "TrajectoryRecord: grouped identity fields must each be a non-empty character scalar.",
+        call. = FALSE
+      )
+    }
+  }
+
+  if (!is.null(decision_plan_metadata)) {
+    if (!all(grouped_ids_supplied)) {
+      stop(
+        "TrajectoryRecord: `decision_plan_metadata` requires `grouped_decision_point_id` and `group_activation_id`.",
+        call. = FALSE
+      )
+    }
+    if (!is.list(decision_plan_metadata)) {
+      stop(
+        "TrajectoryRecord: `decision_plan_metadata` must be a named list or NULL.",
+        call. = FALSE
+      )
+    }
+    if (length(decision_plan_metadata) > 0L) {
+      metadata_names <- names(decision_plan_metadata)
+      if (is.null(metadata_names) || anyNA(metadata_names) ||
+          any(!nzchar(metadata_names))) {
+        stop(
+          "TrajectoryRecord: `decision_plan_metadata` must have one non-empty name for every entry.",
+          call. = FALSE
+        )
+      }
+      if (anyDuplicated(metadata_names)) {
+        stop(
+          "TrajectoryRecord: `decision_plan_metadata` names must be unique.",
+          call. = FALSE
+        )
+      }
+    }
+  }
+
   structure(
     list(
       run_id            = run_id,
@@ -370,7 +440,10 @@ TrajectoryRecord <- function(run_id,
       state_before      = state_before,
       state_after       = state_after,
       condition_met     = condition_met,
-      reward            = reward
+      reward            = reward,
+      grouped_decision_point_id = grouped_decision_point_id,
+      group_activation_id       = group_activation_id,
+      decision_plan_metadata    = decision_plan_metadata
     ),
     class = "TrajectoryRecord"
   )
@@ -383,6 +456,17 @@ print.TrajectoryRecord <- function(x, ...) {
   cat("  entity_id         :", x$entity_id, "\n")
   cat("  t                 :", x$t, "\n")
   cat("  decision_point_id :", x$decision_point_id, "\n")
+  if (!is.null(x$grouped_decision_point_id)) {
+    cat("  grouped_decision_point_id:", x$grouped_decision_point_id, "\n")
+    cat("  group_activation_id      :", x$group_activation_id, "\n")
+    metadata_names <- if (is.null(x$decision_plan_metadata) ||
+                          length(x$decision_plan_metadata) == 0L) {
+      "(none)"
+    } else {
+      paste(names(x$decision_plan_metadata), collapse = ", ")
+    }
+    cat("  decision_plan_metadata   :", metadata_names, "\n")
+  }
   cat("  condition_met     :", if (is.null(x$condition_met)) "(no condition)" else x$condition_met, "\n")
   cat("  observation fields:", length(x$observation), "\n")
   cat("  selected_action   :", if (is.null(x$selected_action)) "(none)" else x$selected_action$action_type, "\n")

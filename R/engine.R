@@ -214,6 +214,10 @@ Engine <- R6::R6Class(
 
       obs_accum <- NULL
       trajectory_accum <- list()
+      # Group activation identity is run-local and deliberately independent of
+      # the RNG stream. The counter advances for every unambiguous fired group,
+      # even when logging is disabled or that activation emits no leaf rows.
+      group_activation_count <- 0L
       model_event_catalog <- .validate_bundle_event_set(self$bundle$event_catalog, "event_catalog")
 
       # Build action-handler lookup from DPs and auto-register action event types.
@@ -233,6 +237,90 @@ Engine <- R6::R6Class(
             }
           }
         }
+      }
+
+      # Allocate trajectory emitters once per run, not once per event. Their
+      # first branch keeps the common no-logging path to a single NULL check.
+      append_trajectory_record <- function(dp,
+                                           selected_action,
+                                           condition_met,
+                                           entity,
+                                           ev,
+                                           state_before,
+                                           state_after,
+                                           grouped_decision_point_id = NULL,
+                                           group_activation_id = NULL,
+                                           decision_plan_metadata = NULL) {
+        if (is.null(traj_cfg)) return(invisible(NULL))
+        observation <- decision_observation(dp, entity)
+        tr <- TrajectoryRecord(
+          run_id = run_id,
+          entity_id = entity_id,
+          t = entity$last_time,
+          decision_point_id = dp$id,
+          observation = observation,
+          realized_event = ev,
+          candidate_actions = dp$allowed_actions,
+          proposed_actions = if (!is.null(selected_action)) list(selected_action) else list(),
+          selected_action = selected_action,
+          state_before = state_before,
+          state_after = state_after,
+          condition_met = condition_met,
+          reward = NULL,
+          grouped_decision_point_id = grouped_decision_point_id,
+          group_activation_id = group_activation_id,
+          decision_plan_metadata = decision_plan_metadata
+        )
+        trajectory_accum[[length(trajectory_accum) + 1L]] <<-
+          as_plain_trajectory_record(tr)
+        invisible(NULL)
+      }
+
+      emit_group_trajectory <- function(activation,
+                                        plan,
+                                        entity,
+                                        ev,
+                                        state_before,
+                                        state_after) {
+        if (is.null(traj_cfg)) return(invisible(NULL))
+        group <- activation$group
+        eligible_ids <- names(activation$eligible)
+        metadata <- if (is.null(plan)) NULL else plan$metadata
+
+        # Preserve the group's canonical member order, interleaving eligible
+        # rows and opted-in veto rows exactly as the leaves were declared.
+        for (member_id in group$members) {
+          dp <- dp_map[[member_id]]
+          if (member_id %in% eligible_ids) {
+            selected_action <- plan$selections[[member_id]]
+            append_trajectory_record(
+              dp = dp,
+              selected_action = selected_action,
+              condition_met = if (is.null(dp$condition)) NULL else TRUE,
+              entity = entity,
+              ev = ev,
+              state_before = state_before,
+              state_after = state_after,
+              grouped_decision_point_id = group$id,
+              group_activation_id = activation$activation_id,
+              decision_plan_metadata = metadata
+            )
+          } else if (isTRUE(dp$audit)) {
+            append_trajectory_record(
+              dp = dp,
+              selected_action = NULL,
+              condition_met = FALSE,
+              entity = entity,
+              ev = ev,
+              state_before = state_before,
+              state_after = state_after,
+              grouped_decision_point_id = group$id,
+              group_activation_id = activation$activation_id,
+              decision_plan_metadata = metadata
+            )
+          }
+        }
+        invisible(NULL)
       }
 
       proposals <- .call_propose_events(self$bundle, entity, sim_ctx = sim_ctx, param_ctx = param_ctx)
@@ -304,7 +392,21 @@ Engine <- R6::R6Class(
         fired_dps <- fired_decision_points(self$.schema, ev, self$.v2_mode)
         fired_groups <- fired_decision_groups(self$.schema, ev, self$.v2_mode)
         .assert_unambiguous_decision_activations(fired_dps, fired_groups, ev)
-        state_before <- if (length(fired_dps) > 0L) capture_trajectory_state(entity, traj_cfg, when = "before") else NULL
+        group_activation_ids <- character(length(fired_groups))
+        if (length(fired_groups) > 0L) {
+          for (group_i in seq_along(fired_groups)) {
+            group_activation_count <<- group_activation_count + 1L
+            group_activation_ids[[group_i]] <- paste0(
+              "group_activation_", group_activation_count
+            )
+          }
+        }
+        has_decision_activation <- length(fired_dps) > 0L || length(fired_groups) > 0L
+        state_before <- if (has_decision_activation) {
+          capture_trajectory_state(entity, traj_cfg, when = "before")
+        } else {
+          NULL
+        }
 
         if (!is.null(action_handler)) {
           changes <- .call_action_handler(action_handler, entity, ev, param_ctx = param_ctx)
@@ -323,7 +425,11 @@ Engine <- R6::R6Class(
           action_proposals[[ev_key]] <<- NULL
         }
 
-        state_after <- if (length(fired_dps) > 0L) capture_trajectory_state(entity, traj_cfg, when = "after") else NULL
+        state_after <- if (has_decision_activation) {
+          capture_trajectory_state(entity, traj_cfg, when = "after")
+        } else {
+          NULL
+        }
 
         # Freeze every post-transition eligibility result before the first
         # policy callback. Canonical order is ordinary schema order, followed
@@ -364,6 +470,7 @@ Engine <- R6::R6Class(
             }
             group_activations[[group_i]] <- list(
               group = group,
+              activation_id = group_activation_ids[[group_i]],
               eligible = eligible,
               ineligible = ineligible
             )
@@ -415,6 +522,34 @@ Engine <- R6::R6Class(
           merge_ordinary_action_props(action_props)
         }
 
+        # Ordinary activations form their own established diagnostic boundary.
+        # Emit them before independent grouped consultations so a later group
+        # failure does not suppress already-completed ordinary audit work.
+        if (!is.null(traj_cfg)) {
+          for (dp in active_dps) {
+            append_trajectory_record(
+              dp = dp,
+              selected_action = selected_actions[[dp$id]],
+              condition_met = if (is.null(dp$condition)) NULL else TRUE,
+              entity = entity,
+              ev = ev,
+              state_before = state_before,
+              state_after = state_after
+            )
+          }
+          for (dp in vetoed_dps) {
+            append_trajectory_record(
+              dp = dp,
+              selected_action = NULL,
+              condition_met = FALSE,
+              entity = entity,
+              ev = ev,
+              state_before = state_before,
+              state_after = state_after
+            )
+          }
+        }
+
         # Grouped consultations follow all ordinary policy callbacks. Each
         # non-empty eligible set receives exactly one strict propose_plan()
         # call, then one pure pending-store preflight and at most one commit.
@@ -424,7 +559,17 @@ Engine <- R6::R6Class(
             activation <- group_activations[[group_i]]
             group <- activation$group
             eligible <- activation$eligible
-            if (length(eligible) == 0L) next
+            if (length(eligible) == 0L) {
+              emit_group_trajectory(
+                activation,
+                plan = NULL,
+                entity = entity,
+                ev = ev,
+                state_before = state_before,
+                state_after = state_after
+              )
+              next
+            }
 
             plan <- .call_group_policy(
               self$.policy,
@@ -459,52 +604,21 @@ Engine <- R6::R6Class(
               )
             }
             action_proposals <<- preflight$candidate
-            group_activations[[group_i]]$plan <- plan
-            group_activations[[group_i]]$pending_outcomes <- preflight$outcomes
-          }
-        }
+            activation$plan <- plan
+            activation$pending_outcomes <- preflight$outcomes
+            group_activations[[group_i]] <- activation
 
-        # Stage 3: emit trajectory records at declared decision points when configured.
-        if (!is.null(traj_cfg)) {
-          # Active DPs: condition was met (or absent); record with condition_met = TRUE.
-          for (dp in active_dps) {
-            observation <- decision_observation(dp, entity)
-            tr <- TrajectoryRecord(
-              run_id = run_id,
-              entity_id = entity_id,
-              t = entity$last_time,
-              decision_point_id = dp$id,
-              observation = observation,
-              realized_event = ev,
-              candidate_actions = dp$allowed_actions,
-              proposed_actions = if (!is.null(selected_actions[[dp$id]])) list(selected_actions[[dp$id]]) else list(),
-              selected_action = selected_actions[[dp$id]],
+            # A group's accepted plan, pending-store commit, and audit rows are
+            # one local boundary. Later independent group errors do not roll
+            # back this activation's diagnostics or pending-slot work.
+            emit_group_trajectory(
+              activation,
+              plan = plan,
+              entity = entity,
+              ev = ev,
               state_before = state_before,
-              state_after = state_after,
-              condition_met = if (is.null(dp$condition)) NULL else TRUE,
-              reward = NULL
+              state_after = state_after
             )
-            trajectory_accum[[length(trajectory_accum) + 1L]] <<- as_plain_trajectory_record(tr)
-          }
-          # Vetoed DPs: condition was FALSE and audit=TRUE; no policy call, no action.
-          for (dp in vetoed_dps) {
-            observation <- decision_observation(dp, entity)
-            tr <- TrajectoryRecord(
-              run_id = run_id,
-              entity_id = entity_id,
-              t = entity$last_time,
-              decision_point_id = dp$id,
-              observation = observation,
-              realized_event = ev,
-              candidate_actions = dp$allowed_actions,
-              proposed_actions = list(),
-              selected_action = NULL,
-              state_before = state_before,
-              state_after = state_after,
-              condition_met = FALSE,
-              reward = NULL
-            )
-            trajectory_accum[[length(trajectory_accum) + 1L]] <<- as_plain_trajectory_record(tr)
           }
         }
 

@@ -9,8 +9,11 @@
 #'   `state_before` are included.
 #'
 #' @return A data.frame with columns: `run_id`, `entity_id`, `t`,
-#'   `decision_point_id`, `trigger_event`, `selected_action`, `condition_met`,
-#'   plus `<var>_before` and `<var>_after` for each requested variable.
+#'   `decision_point_id`, `grouped_decision_point_id`, `group_activation_id`,
+#'   `trigger_event`, `selected_action`, `condition_met`, plus
+#'   `<var>_before` and `<var>_after` for each requested variable. Grouped ids
+#'   are `NA` for ordinary or legacy records. Opaque decision-plan metadata
+#'   remains available only in raw trajectory records.
 #'
 #' @export
 trajectory_table <- function(records, vars = NULL) {
@@ -20,6 +23,8 @@ trajectory_table <- function(records, vars = NULL) {
       entity_id = character(0),
       t = numeric(0),
       decision_point_id = character(0),
+      grouped_decision_point_id = character(0),
+      group_activation_id = character(0),
       trigger_event = character(0),
       selected_action = character(0),
       condition_met = logical(0),
@@ -42,11 +47,22 @@ trajectory_table <- function(records, vars = NULL) {
     } else {
       NA_character_
     }
+    grouped_decision_point_id <- tr$grouped_decision_point_id
+    if (is.null(grouped_decision_point_id)) {
+      grouped_decision_point_id <- NA_character_
+    }
+    group_activation_id <- tr$group_activation_id
+    if (is.null(group_activation_id)) {
+      group_activation_id <- NA_character_
+    }
+
     row <- list(
       run_id            = tr$run_id,
       entity_id         = tr$entity_id,
       t                 = tr$t,
       decision_point_id = tr$decision_point_id,
+      grouped_decision_point_id = as.character(grouped_decision_point_id),
+      group_activation_id = as.character(group_activation_id),
       trigger_event     = if (!is.null(tr$realized_event)) tr$realized_event$event_type else NA_character_,
       selected_action   = action,
       condition_met     = if (is.null(tr$condition_met)) NA else tr$condition_met
