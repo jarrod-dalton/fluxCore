@@ -971,7 +971,11 @@ test_that("an explicit per-member adapter runs in declared order and stages a co
   adapter_calls <- character()
   select_one <- function(decision_point, entity) {
     adapter_calls <<- c(adapter_calls, decision_point$id)
-    if (identical(decision_point$id, "a")) ActionEvent("A", 2) else NULL
+    if (identical(decision_point$id, "a")) {
+      ActionEvent("A", 2)
+    } else {
+      ActionEvent("B", 3)
+    }
   }
   policy <- list(
     propose_plan = function(grouped_decision_point,
@@ -988,8 +992,51 @@ test_that("an explicit per-member adapter runs in declared order and stages a co
 
   out <- load_model(schema, .s3b_bundle(), policy = policy)$run(.s3b_entity(schema))
   expect_identical(adapter_calls, c("a", "b"))
-  expect_true("A" %in% out$events$event_type)
-  expect_false("B" %in% out$events$event_type)
+  expect_identical(out$events$event_type, c("init", "CHECK", "A", "B"))
+})
+
+test_that("the explicit per-member adapter handles all-NULL and invalid member results", {
+  declarations <- .s3b_basic_declarations()
+  schema <- .s3b_schema(declarations$leaves, list(declarations$group))
+  bundle <- .s3b_bundle()
+
+  null_calls <- character()
+  null_policy <- list(
+    propose_plan = function(grouped_decision_point,
+                            eligible_decision_points,
+                            entity) {
+      selections <- lapply(eligible_decision_points, function(decision_point) {
+        null_calls <<- c(null_calls, decision_point$id)
+        NULL
+      })
+      DecisionPlan(selections)
+    }
+  )
+  null_out <- load_model(schema, bundle, policy = null_policy)$run(
+    .s3b_entity(schema)
+  )
+  expect_identical(null_calls, c("a", "b"))
+  expect_identical(null_out$events$event_type, c("init", "CHECK"))
+
+  invalid_calls <- character()
+  invalid_policy <- list(
+    propose_plan = function(grouped_decision_point,
+                            eligible_decision_points,
+                            entity) {
+      selections <- lapply(eligible_decision_points, function(decision_point) {
+        invalid_calls <<- c(invalid_calls, decision_point$id)
+        if (identical(decision_point$id, "a")) ActionEvent("A", 2) else "invalid"
+      })
+      DecisionPlan(selections)
+    }
+  )
+  invalid_entity <- .s3b_entity(schema)
+  expect_error(
+    load_model(schema, bundle, policy = invalid_policy)$run(invalid_entity),
+    "propose_plan.*DecisionPlan.*selection\\(s\\) \\{b\\}.*ActionEvent"
+  )
+  expect_identical(invalid_calls, c("a", "b"))
+  expect_identical(invalid_entity$events$event_type, c("init", "CHECK"))
 })
 
 test_that("ordinary pending diagnostics occur before a later independent group failure", {
