@@ -2,7 +2,7 @@
 % Please edit documentation in R/load_model.R
 \name{load_model}
 \alias{load_model}
-\title{Assemble and validate a simulation model (v2.0.0 API)}
+\title{Assemble and validate a simulation model (v2 API)}
 \usage{
 load_model(
   schema,
@@ -15,12 +15,14 @@ load_model(
 )
 }
 \arguments{
-\item{schema}{A validated schema list (from \code{\link[=set_schema]{set_schema()}} or equivalent),
-\strong{or} a schema-like named list. Must include at minimum a \verb{$variables}
-field and a \verb{$time_spec} of class \code{"time_spec"}. See \code{\link[=set_schema]{set_schema()}}.}
+\item{schema}{A validated full schema list (from \code{\link[=set_schema]{set_schema()}} or
+equivalent) containing at minimum \verb{$variables} and a \verb{$time_spec} of class
+\code{"time_spec"}. For 2.1 compatibility, a variables-only named list is also
+accepted with a migration warning. See \code{\link[=set_schema]{set_schema()}}.}
 
 \item{bundle}{A ModelBundle list with at minimum \code{propose_events},
-\code{transition}, and \code{stop} callbacks.}
+\code{transition}, and \code{stop} callbacks, plus a \verb{$time_spec} semantically equal
+to the full schema declaration.}
 
 \item{policy}{Optional. A function or list with a \code{propose_action} method
 called at declared decision points. Stage 2B.}
@@ -41,7 +43,7 @@ backend settings. Defaults are applied when \code{NULL}.}
 An \link{Engine} object with \code{v2_mode = TRUE}.
 }
 \description{
-\code{load_model()} is the recommended entry point for the v2.0.0 architecture.
+\code{load_model()} is the recommended entry point for the v2 architecture.
 It validates all supplied components against the schema and against each
 other, applies defaults, and returns a configured \link{Engine} in v2 mode.
 }
@@ -51,9 +53,21 @@ Engines returned by \code{load_model()} enforce the following at runtime:
 \item \strong{Fail fast on \code{ctx}-style usage}: passing a \verb{ctx=} argument to
 \code{Engine$run()} raises an immediate error. Use typed context objects
 (\code{SimContext}, \code{ParamContext}, \code{RuntimeContext}) instead.
-\item All bundle callbacks must accept \code{sim_ctx} and \code{param_ctx} in their
-formals (warnings emitted for v1.x-style \code{ctx} formals).
+\item Bundle callbacks that need typed context declare supported \code{sim_ctx} and
+\code{param_ctx} formals. The removed v1.x-style \code{ctx} formal is rejected.
 }
+}
+\section{Model time contract}{
+
+A full schema and its ModelBundle must declare semantically equal
+\code{time_spec} objects. Equality covers unit, origin instant, origin class, and
+zone; object identity is not required. \link{Engine}\verb{$time_spec} is the sole
+assembled runtime clock and is propagated through \code{SimContext}.
+
+For 2.1 compatibility, a variables-only schema (a named list of variable
+definitions without the full \verb{$variables} wrapper) is accepted with a
+migration warning and uses \code{bundle$time_spec}. A full schema, identified by
+the presence of a \verb{$variables} field, must also contain \verb{$time_spec}.
 }
 \section{User experience tiers}{
 \tabular{lll}{

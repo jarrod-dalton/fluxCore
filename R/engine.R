@@ -25,7 +25,6 @@ Engine <- R6::R6Class(
     .trajectory  = NULL,
     .runtime     = NULL,
     .param_source = NULL,
-    .time_spec   = NULL,
 
     initialize = function(bundle = NULL, ...) {
       if (is.null(bundle)) {
@@ -500,7 +499,8 @@ Engine <- R6::R6Class(
     stop(
       sprintf("bundle$%s() declares `ctx` as a formal parameter. ", fn_name),
       "`ctx` is removed in fluxCore v2.0.0. ",
-      "Use the (entity, event) signature; access time via entity$time_spec.",
+      "Declare one model clock in `schema$time_spec` and `bundle$time_spec`; ",
+      "callbacks that accept `sim_ctx` can read it from `sim_ctx$time_spec`.",
       call. = FALSE
     )
   }

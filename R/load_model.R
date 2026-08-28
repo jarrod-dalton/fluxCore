@@ -10,9 +10,9 @@
 # contracts.
 # --------------------------------------------------------------------------
 
-#' Assemble and validate a simulation model (v2.0.0 API)
+#' Assemble and validate a simulation model (v2 API)
 #'
-#' `load_model()` is the recommended entry point for the v2.0.0 architecture.
+#' `load_model()` is the recommended entry point for the v2 architecture.
 #' It validates all supplied components against the schema and against each
 #' other, applies defaults, and returns a configured [Engine] in v2 mode.
 #'
@@ -20,8 +20,19 @@
 #' - **Fail fast on `ctx`-style usage**: passing a `ctx=` argument to
 #'   `Engine$run()` raises an immediate error. Use typed context objects
 #'   (`SimContext`, `ParamContext`, `RuntimeContext`) instead.
-#' - All bundle callbacks must accept `sim_ctx` and `param_ctx` in their
-#'   formals (warnings emitted for v1.x-style `ctx` formals).
+#' - Bundle callbacks that need typed context declare supported `sim_ctx` and
+#'   `param_ctx` formals. The removed v1.x-style `ctx` formal is rejected.
+#'
+#' @section Model time contract:
+#' A full schema and its ModelBundle must declare semantically equal
+#' `time_spec` objects. Equality covers unit, origin instant, origin class, and
+#' zone; object identity is not required. [Engine]`$time_spec` is the sole
+#' assembled runtime clock and is propagated through `SimContext`.
+#'
+#' For 2.1 compatibility, a variables-only schema (a named list of variable
+#' definitions without the full `$variables` wrapper) is accepted with a
+#' migration warning and uses `bundle$time_spec`. A full schema, identified by
+#' the presence of a `$variables` field, must also contain `$time_spec`.
 #'
 #' @section User experience tiers:
 #' | Level | Entry point | What you supply |
@@ -42,11 +53,13 @@
 #'   - `summary`: both are outputs of `summary_fn` (default [state_summary_default()]).
 #'   - `full`: both are full snapshots of `entity$current`.
 #'
-#' @param schema A validated schema list (from [set_schema()] or equivalent),
-#'   **or** a schema-like named list. Must include at minimum a `$variables`
-#'   field and a `$time_spec` of class `"time_spec"`. See [set_schema()].
+#' @param schema A validated full schema list (from [set_schema()] or
+#'   equivalent) containing at minimum `$variables` and a `$time_spec` of class
+#'   `"time_spec"`. For 2.1 compatibility, a variables-only named list is also
+#'   accepted with a migration warning. See [set_schema()].
 #' @param bundle A ModelBundle list with at minimum `propose_events`,
-#'   `transition`, and `stop` callbacks.
+#'   `transition`, and `stop` callbacks, plus a `$time_spec` semantically equal
+#'   to the full schema declaration.
 #' @param policy Optional. A function or list with a `propose_action` method
 #'   called at declared decision points. Stage 2B.
 #' @param environment Optional. An [EnvironmentContext] for ABM/RL scenarios.
@@ -80,15 +93,22 @@ load_model <- function(schema,
     stop("load_model(): `schema` must be a list.", call. = FALSE)
   }
 
-  # time_spec: required for SimContext construction
-  ts <- schema$time_spec
-  if (is.null(ts) && !is.null(schema$variables)) {
-    # Allow schema created via set_schema() which stores time_spec separately
-    # on bundle$time_spec. Fall through to bundle check below.
-    ts <- NULL
-  }
-  if (!is.null(ts) && !inherits(ts, "time_spec")) {
-    stop("load_model(): `schema$time_spec` must be a `time_spec` object.", call. = FALSE)
+  # A `$variables` field is the explicit discriminator for the full-schema
+  # shape. A raw named list of variable definitions remains a compatibility
+  # input in 2.1, but it does not carry a separate model-clock declaration.
+  full_schema <- "variables" %in% names(schema)
+  schema_time_spec <- NULL
+  if (full_schema) {
+    if (!("time_spec" %in% names(schema)) || is.null(schema$time_spec)) {
+      stop(
+        "load_model(): a full schema (one containing `$variables`) must define `schema$time_spec`.",
+        call. = FALSE
+      )
+    }
+    schema_time_spec <- schema$time_spec
+    if (!inherits(schema_time_spec, "time_spec")) {
+      stop("load_model(): `schema$time_spec` must be a `time_spec` object.", call. = FALSE)
+    }
   }
 
   # -- bundle ----------------------------------------------------------------
@@ -97,13 +117,22 @@ load_model <- function(schema,
   }
   .validate_model_bundle(bundle)
 
-  # Resolve time_spec: prefer schema$time_spec, fall back to bundle$time_spec
-  if (is.null(ts)) {
-    ts <- bundle$time_spec
-  }
-  if (is.null(ts) || !inherits(ts, "time_spec")) {
+  # Full loaded models have one clock represented in both declarations. There
+  # is no precedence or cross-unit conversion: disagreement is an assembly
+  # error. The bundle carries the accepted clock into Engine runtime.
+  if (full_schema && !.time_spec_equal(schema_time_spec, bundle$time_spec)) {
     stop(
-      "load_model(): a `time_spec` object must be provided in `schema$time_spec` or `bundle$time_spec`.",
+      "load_model(): `schema$time_spec` and `bundle$time_spec` must be semantically equal ",
+      "(unit, origin instant, origin class, and zone). ",
+      "Got schema$time_spec ", .describe_time_spec(schema_time_spec),
+      " and bundle$time_spec ", .describe_time_spec(bundle$time_spec), ".",
+      call. = FALSE
+    )
+  }
+  if (!full_schema) {
+    warning(
+      "load_model(): a variables-only schema was supplied without the full `$variables`/`$time_spec` contract; ",
+      "using `bundle$time_spec` for 2.1 compatibility. Build a full schema with `set_schema(..., time_spec = ...)`.",
       call. = FALSE
     )
   }
@@ -174,7 +203,6 @@ load_model <- function(schema,
   engine$.trajectory  <- trajectory
   engine$.runtime     <- runtime
   engine$.param_source <- param_source
-  engine$.time_spec   <- ts
 
   invisible(engine)
 }
@@ -196,11 +224,29 @@ load_model <- function(schema,
           "load_model(): bundle$%s() declares `ctx` as a formal parameter. ", cb
         ),
         "`ctx` is removed in fluxCore v2.0.0. ",
-        "Use the (entity, event) signature; access time via entity$time_spec.",
+        "Declare one model clock in `schema$time_spec` and `bundle$time_spec`; ",
+        "callbacks that accept `sim_ctx` can read it from `sim_ctx$time_spec`.",
         call. = FALSE
       )
     }
   }
+}
+
+# Concise, deterministic description for time-contract mismatch diagnostics.
+.describe_time_spec <- function(x) {
+  origin_instant <- format(
+    as.numeric(x$origin_posix),
+    scientific = FALSE,
+    trim = TRUE,
+    digits = 15
+  )
+  sprintf(
+    "{unit='%s', origin_instant=%s, origin_class='%s', zone='%s'}",
+    x$unit,
+    origin_instant,
+    x$origin_class,
+    x$zone
+  )
 }
 
 # Normalize trajectory logger configuration.
