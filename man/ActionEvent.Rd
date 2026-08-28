@@ -20,9 +20,9 @@ the decision point declared any.}
 
 \item{decision_point_id}{Character scalar; which decision point produced this
 action. If \code{NULL} (the default), the engine fills this in automatically
-from the firing decision point's \code{id}. Only supply it explicitly if you
-need to override or if you are constructing an \code{ActionEvent} outside of a
-policy call.}
+from the firing decision point's \code{id}. During a policy call, an explicitly
+supplied value must exactly match the firing decision point. Outside policy
+dispatch, the field may be used to construct a self-described action.}
 
 \item{params}{Optional named list of action-specific parameters.}
 

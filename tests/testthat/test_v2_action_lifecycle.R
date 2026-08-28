@@ -250,6 +250,72 @@ test_that("a realized action carries no process_id and is identified by decision
   expect_equal(act$dp, "dp")
 })
 
+test_that("policy action provenance is filled or accepted when it matches ownership", {
+  run_case <- function(decision_point_id) {
+    seen_id <- NULL
+    dp <- DecisionPoint(
+      id = "owner",
+      trigger = "tick",
+      allowed_actions = "act",
+      action_handlers = list(act = function(entity, event) {
+        seen_id <<- event$decision_point_id
+        list(n = as.integer(entity$current$n) + 1L)
+      })
+    )
+    policy <- list(propose_action = function(decision_point, entity, sim_ctx, param_ctx) {
+      ActionEvent(
+        "act",
+        time_next = entity$last_time + 0.5,
+        decision_point_id = decision_point_id
+      )
+    })
+    bundle <- .al_bundle(function(entity, process_ids = NULL) {
+      list(tk = list(time_next = entity$last_time + 10, event_type = "tick"))
+    })
+    out <- load_model(schema = .al_schema(dps = list(dp)), bundle = bundle, policy = policy)$run(
+      .al_entity(), max_events = 2
+    )
+    list(out = out, seen_id = seen_id)
+  }
+
+  filled <- run_case(NULL)
+  matched <- run_case("owner")
+
+  expect_identical(filled$out$entity$current$n, 1L)
+  expect_identical(matched$out$entity$current$n, 1L)
+  expect_identical(filled$seen_id, "owner")
+  expect_identical(matched$seen_id, "owner")
+})
+
+test_that("policy action provenance cannot contradict DecisionPoint ownership", {
+  dp <- DecisionPoint(
+    id = "owner",
+    trigger = "tick",
+    allowed_actions = "act",
+    action_handlers = list(act = function(entity, event) list(n = 99L))
+  )
+  policy <- list(propose_action = function(decision_point, entity, sim_ctx, param_ctx) {
+    ActionEvent(
+      "act",
+      time_next = entity$last_time + 0.5,
+      decision_point_id = "other"
+    )
+  })
+  bundle <- .al_bundle(function(entity, process_ids = NULL) {
+    list(tk = list(time_next = entity$last_time + 10, event_type = "tick"))
+  })
+  entity <- .al_entity()
+
+  expect_error(
+    load_model(schema = .al_schema(dps = list(dp)), bundle = bundle, policy = policy)$run(
+      entity, max_events = 2
+    ),
+    "decision_point_id 'other'.*DecisionPoint id is 'owner'"
+  )
+  expect_identical(entity$current$n, 0L)
+  expect_equal(entity$events$event_type, c("init", "tick"))
+})
+
 test_that("a model process may share a name with a decision point without colliding", {
   sch <- .al_schema(dps = list(
     DecisionPoint(id = "dp", trigger = "tick", allowed_actions = "act",

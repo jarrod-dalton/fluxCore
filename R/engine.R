@@ -614,11 +614,33 @@ Engine <- R6::R6Class(
       NULL
     }
   )
-  # Fill in decision_point_id from the firing DP if the policy omitted it.
-  if (inherits(result, "ActionEvent") && is.null(result$decision_point_id)) {
-    result$decision_point_id <- dp$id
+  .normalize_action_provenance(
+    result,
+    decision_point_id = dp$id,
+    source = "policy$propose_action()"
+  )
+}
+
+# Normalize the provenance carried by an ActionEvent selected for a particular
+# DecisionPoint. The DecisionPoint id owns the pending slot and handler lookup;
+# the event may omit that id, but it may not contradict it.
+.normalize_action_provenance <- function(action, decision_point_id, source) {
+  if (!inherits(action, "ActionEvent")) return(action)
+
+  if (is.null(action$decision_point_id)) {
+    action$decision_point_id <- decision_point_id
+  } else if (!identical(action$decision_point_id, decision_point_id)) {
+    stop(
+      sprintf(
+        "%s returned an ActionEvent with decision_point_id '%s' while the firing DecisionPoint id is '%s'.",
+        source,
+        action$decision_point_id,
+        decision_point_id
+      ),
+      call. = FALSE
+    )
   }
-  result
+  action
 }
 
 # Dispatch an action_handler from a DecisionPoint.

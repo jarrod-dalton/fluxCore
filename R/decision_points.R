@@ -187,9 +187,9 @@ print.DecisionPoint <- function(x, ...) {
 #' @param time_next Numeric scalar; realization time on the canonical timeline.
 #' @param decision_point_id Character scalar; which decision point produced this
 #'   action. If `NULL` (the default), the engine fills this in automatically
-#'   from the firing decision point's `id`. Only supply it explicitly if you
-#'   need to override or if you are constructing an `ActionEvent` outside of a
-#'   policy call.
+#'   from the firing decision point's `id`. During a policy call, an explicitly
+#'   supplied value must exactly match the firing decision point. Outside policy
+#'   dispatch, the field may be used to construct a self-described action.
 #' @param params Optional named list of action-specific parameters.
 #' @param metadata Optional named list for policy provenance or audit fields.
 #'
