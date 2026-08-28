@@ -364,26 +364,57 @@ test_that("refresh_rules rejects reserved dot-prefixed process ids", {
                   action_handlers = list(act = function(entity, event) list()))
   if (!is.null(mode)) dp_args$on_pending_action <- mode
   sch <- .al_schema(dps = list(do.call(DecisionPoint, dp_args)))
-  # Ticks every 1; the action is 5 out, so a second tick always arrives first.
-  bundle <- .al_bundle(function(entity, process_ids = NULL) {
-    list(tk = list(time_next = entity$last_time + 1, event_type = "tick"))
-  })
-  load_model(schema = sch, bundle = bundle, policy = .al_policy(5))$run(.al_entity(), max_events = 4)
+  # Exactly two triggers compete: the t=1 decision proposes t=6 and the t=2
+  # decision proposes t=7. No model process remains after the second trigger,
+  # so whichever action is retained must be the next realized event.
+  bundle <- .al_bundle(
+    propose = function(entity, process_ids = NULL) {
+      n <- as.integer(entity$current$n)
+      if (n >= 2L) return(list())
+      list(tk = list(time_next = n + 1, event_type = "tick"))
+    },
+    stop_fn = function(entity, event) identical(event$event_type, "act"),
+    transition = function(entity, event) {
+      if (identical(event$event_type, "tick")) {
+        return(list(n = as.integer(entity$current$n) + 1L))
+      }
+      list()
+    }
+  )
+  load_model(schema = sch, bundle = bundle, policy = .al_policy(5))$run(
+    .al_entity(), max_events = 4
+  )
 }
 
-test_that("superseding a pending action warns by default", {
-  expect_warning(.al_pending_model(NULL), "replaced a still-pending action")
+test_that("default pending mode warns once and realizes the newer action", {
+  warnings <- character()
+  out <- withCallingHandlers(
+    .al_pending_model(NULL),
+    warning = function(w) {
+      warnings <<- c(warnings, conditionMessage(w))
+      invokeRestart("muffleWarning")
+    }
+  )
+
+  expect_length(warnings, 1L)
+  expect_match(warnings, "replaced a still-pending action")
+  expect_equal(sum(out$events$event_type == "act"), 1L)
+  expect_equal(out$events$time[out$events$event_type == "act"], 7)
 })
 
-test_that("on_pending_action = 'replace' supersedes silently", {
-  expect_silent(.al_pending_model("replace"))
+test_that("on_pending_action = 'replace' silently realizes the newer action", {
+  expect_no_warning(out <- .al_pending_model("replace"))
+  expect_equal(sum(out$events$event_type == "act"), 1L)
+  expect_equal(out$events$time[out$events$event_type == "act"], 7)
 })
 
-test_that("on_pending_action = 'keep' preserves the pending action", {
-  expect_silent(.al_pending_model("keep"))
+test_that("on_pending_action = 'keep' silently realizes the earlier action", {
+  expect_no_warning(out <- .al_pending_model("keep"))
+  expect_equal(sum(out$events$event_type == "act"), 1L)
+  expect_equal(out$events$time[out$events$event_type == "act"], 6)
 })
 
-test_that("on_pending_action = 'error' stops", {
+test_that("on_pending_action = 'error' aborts the second proposal", {
   expect_error(.al_pending_model("error"), "still pending")
 })
 
