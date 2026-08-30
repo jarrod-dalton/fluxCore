@@ -1,6 +1,6 @@
 ## fluxCore 2.1.0
 
-The 2.1.0 development line hardens the decision/action, model-clock, parameter,
+Version 2.1.0 hardens the decision/action, model-clock, parameter,
 run-identity, and callback contracts. It also adds a bounded grouped-decision API
 for one coordinated policy consultation across existing decision points, without
 changing the independent realization of their selected actions.
